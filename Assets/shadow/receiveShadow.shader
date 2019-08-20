@@ -6,8 +6,9 @@ Shader "liangairan/shadow/receiveShadow"
 	Properties{
 		_Color("Color", Color) = (1,1,1,1)
 		_MainTex("Albedo (RGB)", 2D) = "white" {}
-        _ShadowmapTex("ShadowMap", 2D) = "gray" {}
-		[Toggle] PCF("percentage closer filter enable", Float) = 0
+        //_ShadowmapTex("ShadowMap", 2D) = "gray" {}
+		//[Toggle] PCF("percentage closer filter enable", Float) = 0
+		//[Toggle] OUTZ("output the depth in lightspace", Float) = 0
 	}
 
 		//CGINCLUDE
@@ -16,24 +17,24 @@ Shader "liangairan/shadow/receiveShadow"
 
 	SubShader
 	{
-        Tags { "RenderType" = "Opaque" }
+        Tags { "RenderType" = "Opaque" /*"Shadow" = "Character"*/ }
 		Pass
 		{
             ZWrite On
 			CGPROGRAM
             #include "UnityCG.cginc" 
+		
+#include "shadowmap.cginc"
             
 #pragma vertex vert  
 #pragma fragment frag
 		#pragma multi_compile PCF_OFF PCF_ON
-            sampler2D _ShadowmapTex;
+		//#pragma shader_feature OUTZ_OFF OUTZ_ON
+		#pragma shader_feature VSM_OFF VSM_ON
+
 			sampler2D _MainTex;
 			float4    _Color;
-			float4    _LightPosDistance;    //xyz lightpos; w:light to occullder's distance 
 
-			float4x4 LightProjectionMatrix;
-
-			uniform float2 shadowMapTexel;
 
 			struct appdata
 			{
@@ -48,17 +49,14 @@ Shader "liangairan/shadow/receiveShadow"
             {
                 float4 pos : SV_POSITION;
                 float2 uv : TEXCOORD0;
-				float4 uvProj : TEXCOORD1;
-				float2 depth : TEXCOORD2;
+				float4 uvProj : TEXCOORD1; 
+				float3 depth : TEXCOORD2;        //z-length of receiver to light in worldspace
 				float3 normalWorld : TEXCOORD3;
+				float3 posWorld : TEXCOORD4;
 				//SHADOW_COORDS(1);
                 //float2 depth : TEXCOORD0;
             };
 
-			float4 getShadowmapPixel(sampler2D shadowmap, float4 uv, float2 offset)
-			{
-				return tex2Dproj(shadowmap, UNITY_PROJ_COORD(float4(uv.xy + offset * shadowMapTexel, uv.z, uv.w)));
-			}
 
             v2f vert(appdata v)
             {
@@ -67,48 +65,22 @@ Shader "liangairan/shadow/receiveShadow"
 				o.uv = v.uv;
 				float4x4 projMatrix = mul(LightProjectionMatrix, unity_ObjectToWorld);
 				o.uvProj = mul(projMatrix, v.vertex);
-				o.depth = o.uvProj.zw;
+				o.depth.xy = o.uvProj.zw;
+				float4 posWorld = mul(unity_ObjectToWorld, v.vertex);
+				o.depth.z = length(lightPos - posWorld.xyz);
 				o.normalWorld = UnityObjectToWorldNormal(v.normal);
+				o.posWorld = posWorld.xyz;
                 return o;
             }
+
 
             float4 frag(v2f i) : SV_Target
             {
 
 				fixed4 col = _Color * tex2D(_MainTex, i.uv);
-				fixed3 lightDirection = normalize(_WorldSpaceLightPos0.xyz);
-				float LDotN = dot(lightDirection, normalize(i.normalWorld));
-				if (LDotN <= 0)
-					return col;
 
-				float4 shadow = tex2Dproj(_ShadowmapTex, UNITY_PROJ_COORD(i.uvProj));
-				float d = DecodeFloatRGBA(shadow);
-#ifdef PCF_ON
-				float4 sum = 0;
-				float x, y;
-				for (y = -2.0; y <= 2.0; y += 1.0)
-				{
-					for (x = -2.0; x <= 2.0; x += 1.0)
-					{
-						float4 temp = getShadowmapPixel(_ShadowmapTex, i.uvProj, float2(x, y));
-						sum += temp;
-						d = min(d, DecodeFloatRGBA(temp));
-					}
-				}
-				shadow = sum / 25.0;
-#endif
-				return shadow.x;
-				
-
-				float depth = saturate(i.depth.x / i.depth.y);
-				
-				float shadowScale = 1;
-				if (depth >= d)
-				{
-					//return shadow.x;
-					shadowScale = shadow.x;
-				}
-				return col * shadowScale;
+				float shadowAttention = getShadowAttention(i.uvProj, i.depth.xy, i.normalWorld, i.posWorld);
+				return col * shadowAttention;
 
             }
 			ENDCG
@@ -117,4 +89,5 @@ Shader "liangairan/shadow/receiveShadow"
 		
 
 	}
+	FallBack "Diffuse"
 }
