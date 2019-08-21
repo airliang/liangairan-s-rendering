@@ -12,7 +12,7 @@ Shader "liangairan/shadow/RenderToShadow"
 		Pass
 		{
             ZWrite On
-			Cull Front
+			Cull Off
 			CGPROGRAM
             #include "UnityCG.cginc" 
 			#pragma shader_feature VSM_OFF VSM_ON

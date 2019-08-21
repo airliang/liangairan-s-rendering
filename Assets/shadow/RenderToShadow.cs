@@ -20,6 +20,9 @@ public class RenderToShadow : MonoBehaviour {
     private int shadowmapTexelID = -1;
     private int depthBiasID = -1;
     private int shadowLightDirectionID = -1;
+    private int shadowColorId = -1;
+    private int lightPosId = -1;
+    private int shadowMinId = -1;
     private Vector4 shadowMapTexelSize;
     private static readonly int shadowMapSize = 512;
     public bool mVSM = false;
@@ -33,11 +36,21 @@ public class RenderToShadow : MonoBehaviour {
     public Transform mMainLight;
     public float distanceToFollow = 5;
 
+    //public Color shadowColor;
+
     [Range(1.0f, 12.0f)]
     public float fFilterWidth = 5.0f;
 
     [Range(0.0f, 0.01f)]
     public float fDepthBias = 0.005f;
+
+    [Range(0.0f, 1.0f)]
+    public float fShadowMin = 1.0f;
+
+    private List<Transform> lstRenderToShadow;
+
+    //[Range(0.0f, 1.0f)]
+    //public float shadowAdd = 0.2f;
     //private GameObject mGameObject;
     // Use this for initialization
     void Start () {
@@ -66,8 +79,10 @@ public class RenderToShadow : MonoBehaviour {
         }
         if (mCommandBufferDirty)
         {
-            //RenderToShadowmap();
+            RenderToShadowmap();
+            
         }
+        mCamera.Render();
 
         if (mFollowTransform != null && mMainLight != null)
         {
@@ -130,6 +145,27 @@ public class RenderToShadow : MonoBehaviour {
                 shadowLightDirectionID = Shader.PropertyToID("shadowLightDirection");
             }
 
+            if (mRenderToShadowCommand != null)
+            {
+                mRenderToShadowCommand.SetViewProjectionMatrices(mCamera.worldToCameraMatrix, mCamera.projectionMatrix);
+                mRenderToShadowCommand.SetGlobalMatrix(lightMatrixID, mLightProjMatrix);
+            }
+
+            //if (shadowColorId < 0)
+            //{
+            //    shadowColorId = Shader.PropertyToID("shadowColor");
+            //}
+
+            if (lightPosId < 0)
+            {
+                lightPosId = Shader.PropertyToID("lightPos");
+            }
+
+            if (shadowMinId < 0)
+            {
+                shadowMinId = Shader.PropertyToID("shadowMin");
+            }
+
             if (lightMatrixID >= 0)
                 Shader.SetGlobalMatrix(lightMatrixID, mLightProjMatrix);
 
@@ -138,7 +174,7 @@ public class RenderToShadow : MonoBehaviour {
 
             if (depthBiasID >= 0)
             {
-                //Shader.SetGlobalFloat(depthBiasID, fDepthBias);
+                Shader.SetGlobalFloat(depthBiasID, fDepthBias);
             }
 
             if (shadowLightDirectionID >= 0)
@@ -146,8 +182,18 @@ public class RenderToShadow : MonoBehaviour {
                 Shader.SetGlobalVector(shadowLightDirectionID, -mCamera.transform.forward);
             }
 
-            Shader.SetGlobalVector("lightPos", mCamera.transform.position);
+            if (lightPosId >= 0)
+                Shader.SetGlobalVector(lightPosId, mCamera.transform.position);
 
+            //if (shadowColorId >= 0)
+            //{
+            //    Shader.SetGlobalColor(shadowColorId, shadowColor);
+            //}
+
+            if (shadowMinId >= 0)
+            {
+                Shader.SetGlobalFloat(shadowMinId, fShadowMin);
+            }
         }
 
 #if UNITY_EDITOR
@@ -166,7 +212,7 @@ public class RenderToShadow : MonoBehaviour {
 
     private void OnWillRenderObject()
     {
-        //return;
+        return;
 
         mCamera = GetComponent<Camera>();
         if (mCamera == null)
@@ -272,17 +318,25 @@ public class RenderToShadow : MonoBehaviour {
         if (mRenderToShadowCommand == null)
         {
             mRenderToShadowCommand = new CommandBuffer();
+            mRenderToShadowCommand.name = "RenderToShadow";
         }
 
-        mCamera = GetComponent<Camera>();
+        
         if (mCamera == null)
         {
-            mCamera = GetComponentInChildren<Camera>();
+            mCamera = GetComponent<Camera>();
+            if (mCamera == null)
+                mCamera = GetComponentInChildren<Camera>();
         }
 
         if (mCamera == null)
         {
             return;
+        }
+
+        if (mCamera.enabled)
+        {
+            mCamera.enabled = false;
         }
         //mCamera.targetTexture = null;
         mCamera.RemoveCommandBuffer(CameraEvent.BeforeForwardOpaque, mRenderToShadowCommand);
@@ -291,14 +345,14 @@ public class RenderToShadow : MonoBehaviour {
         mCamera.clearFlags = CameraClearFlags.SolidColor;
      
         mCamera.backgroundColor = mVSM ? new Color(0, 0, 0, 1) : Color.white;
-        mCamera.depth = 0;
+        mCamera.depth = -1;
         mCamera.orthographic = true;
         mCamera.allowHDR = false;
         mCamera.allowMSAA = false;
         mCamera.useOcclusionCulling = false;
         //mCamera.cullingMask = 0;
 
-        mCamera.orthographicSize = 0.5f;
+        //mCamera.orthographicSize = 0.5f;
 
 
         if (mDepthTexture == null)
@@ -344,35 +398,43 @@ public class RenderToShadow : MonoBehaviour {
         RenderTargetIdentifier renderTargetIdentifier = new RenderTargetIdentifier(mDepthTexture);
 
         mRenderToShadowCommand.SetRenderTarget(renderTargetIdentifier, 0);
-        mRenderToShadowCommand.ClearRenderTarget(false, true, mVSM ? Color.black : Color.white);
+        mRenderToShadowCommand.ClearRenderTarget(true, true, mVSM ? Color.black : Color.white);
 
+        //mRenderToShadowCommand.SetViewProjectionMatrices(mCamera.worldToCameraMatrix, mCamera.projectionMatrix);
+
+        //Matrix4x4 projectionMatrix = GL.GetGPUProjectionMatrix(mCamera.projectionMatrix, false);
+        //mLightProjMatrix = mMatR * projectionMatrix * mCamera.worldToCameraMatrix;
+        //mRenderToShadowCommand.SetGlobalMatrix(lightMatrixID, mLightProjMatrix);
         if (mRenderToShadowMtl == null)
         {
             mRenderToShadowMtl = new Material(Shader.Find("liangairan/shadow/RenderToShadow"));
         }
 
         if (mVSM)
-            Shader.EnableKeyword("VSM_ON");
+            mRenderToShadowCommand.EnableShaderKeyword("VSM_ON");
         else
-            Shader.DisableKeyword("VSM_ON");
+            mRenderToShadowCommand.DisableShaderKeyword("VSM_ON");
 
-        Renderer renderer = gameObject.GetComponent<Renderer>();
-        if (renderer != null)
+        if (mFollowTransform != null)
         {
-            Material[] materials = renderer.sharedMaterials;
-            for (int j = 0; j < materials.Length; ++j)
+            Renderer renderer = mFollowTransform.GetComponent<Renderer>();
+            if (renderer != null)
             {
-                mRenderToShadowCommand.DrawRenderer(renderer, mRenderToShadowMtl, j);
+                Material[] materials = renderer.sharedMaterials;
+                for (int j = 0; j < materials.Length; ++j)
+                {
+                    mRenderToShadowCommand.DrawRenderer(renderer, mRenderToShadowMtl, j);
+                }
             }
-        }
 
-        Renderer[] childRenderers = gameObject.GetComponentsInChildren<Renderer>();
-        for (int j = 0; j < childRenderers.Length; ++j)
-        {
-            Material[] materials = childRenderers[j].sharedMaterials;
-            for (int k = 0; k < materials.Length; ++k)
+            Renderer[] childRenderers = mFollowTransform.GetComponentsInChildren<Renderer>();
+            for (int j = 0; j < childRenderers.Length; ++j)
             {
-                mRenderToShadowCommand.DrawRenderer(childRenderers[j], mRenderToShadowMtl, k);
+                Material[] materials = childRenderers[j].sharedMaterials;
+                for (int k = 0; k < materials.Length; ++k)
+                {
+                    mRenderToShadowCommand.DrawRenderer(childRenderers[j], mRenderToShadowMtl, k);
+                }
             }
         }
 
@@ -402,17 +464,19 @@ public class RenderToShadow : MonoBehaviour {
         mCommandBufferDirty = false;
     }
 
-    private void OnGUI()
-    {
-        if (mDepthTexture != null)
-            GUI.DrawTexture(new Rect(10, 10, 256, 256), mDepthTexture);
-    }
+    //private void OnGUI()
+    //{
+    //    if (mDepthTexture != null)
+    //        GUI.DrawTexture(new Rect(10, 10, 256, 256), mDepthTexture);
+    //}
 
     private void OnDestroy()
     {
         if (mCamera != null)
         {
             mCamera.targetTexture = null;
+            mCamera.RemoveAllCommandBuffers();
+            mCamera = null;
         }
         if (mDepthTexture != null)
         {
