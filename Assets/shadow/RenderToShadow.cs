@@ -30,7 +30,7 @@ public class RenderToShadow : MonoBehaviour {
     private CommandBuffer mRenderToShadowCommand;
     private CommandBuffer mBlurShadowmapCommand;
     //private Camera mainCamera;
-    bool mCommandBufferDirty = true;
+    bool hasAddCommandBuf = false;
     public bool mUsePCF = true;
     public Transform mFollowTransform;
     public Transform mMainLight;
@@ -74,20 +74,23 @@ public class RenderToShadow : MonoBehaviour {
 	void Update () {
         if (_useVSM != mVSM)
         {
-            mCommandBufferDirty = true;
+            //mCommandBufferDirty = true;
             _useVSM = mVSM;
         }
-        if (mCommandBufferDirty)
-        {
+
+        if (mMainLight != null && mFollowTransform != null)
             RenderToShadowmap();
-            
-        }
-        mCamera.Render();
+
 
         if (mFollowTransform != null && mMainLight != null)
         {
-            this.transform.position = mFollowTransform.position - mMainLight.forward * distanceToFollow;
+            transform.position = mFollowTransform.position - mMainLight.forward * distanceToFollow;
+            transform.forward = mMainLight.forward;
         }
+
+        if (mCamera != null)
+            mCamera.Render();
+
 
         if (mDepthTexture != null)
         {
@@ -231,7 +234,7 @@ public class RenderToShadow : MonoBehaviour {
         }
         //mCamera.cullingMask = 1 << LayerMask.NameToLayer("RenderToShadow");
         mCamera.clearFlags = CameraClearFlags.SolidColor;
-        mCamera.backgroundColor = mVSM ? new Color(0, 0, 0, 1) : Color.white;
+        mCamera.backgroundColor = (mVSM || SystemInfo.graphicsDeviceType == GraphicsDeviceType.Direct3D11) ? new Color(0, 0, 0, 1) : Color.white;
         mCamera.depth = 0;
         mCamera.orthographic = true;
         mCamera.allowHDR = false;
@@ -339,7 +342,7 @@ public class RenderToShadow : MonoBehaviour {
             mCamera.enabled = false;
         }
         //mCamera.targetTexture = null;
-        mCamera.RemoveCommandBuffer(CameraEvent.BeforeForwardOpaque, mRenderToShadowCommand);
+        //mCamera.RemoveCommandBuffer(CameraEvent.BeforeForwardOpaque, mRenderToShadowCommand);
         mRenderToShadowCommand.Clear();
 
         mCamera.clearFlags = CameraClearFlags.SolidColor;
@@ -398,7 +401,7 @@ public class RenderToShadow : MonoBehaviour {
         RenderTargetIdentifier renderTargetIdentifier = new RenderTargetIdentifier(mDepthTexture);
 
         mRenderToShadowCommand.SetRenderTarget(renderTargetIdentifier, 0);
-        mRenderToShadowCommand.ClearRenderTarget(true, true, mVSM ? Color.black : Color.white);
+        mRenderToShadowCommand.ClearRenderTarget(true, true, (mVSM || SystemInfo.graphicsDeviceType == GraphicsDeviceType.Direct3D11) ? Color.black : Color.white);
 
         //mRenderToShadowCommand.SetViewProjectionMatrices(mCamera.worldToCameraMatrix, mCamera.projectionMatrix);
 
@@ -438,6 +441,19 @@ public class RenderToShadow : MonoBehaviour {
             }
         }
 
+        for (int i = 0; i < lstRenderToShadow.Count; ++i)
+        {
+            Renderer[] childRenderers = lstRenderToShadow[i].GetComponentsInChildren<Renderer>();
+            for (int j = 0; j < childRenderers.Length; ++j)
+            {
+                Material[] materials = childRenderers[j].sharedMaterials;
+                for (int k = 0; k < materials.Length; ++k)
+                {
+                    mRenderToShadowCommand.DrawRenderer(childRenderers[j], mRenderToShadowMtl, k);
+                }
+            }
+        }
+
         if (mVSM)
         {
             mRenderToShadowCommand.SetRenderTarget(new RenderTargetIdentifier(), 0);
@@ -459,16 +475,18 @@ public class RenderToShadow : MonoBehaviour {
             mRenderToShadowCommand.ReleaseTemporaryRT(blurShadowId);
         }
 
-        mCamera.AddCommandBuffer(CameraEvent.BeforeForwardOpaque, mRenderToShadowCommand);
-
-        mCommandBufferDirty = false;
+        if (!hasAddCommandBuf)
+        {
+            mCamera.AddCommandBuffer(CameraEvent.BeforeForwardOpaque, mRenderToShadowCommand);
+            hasAddCommandBuf = true;
+        }
     }
 
-    //private void OnGUI()
-    //{
-    //    if (mDepthTexture != null)
-    //        GUI.DrawTexture(new Rect(10, 10, 256, 256), mDepthTexture);
-    //}
+    private void OnGUI()
+    {
+        if (mDepthTexture != null)
+            GUI.DrawTexture(new Rect(10, 10, 256, 256), mDepthTexture);
+    }
 
     private void OnDestroy()
     {
@@ -499,5 +517,11 @@ public class RenderToShadow : MonoBehaviour {
             mRenderToShadowCommand.Clear();
             mRenderToShadowCommand = null;
         }
+    }
+
+    public void AddRenderToShadow(Transform obj)
+    {
+        if (!lstRenderToShadow.Contains(obj))
+            lstRenderToShadow.Add(obj);
     }
 }

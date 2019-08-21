@@ -38,7 +38,11 @@ float pcf_5x5filter(sampler2D shadowmap, float4 uvProj, float2 depth, float bias
 		for (x = -2; x <= 2; x += 1)
 		{
 			float pcfDepth = getShadowmapPixel(shadowmap, uvProj, float2(x, y)).r;
+#if SHADER_API_D3D11
+			sum += (currentDepth + bias) < pcfDepth ? 1.0 : 0.0;
+#else
 			sum += (currentDepth - bias) > pcfDepth ? 1.0 : 0;
+#endif
 			//d += temp.x;
 			//d = saturate(min(d, DecodeFloatRGBA(temp)));
 			nums++;
@@ -47,26 +51,21 @@ float pcf_5x5filter(sampler2D shadowmap, float4 uvProj, float2 depth, float bias
 	shadow.x = sum / nums;
 				
 #else
-	shadow = tex2Dproj(shadowmap, UNITY_PROJ_COORD(uvProj));
+	//shadow = tex2Dproj(shadowmap, UNITY_PROJ_COORD(uvProj));
+#if SHADER_API_D3D11
+	if (currentDepth + bias < closestDepth)
+#else
 	if (currentDepth - bias > closestDepth)
+#endif
 	{
-		return 1.0;
+		return 1;
 	}
 	return 0;
 #endif
 				
-	float shadowScale = 1;
-#if SHADER_API_D3D11
-	//if (currentDepth <= d)
-#else
-	//if (currentDepth - bias > d)
-#endif
-	{
-		return shadow.x;
-		//shadowScale = 0.5;
-	}
 
-	return shadowScale;
+	return shadow.x;
+
 }
 
 float vsm_filter(sampler2D shadowmap, float4 uvProj, float receiverToLight, float bias)
