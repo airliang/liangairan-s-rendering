@@ -22,7 +22,10 @@ public class RenderToShadow : MonoBehaviour {
     private int shadowLightDirectionID = -1;
     private int shadowColorId = -1;
     private int lightPosId = -1;
-    private int shadowMinId = -1;
+    //private int shadowMinId = -1;
+    //private int shadowAttentionDistanceId = -1;
+    //private int distanceToFollowId = -1;
+    private int shadowParamsId = -1;
     private Vector4 shadowMapTexelSize;
     private static readonly int shadowMapSize = 512;
     public bool mVSM = false;
@@ -35,6 +38,7 @@ public class RenderToShadow : MonoBehaviour {
     public Transform mFollowTransform;
     public Transform mMainLight;
     public float distanceToFollow = 5;
+    public float shadowAttentionDistance = 10;
 
     //public Color shadowColor;
 
@@ -47,7 +51,7 @@ public class RenderToShadow : MonoBehaviour {
     [Range(0.0f, 1.0f)]
     public float fShadowMin = 1.0f;
 
-    private List<Transform> lstRenderToShadow;
+    private List<Transform> lstRenderToShadow = new List<Transform>();
 
     //[Range(0.0f, 1.0f)]
     //public float shadowAdd = 0.2f;
@@ -68,6 +72,8 @@ public class RenderToShadow : MonoBehaviour {
         lightMatrixID = Shader.PropertyToID("LightProjectionMatrix");
         shadowmapTexelID = Shader.PropertyToID("shadowMapTexel");
         shadowMapTexelSize = new Vector4(1.0f / shadowMapSize, 1.0f / shadowMapSize, 0, 0);
+
+        Shader.SetGlobalTexture("_ShadowmapTex", Texture2D.whiteTexture);
     }
 	
 	// Update is called once per frame
@@ -141,12 +147,22 @@ public class RenderToShadow : MonoBehaviour {
             if (depthBiasID < 0)
             {
                 depthBiasID = Shader.PropertyToID("fDepthBias");
-            }
+            } 
 
             if (shadowLightDirectionID < 0)
             {
                 shadowLightDirectionID = Shader.PropertyToID("shadowLightDirection");
             }
+
+            //if (shadowAttentionDistanceId < 0)
+            //{
+            //    shadowAttentionDistanceId = Shader.PropertyToID("shadowAttentionDistance");
+            //}
+
+            //if (distanceToFollowId < 0)
+            //{
+            //    distanceToFollowId = Shader.PropertyToID("followerToLight");
+            //}
 
             if (mRenderToShadowCommand != null)
             {
@@ -164,9 +180,14 @@ public class RenderToShadow : MonoBehaviour {
                 lightPosId = Shader.PropertyToID("lightPos");
             }
 
-            if (shadowMinId < 0)
+            //if (shadowMinId < 0)
+            //{
+            //    shadowMinId = Shader.PropertyToID("shadowMin");
+            //}
+
+            if (shadowParamsId < 0)
             {
-                shadowMinId = Shader.PropertyToID("shadowMin");
+                shadowParamsId = Shader.PropertyToID("shadowParams");
             }
 
             if (lightMatrixID >= 0)
@@ -193,9 +214,24 @@ public class RenderToShadow : MonoBehaviour {
             //    Shader.SetGlobalColor(shadowColorId, shadowColor);
             //}
 
-            if (shadowMinId >= 0)
+            //if (shadowMinId >= 0)
+            //{
+            //    Shader.SetGlobalFloat(shadowMinId, fShadowMin);
+            //}
+
+            //if (shadowAttentionDistanceId >= 0)
+            //{
+            //    Shader.SetGlobalFloat(shadowAttentionDistanceId, shadowAttentionDistance);
+            //}
+
+            //if (distanceToFollowId >= 0)
+            //{
+            //    Shader.SetGlobalFloat(distanceToFollowId, distanceToFollow);
+            //}
+
+            if (shadowParamsId >= 0)
             {
-                Shader.SetGlobalFloat(shadowMinId, fShadowMin);
+                Shader.SetGlobalVector(shadowParamsId, new Vector4(fShadowMin, shadowAttentionDistance, distanceToFollow, 1.0f));
             }
         }
 

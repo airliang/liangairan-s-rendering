@@ -11,7 +11,11 @@ float3 shadowLightDirection;
 //float4 shadowColor;
 
 float4x4 LightProjectionMatrix;
-float shadowMin;
+//float shadowMin;
+//float shadowAttentionDistance;   //衰减距离
+//float followerToLight;            //跟随者到光源的距离
+
+float4 shadowParams;
 
 uniform float2 shadowMapTexel;
 
@@ -96,13 +100,20 @@ float vsm_filter(sampler2D shadowmap, float4 uvProj, float receiverToLight, floa
 
 float mapShadowToRange(float shadowScale)
 {
+	float shadowMin = shadowParams.x;
 	return (1.0 - shadowMin) * shadowScale + shadowMin;
 }
 
 float getShadowAttention(float4 uv, float2 depth, float3 normalWorld, float3 posWorld)
 {
-	if (uv.z / uv.w > 1.0)
+#if SHADER_API_D3D11
+	if (depth.x / depth.y < 0.0)
 		return 1.0;
+#else
+	if (depth.x / depth.y > 1.0)
+		return 1.0;
+#endif
+
 	float bias = max(0.005 * (1.0 - dot(normalize(normalWorld), shadowLightDirection)), fDepthBias);
 	float shadowScale = 0;
 #if VSM_ON
@@ -117,7 +128,13 @@ float getShadowAttention(float4 uv, float2 depth, float3 normalWorld, float3 pos
 		shadowScale = pcf_5x5filter(_ShadowmapTex, uv, depth.xy, bias);
 #endif
 
-	return mapShadowToRange(1.0 - shadowScale);
+	
+	float shadow = mapShadowToRange(1.0 - shadowScale);
+
+	float disReceiverToLight = length(posWorld - lightPos);
+	float shadowAttentionDistance = shadowParams.y;
+	float followerToLight = shadowParams.z;
+	return saturate(saturate((1.0 / shadowAttentionDistance * disReceiverToLight + 1.0 - (followerToLight + shadowAttentionDistance) / shadowAttentionDistance)) + shadow);
 }
 
 
