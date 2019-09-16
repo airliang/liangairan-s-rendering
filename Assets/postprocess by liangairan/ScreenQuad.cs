@@ -16,16 +16,16 @@ public class ScreenQuad
     {
         screenRect = rect;
         mVertices = new Vector3[4];
-        mVertices[0] = new Vector3(screenRect.xMin, screenRect.yMin, 0.0f);
-        mVertices[1] = new Vector3(screenRect.xMax, screenRect.yMin, 0.0f);
-        mVertices[2] = new Vector3(screenRect.xMin, screenRect.yMax, 0.0f);
-        mVertices[3] = new Vector3(screenRect.xMax, screenRect.yMax, 0.0f);
+        mVertices[0] = new Vector3(screenRect.xMin, screenRect.yMax, 0.0f);
+        mVertices[1] = new Vector3(screenRect.xMax, screenRect.yMax, 0.0f);
+        mVertices[2] = new Vector3(screenRect.xMin, screenRect.yMin, 0.0f);
+        mVertices[3] = new Vector3(screenRect.xMax, screenRect.yMin, 0.0f);
 
         mUVs = new Vector2[4];
-        mUVs[0] = new Vector2(0.0f, 0.0f);
-        mUVs[1] = new Vector2(1.0f, 0.0f);
-        mUVs[2] = new Vector2(0.0f, 1.0f);
-        mUVs[3] = new Vector2(1.0f, 1.0f);
+        mUVs[0] = new Vector2(0.0f, 1.0f);
+        mUVs[1] = new Vector2(1.0f, 1.0f);
+        mUVs[2] = new Vector2(0.0f, 0.0f);
+        mUVs[3] = new Vector2(1.0f, 0.0f);
 
         mTriangles = new int[6];
         mTriangles[0] = 0;
@@ -68,6 +68,17 @@ public class ScreenQuad
             meshRenderer.material = material;
         }
         
+    }
+
+    public Material GetMaterial()
+    {
+        if (mScreenQuad != null)
+        {
+            MeshRenderer meshRenderer = mScreenQuad.GetComponent<MeshRenderer>();
+            return meshRenderer.sharedMaterial;
+        }
+
+        return null;
     }
 
     public void SetParent(Transform parent, Vector3 offset)
