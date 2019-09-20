@@ -13,7 +13,6 @@ public class RenderToShadow : MonoBehaviour {
     
     private Material mRenderToShadowMtl;
     private Material mBlurMaterial = null;
-    private GameObject mPlane;
     private Matrix4x4 mMatR = Matrix4x4.identity;
 
     private int lightMatrixID = -1;
@@ -58,8 +57,6 @@ public class RenderToShadow : MonoBehaviour {
     //private GameObject mGameObject;
     // Use this for initialization
     void Start () {
-        mPlane = GameObject.Find("Plane");
-
         mMatR.m00 = 0.5f;
         mMatR.m11 = 0.5f;
         mMatR.m22 = 0.5f;
@@ -74,10 +71,11 @@ public class RenderToShadow : MonoBehaviour {
         shadowMapTexelSize = new Vector4(1.0f / shadowMapSize, 1.0f / shadowMapSize, 0, 0);
 
         Shader.SetGlobalTexture("_ShadowmapTex", Texture2D.whiteTexture);
+
     }
-	
-	// Update is called once per frame
-	void Update () {
+
+    // Update is called once per frame
+    void Update () {
         if (_useVSM != mVSM)
         {
             //mCommandBufferDirty = true;
@@ -270,7 +268,7 @@ public class RenderToShadow : MonoBehaviour {
         }
         //mCamera.cullingMask = 1 << LayerMask.NameToLayer("RenderToShadow");
         mCamera.clearFlags = CameraClearFlags.SolidColor;
-        mCamera.backgroundColor = (mVSM || SystemInfo.graphicsDeviceType == GraphicsDeviceType.Direct3D11) ? new Color(0, 0, 0, 1) : Color.white;
+        mCamera.backgroundColor = (mVSM || SystemInfo.graphicsDeviceType == GraphicsDeviceType.Direct3D11 || SystemInfo.graphicsDeviceType == GraphicsDeviceType.Metal) ? new Color(0, 0, 0, 1) : Color.white;
         mCamera.depth = 0;
         mCamera.orthographic = true;
         mCamera.allowHDR = false;
@@ -402,7 +400,8 @@ public class RenderToShadow : MonoBehaviour {
                 mDepthTexture = new RenderTexture(shadowMapSize, shadowMapSize, 24, RenderTextureFormat.RGFloat);
             }
             else
-                mDepthTexture = new RenderTexture(shadowMapSize, shadowMapSize, 24, RenderTextureFormat.RFloat);
+                mDepthTexture = RenderTexture.GetTemporary(shadowMapSize, shadowMapSize, 24, RenderTextureFormat.RHalf);//new RenderTexture(shadowMapSize, shadowMapSize, 24, RenderTextureFormat.RHalf);
+            mDepthTexture.name = "shadowmap";
             mDepthTexture.wrapMode = TextureWrapMode.Clamp;
             mDepthTexture.filterMode = FilterMode.Bilinear;
             mDepthTexture.autoGenerateMips = true;
@@ -420,15 +419,17 @@ public class RenderToShadow : MonoBehaviour {
                 }
                 mDepthTexture.autoGenerateMips = true;
                 mDepthTexture.useMipMap = true;
+                mDepthTexture.name = "shadowmap";
             }
             else
             {
-                if (mDepthTexture.format != RenderTextureFormat.RFloat)
+                if (mDepthTexture.format != RenderTextureFormat.RHalf)
                 {
                     DestroyImmediate(mDepthTexture);
-                    mDepthTexture = new RenderTexture(shadowMapSize, shadowMapSize, 24, RenderTextureFormat.RFloat);
+                    mDepthTexture = new RenderTexture(shadowMapSize, shadowMapSize, 24, RenderTextureFormat.RHalf);
                     mDepthTexture.autoGenerateMips = false;
                     mDepthTexture.useMipMap = false;
+                    mDepthTexture.name = "shadowmap";
                 }
 
             }
@@ -437,7 +438,7 @@ public class RenderToShadow : MonoBehaviour {
         RenderTargetIdentifier renderTargetIdentifier = new RenderTargetIdentifier(mDepthTexture);
 
         mRenderToShadowCommand.SetRenderTarget(renderTargetIdentifier, 0);
-        mRenderToShadowCommand.ClearRenderTarget(true, true, (mVSM || SystemInfo.graphicsDeviceType == GraphicsDeviceType.Direct3D11) ? Color.black : Color.white);
+        mRenderToShadowCommand.ClearRenderTarget(true, true, (mVSM || SystemInfo.graphicsDeviceType == GraphicsDeviceType.Direct3D11 || SystemInfo.graphicsDeviceType == GraphicsDeviceType.Metal) ? Color.black : Color.white);
 
         //mRenderToShadowCommand.SetViewProjectionMatrices(mCamera.worldToCameraMatrix, mCamera.projectionMatrix);
 
@@ -534,10 +535,12 @@ public class RenderToShadow : MonoBehaviour {
         }
         if (mDepthTexture != null)
         {
+            mDepthTexture.Release();
+            //RenderTexture.ReleaseTemporary(mDepthTexture);
 #if UNITY_EDITOR
-            Object.DestroyImmediate(mDepthTexture);
+            //Object.DestroyImmediate(mDepthTexture);
 #else
-            Object.Destroy(mDepthTexture);
+            //Object.Destroy(mDepthTexture);
 #endif
         }
         mDepthTexture = null;

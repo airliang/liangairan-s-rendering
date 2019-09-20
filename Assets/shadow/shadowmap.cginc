@@ -27,8 +27,9 @@ float4 getShadowmapPixel(sampler2D shadowmap, float4 uv, float2 offset)
 
 
 
-float pcf_5x5filter(sampler2D shadowmap, float4 uvProj, float2 depth, float bias)
+float pcf_5x5filter(sampler2D shadowmap, float4 uvProj, float bias)
 {
+    float2 depth = uvProj.zw;
 	float4 shadow = tex2Dproj(shadowmap, UNITY_PROJ_COORD(uvProj));
 	float closestDepth = shadow.x;//DecodeFloatRGBA(shadow);
 	float d = 0; // DecodeFloatRGBA(shadow);
@@ -42,7 +43,7 @@ float pcf_5x5filter(sampler2D shadowmap, float4 uvProj, float2 depth, float bias
 		for (x = -2; x <= 2; x += 1)
 		{
 			float pcfDepth = getShadowmapPixel(shadowmap, uvProj, float2(x, y)).r;
-#if SHADER_API_D3D11
+#if SHADER_API_D3D11 || SHADER_API_METAL
 			sum += (currentDepth + bias) < pcfDepth ? 1.0 : 0.0;
 #else
 			sum += (currentDepth - bias) > pcfDepth ? 1.0 : 0;
@@ -56,7 +57,7 @@ float pcf_5x5filter(sampler2D shadowmap, float4 uvProj, float2 depth, float bias
 				
 #else
 	//shadow = tex2Dproj(shadowmap, UNITY_PROJ_COORD(uvProj));
-#if SHADER_API_D3D11
+#if SHADER_API_D3D11 || SHADER_API_METAL
 	if (currentDepth + bias < closestDepth)
 #else
 	if (currentDepth - bias > closestDepth)
@@ -70,6 +71,25 @@ float pcf_5x5filter(sampler2D shadowmap, float4 uvProj, float2 depth, float bias
 
 	return shadow.x;
 
+}
+
+float shadow_filter(sampler2D shadowmap, float4 uvProj, float bias)
+{
+    float2 depth = uvProj.zw;
+    float4 shadow = tex2Dproj(shadowmap, UNITY_PROJ_COORD(uvProj));
+    float closestDepth = shadow.x;//DecodeFloatRGBA(shadow);
+    float d = 0; // DecodeFloatRGBA(shadow);
+    float currentDepth = depth.x; // / depth.y;
+
+#if SHADER_API_D3D11 || SHADER_API_METAL
+    if (currentDepth + bias < closestDepth)
+#else
+    if (currentDepth - bias > closestDepth)
+#endif
+    {
+        return 1;
+    }
+    return 0;
 }
 
 float vsm_filter(sampler2D shadowmap, float4 uvProj, float receiverToLight, float bias)
@@ -104,9 +124,10 @@ float mapShadowToRange(float shadowScale)
 	return (1.0 - shadowMin) * shadowScale + shadowMin;
 }
 
-float getShadowAttention(float4 uv, float2 depth, float3 normalWorld, float3 posWorld)
+float getShadowAttention(float4 uv, float3 normalWorld, float3 posWorld)
 {
-#if SHADER_API_D3D11
+	float2 depth = uv.zw;
+#if SHADER_API_D3D11 || SHADER_API_METAL
 	if (depth.x / depth.y < 0.0)
 		return 1.0;
 #else
@@ -124,8 +145,15 @@ float getShadowAttention(float4 uv, float2 depth, float3 normalWorld, float3 pos
 #else
 	float x = uv.x / uv.w;
 	float y = uv.y / uv.w;
+	//clip(x);
+	//clip(1 - x);
+	//clip(y);
+	//clip(1 - y);
 	if ((x >= 0 && x <= 1) && (y >= 0 && y <= 1))
-		shadowScale = pcf_5x5filter(_ShadowmapTex, uv, depth.xy, bias);
+	{
+        shadowScale = pcf_5x5filter(_ShadowmapTex, uv, bias);
+        //shadowScale = shadow_filter(_ShadowmapTex, uv, bias);
+    }
 #endif
 
 	
@@ -138,6 +166,6 @@ float getShadowAttention(float4 uv, float2 depth, float3 normalWorld, float3 pos
 }
 
 
-#define TRANSFER_MY_SHADOW(a) float4x4 projMatrix = mul(LightProjectionMatrix, unity_ObjectToWorld); a.uvProj = mul(projMatrix, v.vertex); a.depth.xy = a.uvProj.zw;
-
+#define TRANSFER_MY_SHADOW(a) float4x4 projMatrix = mul(LightProjectionMatrix, unity_ObjectToWorld); a.uvProj = mul(projMatrix, v.vertex); //a.depth.xy = a.uvProj.zw;
+#define MY_SHADOW_COORDS(idx1) float4 _ShadowCoord : TEXCOORD##idx1;
 

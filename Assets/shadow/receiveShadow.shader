@@ -79,7 +79,7 @@ Shader "liangairan/shadow/receiveShadow"
 
 				fixed4 col = _Color * tex2D(_MainTex, i.uv);
 
-				float shadowAttention = getShadowAttention(i.uvProj, i.depth.xy, i.normalWorld, i.posWorld);
+				float shadowAttention = getShadowAttention(i.uvProj, i.normalWorld, i.posWorld);
 				return col * shadowAttention;
 
             }
