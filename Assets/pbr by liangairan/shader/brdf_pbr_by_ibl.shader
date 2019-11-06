@@ -52,6 +52,7 @@ Shader "liangairan/pbr/pbr by IBL" {
             float4x4 LightProjectionMatrix;
             float _DepthBias;
 			float ndf;
+			
 
             struct appdata
             {

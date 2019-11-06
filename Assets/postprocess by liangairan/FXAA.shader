@@ -10,6 +10,11 @@ Shader "liangairan/postprocess/FXAA"
 	CGINCLUDE
 #include "UnityCG.cginc" 
 
+#define EDGE_STEP_COUNT 4
+#define EDGE_STEPS 1, 1.5, 2, 4
+#define EDGE_GUESS 12
+		static const float edgeSteps[EDGE_STEP_COUNT] = { EDGE_STEPS };
+
 	sampler2D _MainTex;
 	float4 _MainTex_TexelSize;
 
@@ -43,6 +48,11 @@ Shader "liangairan/postprocess/FXAA"
 	float SampleLuminance(float2 uv, float uOffset, float vOffset) 
 	{
 		uv += _MainTex_TexelSize.xy * float2(uOffset, vOffset);
+		return tex2D(_MainTex, uv).g;
+	}
+
+	float SampleG(float2 uv)
+	{
 		return tex2D(_MainTex, uv).g;
 	}
 
@@ -100,21 +110,78 @@ Shader "liangairan/postprocess/FXAA"
 		bool isHorizontal;
 		float pixelStep;
 		float gradient;
+		float oppositeLuminance;
 	};
 
 	float DetermineEdgeBlendFactor(LuminanceData l, EdgeData e, float2 uv) 
 	{
 		float2 uvEdge = uv;
-		if (e.isHorizontal) 
-		{
+		float2 edgeStep;
+		if (e.isHorizontal) {
 			uvEdge.y += e.pixelStep * 0.5;
+			edgeStep = float2(_MainTex_TexelSize.x, 0);
 		}
-		else 
-		{
+		else {
 			uvEdge.x += e.pixelStep * 0.5;
+			edgeStep = float2(0, _MainTex_TexelSize.y);
 		}
 
-		return e.gradient;
+		float edgeLuminance = (l.m + e.oppositeLuminance) * 0.5;
+		float gradientThreshold = e.gradient * 0.25;
+
+		float2 puv = uvEdge + edgeStep * edgeSteps[0];
+		float pLuminanceDelta = SampleG(puv) - edgeLuminance;
+		bool pAtEnd = abs(pLuminanceDelta) >= gradientThreshold;
+
+		UNITY_UNROLL
+			for (int i = 1; i < EDGE_STEP_COUNT && !pAtEnd; i++) {
+				puv += edgeStep * edgeSteps[i];
+				pLuminanceDelta = SampleG(puv) - edgeLuminance;
+				pAtEnd = abs(pLuminanceDelta) >= gradientThreshold;
+			}
+		if (!pAtEnd) {
+			puv += edgeStep * EDGE_GUESS;
+		}
+
+		float2 nuv = uvEdge - edgeStep * edgeSteps[0];
+		float nLuminanceDelta = SampleG(nuv) - edgeLuminance;
+		bool nAtEnd = abs(nLuminanceDelta) >= gradientThreshold;
+
+		UNITY_UNROLL
+			for (int i = 1; i < EDGE_STEP_COUNT && !nAtEnd; i++) {
+				nuv -= edgeStep * edgeSteps[i];
+				nLuminanceDelta = SampleG(nuv) - edgeLuminance;
+				nAtEnd = abs(nLuminanceDelta) >= gradientThreshold;
+			}
+		if (!nAtEnd) {
+			nuv -= edgeStep * EDGE_GUESS;
+		}
+
+		float pDistance, nDistance;
+		if (e.isHorizontal) {
+			pDistance = puv.x - uv.x;
+			nDistance = uv.x - nuv.x;
+		}
+		else {
+			pDistance = puv.y - uv.y;
+			nDistance = uv.y - nuv.y;
+		}
+
+		float shortestDistance;
+		bool deltaSign;
+		if (pDistance <= nDistance) {
+			shortestDistance = pDistance;
+			deltaSign = pLuminanceDelta >= 0;
+		}
+		else {
+			shortestDistance = nDistance;
+			deltaSign = nLuminanceDelta >= 0;
+		}
+
+		if (deltaSign == (l.m - edgeLuminance >= 0)) {
+			return 0;
+		}
+		return 0.5 - shortestDistance / (pDistance + nDistance);
 	}
 
 #if	LUMINANCE_GREEN	
@@ -125,7 +192,23 @@ Shader "liangairan/postprocess/FXAA"
 		e.isHorizontal = horizontal >= vertical;
 		e.isHorizontal = horizontal >= vertical;
 
+		float pLuminance = e.isHorizontal ? l.n : l.e;
+		float nLuminance = e.isHorizontal ? l.s : l.w;
+		float pGradient = abs(pLuminance - l.m);
+		float nGradient = abs(nLuminance - l.m);
+
 		e.pixelStep = e.isHorizontal ? _MainTex_TexelSize.y : _MainTex_TexelSize.x;
+
+		if (pGradient < nGradient) {
+			e.pixelStep = -e.pixelStep;
+			e.oppositeLuminance = nLuminance;
+			e.gradient = nGradient;
+		}
+		else
+		{
+			e.oppositeLuminance = pLuminance;
+			e.gradient = pGradient;
+		}
 
 		return e;
 	}
@@ -153,6 +236,13 @@ Shader "liangairan/postprocess/FXAA"
 
 		if (pGradient < nGradient) {
 			e.pixelStep = -e.pixelStep;
+			e.oppositeLuminance = nLuminance;
+			e.gradient = nGradient;
+		}
+		else
+		{
+			e.oppositeLuminance = pLuminance;
+			e.gradient = pGradient;
 		}
 
 		return e;
@@ -171,14 +261,16 @@ Shader "liangairan/postprocess/FXAA"
 		}
 		float pixelBlend = DeterminePixelBlendFactor(l);
 		EdgeData e = DetermineEdge(l);
+		float edgeBlend = DetermineEdgeBlendFactor(l, e, i.uv);
+		float finalBlend = max(pixelBlend, edgeBlend);
 
 		if (e.isHorizontal) 
 		{
-			i.uv.y += e.pixelStep * pixelBlend;
+			i.uv.y += e.pixelStep * finalBlend;
 		}
 		else 
 		{
-			i.uv.x += e.pixelStep * pixelBlend;
+			i.uv.x += e.pixelStep * finalBlend;
 		}
 		fixed4 tex = tex2D(_MainTex, i.uv);
 		return float4(tex.rgb, l.m);

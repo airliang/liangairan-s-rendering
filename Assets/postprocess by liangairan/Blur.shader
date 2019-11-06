@@ -56,6 +56,9 @@ Shader "liangairan/postprocess/Blur" {
 		v2f_blur o;
 		o.pos = UnityObjectToClipPos(v.vertex);
 		o.uv = v.texcoord.xy;
+#if UNITY_UV_STARTS_AT_TOP
+		o.uv.y = 1.0 - o.uv.y;
+#endif
         o.offs = _MainTex_TexelSize.xyxy * _offsets;
 
 		return o;
@@ -66,7 +69,6 @@ Shader "liangairan/postprocess/Blur" {
 	fixed4 frag_blur(v2f_blur i) : SV_Target
 	{
 		fixed4 color = fixed4(0,0,0,0);
-       
         
         half2 offs = i.offs;//_MainTex_TexelSize.xyxy * _offsets;
         half2 coords = i.uv - offs * 3.0;
@@ -76,7 +78,6 @@ Shader "liangairan/postprocess/Blur" {
             coords += offs;
         }
 
-        
 	    return color;
 	}
 

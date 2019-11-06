@@ -4,6 +4,7 @@ Shader "liangairan/shadow/RenderToShadow"
 {
 
 	Properties{
+		_MainTex("Albedo (RGB)", 2D) = "white" {}
 	}
 
 	SubShader
@@ -12,7 +13,7 @@ Shader "liangairan/shadow/RenderToShadow"
 		Pass
 		{
             ZWrite On
-			Cull Off
+			//Cull front
 			CGPROGRAM
             #include "UnityCG.cginc" 
 			#pragma shader_feature VSM_OFF VSM_ON
@@ -21,22 +22,31 @@ Shader "liangairan/shadow/RenderToShadow"
 		#pragma vertex vert_shadow  
 		#pragma fragment frag_shadow  
 
+			struct appdata
+			{
+				half4 vertex : POSITION;
+				half2 uv : TEXCOORD0;
+			};
+
             struct v2f
             {
                 float4 pos : SV_POSITION;
+				float2 uv : TEXCOORD0;
 #if VSM_ON
-				float4 posWorld : TEXCOORD0;
+				float4 posWorld : TEXCOORD1;
 #else
-                float2 depth : TEXCOORD0;
+                float2 depth : TEXCOORD1;
 #endif
             };
 
+			sampler2D _MainTex;
 			float3 lightPos;
 
-            v2f vert_shadow(appdata_img v)
+            v2f vert_shadow(appdata v)
             {
                 v2f o = (v2f)0;
                 o.pos = UnityObjectToClipPos(v.vertex);
+				o.uv = v.uv;
 #if VSM_ON
 				o.posWorld = mul(unity_ObjectToWorld, v.vertex);
 #else
@@ -50,6 +60,8 @@ Shader "liangairan/shadow/RenderToShadow"
             {
                 //return 0;
                 //UNITY_OUTPUT_DEPTH(i.depth);
+				fixed4 col = tex2D(_MainTex, i.uv);
+				clip(col.a - 0.6);
 #if VSM_ON
 				float depth = length(lightPos - i.posWorld.xyz) + 0.01;
 

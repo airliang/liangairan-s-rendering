@@ -14,11 +14,13 @@ Shader "liangairan/ocean/fft_ocean" {
 		Kdiffuse("Kdiffuse", Range(0,10)) = 0.91
 		_ReflectScale("ReflectScale", Range(0,10)) = 2.0
 		_NormalMap("NormalMap (RGB)", 2D) = "white" {}
-		_EnvironmentMap("EnvironmentMap", Cube) = "_Skybox" {}
+		_SkyColor("Sky Color", Color) = (1,1,1,1)
+		//_EnvironmentMap("EnvironmentMap", Cube) = "_Skybox" {}
 		_Roughness("Roughness", Range(0, 1)) = 0.15
+			[Toggle] _DisplaceNormal("Display normal",float) = 0
 	}
 	SubShader {
-		Tags { "RenderType" = "Opaque"}
+		Tags { "RenderType" = "Opaque" }
 		LOD 200
 		
         Pass
@@ -40,10 +42,11 @@ Shader "liangairan/ocean/fft_ocean" {
             sampler2D _MainTex;
 			sampler2D _HeightTex;
 			sampler2D _NormalMap;
-			samplerCUBE _EnvironmentMap;
+			//samplerCUBE _EnvironmentMap;
 
 			fixed4 _Color;
 			fixed4 _FoamColor;
+			fixed4 _SkyColor;
 			//uniform float _HeightScale;
 			uniform float _ChoppyScale;
 			float Kdiffuse = 0.91;
@@ -51,6 +54,7 @@ Shader "liangairan/ocean/fft_ocean" {
 			uniform float texelSize;
 			uniform float resolution;
 			float _Roughness;
+			half _DisplaceNormal;
 
             struct appdata
             {
@@ -72,7 +76,7 @@ Shader "liangairan/ocean/fft_ocean" {
             };
 
 
-			float fresnel(float3 V, float3 N)
+			float fresnelAirWater(float3 V, float3 N)
 			{
 
 				half NdotL = max(dot(V, N), 0.0);
@@ -95,7 +99,7 @@ Shader "liangairan/ocean/fft_ocean" {
                 //TANGENT_SPACE_ROTATION;
                 o.uv = v.uv;
 				
-                o.normalWorld = UnityObjectToWorldNormal(v.normal);
+				o.normalWorld = UnityObjectToWorldNormal(v.normal);
                 o.posWorld = mul(unity_ObjectToWorld, v.vertex);
 				o.tangentWorld = UnityObjectToWorldDir(v.tangent.xyz);
                 return o;
@@ -104,7 +108,7 @@ Shader "liangairan/ocean/fft_ocean" {
             half4 frag(VSOut i) : COLOR
             {
 				//fixed4 upwelling = fixed4(0, 0.2, 0.3, 1.0);
-				fixed4 sky = fixed4(0.69, 0.84, 1.0, 1.0);
+				fixed4 sky = _SkyColor;//fixed4(0.69, 0.84, 1.0, 1.0);
 				fixed4 air = fixed4(0.1, 0.1, 0.1, 1.0);
 				float nSnell = 1.34;  //水的折射率
 				
@@ -132,7 +136,11 @@ Shader "liangairan/ocean/fft_ocean" {
 				fixed3 normalDirection = normalize(normal);
 				//return normalDirection;
 				normalDirection.xyz = UnityObjectToWorldNormal(normalDirection.xyz);
-				
+				if (_DisplaceNormal == 1.0)
+					return fixed4(normalDirection, 1.0);
+
+				if (normalDirection.y < 0)
+					return 0;
 
 				fixed3 R = reflect(-viewDirection, normalDirection.xyz);
 
@@ -156,24 +164,29 @@ Shader "liangairan/ocean/fft_ocean" {
 
 				float dist = length(_WorldSpaceCameraPos.xyz - i.posWorld.xyz) * Kdiffuse;
 				dist = exp(-dist);
-				sky = UNITY_SAMPLE_TEXCUBE(unity_SpecCube0, R);
+
+				fixed fresnel = fresnelAirWater(viewDirection, normalDirection);
+				//sky = UNITY_SAMPLE_TEXCUBE(unity_SpecCube0, R);
 				//return sky;
 				//fixed4 Ci = dist * (reflectivity * sky + (1 - reflectivity) * _Color) + (1 - dist) * air;
-				fixed4 Ci = lerp(_Color, sky, reflectivity); // (reflectivity * sky + (1 - reflectivity) * _Color);
+
+				fixed4 Ci = lerp(sky, _Color, fresnel); // (reflectivity * sky + (1 - reflectivity) * _Color);
 				float foam = fold * fold;
+				Ci = lerp(Ci, _FoamColor, foam);
 				
 				fixed3 h = normalize(lightDirection + viewDirection);
 				float NdL = max(dot(normalDirection, lightDirection), 0);
 				float NdV = max(dot(normalDirection, viewDirection), 0);
 				float VdH = max(dot(viewDirection, h), 0);
 				float NdH = max(dot(normalDirection, h), 0);
-				float D = normalDistribution_GGX(_Roughness, NdH);
+
+				float D = BeckmannNormalDistribution(_Roughness, NdH);
 				float G = smith_schilck(_Roughness, NdV, NdL);
 				half3 F = fresnelSchlick(VdH, _LightColor0.xyz);
-				fixed3 specular = brdf(F, D, G, NdV, NdL) * reflectivity;
+				fixed3 specular = brdf(F, D, G, NdV, NdL) * fresnel;
 
 				Ci += fixed4(specular, 0);
-				//return Ci;
+				return saturate(Ci);
 				return lerp(Ci, _FoamColor, foam);
             }
             ENDCG

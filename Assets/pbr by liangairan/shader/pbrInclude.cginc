@@ -43,11 +43,38 @@ float GGX_GSF(float roughness, float ndv, float ndl)
 	return Gs;
 }
 
+float RoughnessToAlpha(float roughness) 
+{
+	roughness = max(roughness, 0.0001);
+	float x = log(roughness);
+	return 1.62142f + 0.819955f * x + 0.1734f * x * x +
+		0.0171201f * x * x * x + 0.000640711f * x * x * x * x;
+}
+
 float BeckmannNormalDistribution(float roughness, float NdotH)
 {
 	float roughnessSqr = roughness * roughness;
 	float NdotHSqr = NdotH * NdotH;
 	return max(0.000001, (1.0 / (3.1415926535 * roughnessSqr * NdotHSqr*NdotHSqr)) * exp((NdotHSqr - 1) / (roughnessSqr*NdotHSqr)));
+}
+
+float BeckmannDistribution(float roughnessX, float roughnessY, float NdotH, float cosPhi)
+{
+	if (NdotH <= 0)
+		return 0.0001;
+	float cosTheta = NdotH;
+	float sinTheta = sqrt(1.0 - cosTheta);
+	float tanTheta = sinTheta / cosTheta;
+	float tan2Theta = tanTheta * tanTheta;
+
+	float cos4Theta = cosTheta * cosTheta * cosTheta * cosTheta;
+	float alphax = RoughnessToAlpha(roughnessX);
+	float alphay = RoughnessToAlpha(roughnessY);
+	float cos2Phi = cosPhi * cosPhi;
+	float sin2Phi = 1.0 - cos2Phi;
+	return exp(-tan2Theta * (cos2Phi / (alphax * alphax) +
+		sin2Phi / (alphay * alphay))) /
+		(PI * alphax * alphay * cos4Theta);
 }
 
 //G(l,v,h)，计算微表面遮挡

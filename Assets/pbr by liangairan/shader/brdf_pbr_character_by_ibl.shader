@@ -20,7 +20,7 @@ Shader "liangairan/pbr/pbr in character by IBL" {
         _DepthBias("DepthBias", Range(-1,1)) = 0
 	}
 	SubShader {
-		Tags { "RenderType"="Opaque" }
+		Tags { "RenderType"="Opaque" "Shadow" = "Character"}
 		LOD 200
 		
         Pass
@@ -31,11 +31,13 @@ Shader "liangairan/pbr/pbr in character by IBL" {
             #include "AutoLight.cginc"
             #include "Lighting.cginc"
 #include "pbrInclude.cginc"
+#include "../../shadow/shadowmap.cginc"
             #pragma target 3.0
             #pragma vertex vert
             #pragma fragment frag
             #pragma exclude_renderers xbox360 flash	
             #pragma multi_compile_fwdbase 
+			#pragma multi_compile PCF_OFF PCF_ON
 
             sampler2D _MainTex;
         sampler2D _RoughnessTex;
@@ -47,8 +49,6 @@ Shader "liangairan/pbr/pbr in character by IBL" {
             float _Roughness;
             float _Metallic;
             fixed4 _F0;
-            float _ShadowScale;
-            float4x4 LightProjectionMatrix;
             float _DepthBias;
 
             struct appdata
@@ -69,9 +69,9 @@ Shader "liangairan/pbr/pbr in character by IBL" {
                 half3 posWorld : TEXCOORD2;
                 half3 tangentWorld : TEXCOORD3;
                 half3 binormalWorld : TEXCOORD4;
-                SHADOW_COORDS(5)
-                //    half4 proj : TEXCOORD6;
-                //half2 depth : TEXCOORD7;
+                //SHADOW_COORDS(5)
+					half4 uvProj : TEXCOORD5;
+				half2 depth : TEXCOORD6;
             };
 
 
@@ -87,7 +87,7 @@ Shader "liangairan/pbr/pbr in character by IBL" {
                 //TRANSFER_VERTEX_TO_FRAGMENT(o);
                 o.tangentWorld = UnityObjectToWorldDir(v.tangent.xyz);
                 o.binormalWorld = cross(normalize(o.normalWorld), normalize(o.tangentWorld.xyz)) * v.tangent.w;
-                TRANSFER_SHADOW(o);
+                TRANSFER_MY_SHADOW(o);
 
                 //float4x4 matWLP = mul(LightProjectionMatrix, unity_ObjectToWorld);
                 //o.proj = mul(matWLP, v.vertex);
@@ -107,7 +107,7 @@ Shader "liangairan/pbr/pbr in character by IBL" {
                 //微表面法线
                 fixed3 h = normalize(lightDirection + viewDirection);
 
-				fixed attenuation = LIGHT_ATTENUATION(i);
+				//fixed attenuation = LIGHT_ATTENUATION(i);
 				fixed3 attenColor = _LightColor0.xyz; // *attenuation;
                 fixed3 R = reflect(-viewDirection, normalDirection);
                 
@@ -154,10 +154,11 @@ Shader "liangairan/pbr/pbr in character by IBL" {
 
                 lightOut.rgb += indirectDiffuse + indirectSpecular;
 
-                float  atten = saturate(SHADOW_ATTENUATION(i) + _ShadowScale);
-                fixed3 shadow = max(UNITY_LIGHTMODEL_AMBIENT.xyz, fixed3(atten, atten, atten));
+                //float  atten = saturate(SHADOW_ATTENUATION(i) + _ShadowScale);
+                //fixed3 shadow = max(UNITY_LIGHTMODEL_AMBIENT.xyz, fixed3(atten, atten, atten));
+				float shadow = getShadowAttention(i.uvProj, normalDirection, i.posWorld);
 
-                //lightOut.rgb *= shadow;
+                lightOut.rgb *= shadow;
                 //lightOut.rgb = lightOut.rgb / (lightOut.rgb + fixed3(1.0, 1.0, 1.0));
                 //float gama = 1.0 / 2.2;
                 //lightOut.rgb = pow(lightOut.rgb, fixed3(gama, gama, gama));

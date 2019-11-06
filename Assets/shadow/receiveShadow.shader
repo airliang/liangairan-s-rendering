@@ -17,7 +17,7 @@ Shader "liangairan/shadow/receiveShadow"
 
 	SubShader
 	{
-        Tags { "RenderType" = "Opaque" "Shadow" = "Character" }
+        Tags { "RenderType" = "Opaque" }
 		Pass
 		{
             ZWrite On

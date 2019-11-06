@@ -30,6 +30,7 @@ public class IBLPrefilterCubeEditor : EditorWindow {
     string mOutputPath;
     bool genBRDFLutByGPU = false;
     ComputeShader brdfCompute = null;
+    ComputeShader prefilterIrradianceCompute = null;
 
     //GameObject mQuad;
     FullScreenQuad mQuad;
@@ -98,6 +99,22 @@ public class IBLPrefilterCubeEditor : EditorWindow {
         }
         camera.RenderToCubemap(irradianceDiffuseMap, 63);
         irradianceDiffuseMap.Apply();
+
+        if (prefilterIrradianceCompute != null)
+        {
+            Texture2D irradianceDiffuseEnvMap = CreateIrradianceMapByComputeShader();
+            if (irradianceDiffuseEnvMap != null)
+            {
+                TextureImporter textureImporter = AssetImporter.GetAtPath(mOutputPath + "irradianceDiffuseMap.png") as TextureImporter;
+                textureImporter.textureType = TextureImporterType.Default;
+                textureImporter.mipmapEnabled = false;
+                textureImporter.sRGBTexture = true;
+                textureImporter.filterMode = FilterMode.Bilinear;
+                textureImporter.wrapMode = TextureWrapMode.Clamp;
+                textureImporter.maxTextureSize = 512;
+                AssetDatabase.ImportAsset(mOutputPath + "brdfLUT.png", ImportAssetOptions.ForceUpdate | ImportAssetOptions.ForceSynchronousImport);
+            }
+        }
 
 
         if (bNewAsset)
@@ -523,6 +540,28 @@ public class IBLPrefilterCubeEditor : EditorWindow {
         output.ReadPixels(new Rect(0, 0, 512, 512), 0, 0);
 
         DestroyImmediate(BRDFLut);
+        return output;
+    }
+
+    private Texture2D CreateIrradianceMapByComputeShader()
+    {
+        int prefilterIrradiance = prefilterIrradianceCompute.FindKernel("PrefilterIrradiancemap");
+        prefilterIrradianceCompute.SetFloat("textureWidth", 512.0f);
+
+        RenderTexture irradianceTexture = RenderTexture.GetTemporary(512, 256, 0, RenderTextureFormat.DefaultHDR);
+        irradianceTexture.enableRandomWrite = true;
+        irradianceTexture.Create();
+        prefilterIrradianceCompute.SetTexture(prefilterIrradiance, "Result", irradianceTexture);
+        prefilterIrradianceCompute.SetTexture(prefilterIrradiance, "EnviromentCube", mEnvironmentMap);
+
+        prefilterIrradianceCompute.Dispatch(prefilterIrradiance, 512 / 8, 256 / 8, 1);
+
+        Texture2D output = new Texture2D(512, 256, TextureFormat.BC6H, false);
+        RenderTexture.active = irradianceTexture;
+        output.ReadPixels(new Rect(0, 0, 512, 512), 0, 0);
+
+        RenderTexture.ReleaseTemporary(irradianceTexture);
+
         return output;
     }
 }

@@ -4,7 +4,7 @@ Shader "liangairan/shadow/ShadowProjector"
 {
 
 	Properties{
-        _ShadowmapTex("ShadowMap", 2D) = "gray" {}
+        //_ShadowmapTex("ShadowMap", 2D) = "gray" {}
 	}
 
 		//CGINCLUDE
@@ -19,10 +19,10 @@ Shader "liangairan/shadow/ShadowProjector"
             ZWrite On
 			CGPROGRAM
             #include "UnityCG.cginc" 
-            
+#include "shadowmap.cginc"
 #pragma vertex vert  
 #pragma fragment frag
-            sampler2D _ShadowmapTex;
+            //sampler2D _ShadowmapTex;
     uniform float4x4 unity_Projector;
 
             struct v2f

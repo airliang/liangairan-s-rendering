@@ -9,7 +9,7 @@ Shader "liangairan/pbr/pbr with smoothmap" {
 		_MainTex ("Albedo (RGB)", 2D) = "white" {}
     _RoughnessTex("SpecularMap (RGB)", 2D) = "white" {}
     _NormalTex("NormalMap (RGB)", 2D) = "bump" {}
-    _ShadowmapTex("ShadowMap", 2D) = "black" {}
+    //_ShadowmapTex("ShadowMap", 2D) = "black" {}
         _Roughness ("Roughness", Range(0,1)) = 0
         _Metallic("Metallicness",Range(0,1)) = 0
         _F0 ("Fresnel coefficient", Color) = (1,1,1,1)
@@ -27,6 +27,7 @@ Shader "liangairan/pbr/pbr with smoothmap" {
             #include "UnityCG.cginc"
             #include "AutoLight.cginc"
             #include "Lighting.cginc"
+			#include "../../shadow/shadowmap.cginc"
             #pragma target 3.0
             #pragma vertex vert
             #pragma fragment frag
@@ -37,12 +38,12 @@ Shader "liangairan/pbr/pbr with smoothmap" {
             sampler2D _MainTex;
         sampler2D _RoughnessTex;
         sampler2D _NormalTex;
-        sampler2D _ShadowmapTex;
+        //sampler2D _ShadowmapTex;
             float _Roughness;
             float _Metallic;
             fixed4 _F0;
             float _ShadowScale;
-            float4x4 LightProjectionMatrix;
+            //float4x4 LightProjectionMatrix;
             float _DepthBias;
 
             struct appdata

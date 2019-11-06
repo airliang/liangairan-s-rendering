@@ -6,7 +6,7 @@
 uniform sampler2D _ShadowmapTex;
 
 float3 lightPos;   //
-float fDepthBias;
+float2 fDepthBias;
 float3 shadowLightDirection;
 //float4 shadowColor;
 
@@ -25,7 +25,60 @@ float4 getShadowmapPixel(sampler2D shadowmap, float4 uv, float2 offset)
 	return tex2Dproj(shadowmap, UNITY_PROJ_COORD(float4(uv.xy + offset * shadowMapTexel, uv.z, uv.w)));
 }
 
+float pcf_2x2filter(sampler2D shadowmap, float4 uvProj, float bias)
+{
+	float2 depth = uvProj.zw;
+	float4 shadow = tex2Dproj(shadowmap, UNITY_PROJ_COORD(uvProj));
+	float closestDepth = shadow.x;
+	float d = 0; 
+	float currentDepth = depth.x / depth.y;
 
+
+    float sum = 0;
+//	float x, y;//	float nums = 0;//	for (y = -0.5; y <= 0.5; y += 1)
+//	{
+//		for (x = -0.5; x <= 0.5; x += 1)
+//		{
+//			float pcfDepth = getShadowmapPixel(shadowmap, uvProj, float2(x, y)).r;
+//#if SHADER_API_D3D11 || SHADER_API_METAL
+//			sum += (currentDepth + bias) < pcfDepth ? 1.0 : 0.0;
+//#else
+//			sum += (currentDepth - bias) > pcfDepth ? 1.0 : 0;
+//#endif
+//			//d += temp.x;
+//			//d = saturate(min(d, DecodeFloatRGBA(temp)));
+//			nums++;
+//		}
+//	}
+////	shadow.x = sum / nums;
+
+	float pcfDepth = getShadowmapPixel(shadowmap, uvProj, float2(-0.5, 0.5)).r;
+#if SHADER_API_D3D11 || SHADER_API_METAL
+	sum += (currentDepth + bias) < pcfDepth ? 1.0 : 0.0;
+#else
+	sum += (currentDepth - bias) > pcfDepth ? 1.0 : 0;
+#endif
+	pcfDepth = getShadowmapPixel(shadowmap, uvProj, float2(0.5, 0.5)).r;
+#if SHADER_API_D3D11 || SHADER_API_METAL
+	sum += (currentDepth + bias) < pcfDepth ? 1.0 : 0.0;
+#else
+	sum += (currentDepth - bias) > pcfDepth ? 1.0 : 0;
+#endif
+	pcfDepth = getShadowmapPixel(shadowmap, uvProj, float2(-0.5, -0.5)).r;
+#if SHADER_API_D3D11 || SHADER_API_METAL
+	sum += (currentDepth + bias) < pcfDepth ? 1.0 : 0.0;
+#else
+	sum += (currentDepth - bias) > pcfDepth ? 1.0 : 0;
+#endif
+	pcfDepth = getShadowmapPixel(shadowmap, uvProj, float2(0.5, -0.5)).r;
+#if SHADER_API_D3D11 || SHADER_API_METAL
+	sum += (currentDepth + bias) < pcfDepth ? 1.0 : 0.0;
+#else
+	sum += (currentDepth - bias) > pcfDepth ? 1.0 : 0;
+#endif
+	shadow.x = sum * 0.25;
+	return shadow.x;
+}
 
 float pcf_5x5filter(sampler2D shadowmap, float4 uvProj, float bias)
 {
@@ -70,7 +123,6 @@ float pcf_5x5filter(sampler2D shadowmap, float4 uvProj, float bias)
 				
 
 	return shadow.x;
-
 }
 
 float shadow_filter(sampler2D shadowmap, float4 uvProj, float bias)
@@ -135,7 +187,7 @@ float getShadowAttention(float4 uv, float3 normalWorld, float3 posWorld)
 		return 1.0;
 #endif
 
-	float bias = max(0.005 * (1.0 - dot(normalize(normalWorld), shadowLightDirection)), fDepthBias);
+	float bias = max(fDepthBias.x * (1.0 - dot(normalize(normalWorld), shadowLightDirection)), fDepthBias.y);
 	float shadowScale = 0;
 #if VSM_ON
 	float x = uv.x / uv.w;
@@ -151,18 +203,26 @@ float getShadowAttention(float4 uv, float3 normalWorld, float3 posWorld)
 	//clip(1 - y);
 	if ((x >= 0 && x <= 1) && (y >= 0 && y <= 1))
 	{
+#if PCF_ON
         shadowScale = pcf_5x5filter(_ShadowmapTex, uv, bias);
+#else
+		shadowScale = pcf_2x2filter(_ShadowmapTex, uv, bias);
+#endif
         //shadowScale = shadow_filter(_ShadowmapTex, uv, bias);
     }
 #endif
 
 	
 	float shadow = mapShadowToRange(1.0 - shadowScale);
-
+	return shadow;
 	float disReceiverToLight = length(posWorld - lightPos);
 	float shadowAttentionDistance = shadowParams.y;
 	float followerToLight = shadowParams.z;
-	return saturate(saturate((1.0 / shadowAttentionDistance * disReceiverToLight + 1.0 - (followerToLight + shadowAttentionDistance) / shadowAttentionDistance)) + shadow);
+	float colorScale = shadowParams.w;
+	float shadowDownStart = 1.5f;
+	float shadowFinal = 1.0 / (shadowAttentionDistance - shadowDownStart) - shadowDownStart / (shadowAttentionDistance - shadowDownStart);
+	//return saturate(saturate(shadowFinal) + shadow);
+	return saturate(saturate((1.0 / shadowAttentionDistance * disReceiverToLight - 1.0/* - (followerToLight + shadowAttentionDistance) / shadowAttentionDistance*/)) + shadow);
 }
 
 

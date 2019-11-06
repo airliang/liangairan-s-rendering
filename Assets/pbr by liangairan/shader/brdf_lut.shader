@@ -148,15 +148,16 @@ Shader "liangairan/pbr/brdf_lut" {
                 VSOut o;
                 o.pos = v.vertex;
                 o.uv = v.uv;
+#if UNITY_UV_STARTS_AT_TOP
+				o.uv.y = 1.0 - o.uv.y;
+#endif
                 return o;
             }
 
             half4 frag(VSOut i) : COLOR
             {
                 fixed4 colorOut;
-#if UNITY_UV_STARTS_AT_TOP
-				i.uv.y = 1.0 - i.uv.y;
-#endif
+
                 colorOut.rg = IntegrateBRDF(i.uv.x, i.uv.y);
 				colorOut.ba = 0;
                 return colorOut;

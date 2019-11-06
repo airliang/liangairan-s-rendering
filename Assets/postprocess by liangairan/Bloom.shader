@@ -62,14 +62,17 @@ Shader "liangairan/postprocess/Bloom" {
 		v2f_threshold o;
 		o.pos = UnityObjectToClipPos(v.vertex);
 		o.uv = v.texcoord.xy;
+#if UNITY_UV_STARTS_AT_TOP
+		o.uv.y = 1.0 - o.uv.y;
+#endif
         o.uv21 = UnityStereoScreenSpaceUVAdjust(v.texcoord + _MainTex_TexelSize.xy * half2(-0.5h, -0.5h), _MainTex_ST);
         o.uv22 = UnityStereoScreenSpaceUVAdjust(v.texcoord + _MainTex_TexelSize.xy * half2(0.5h, -0.5h), _MainTex_ST);
         o.uv23 = UnityStereoScreenSpaceUVAdjust(v.texcoord + _MainTex_TexelSize.xy * half2(-0.5h, 0.5h), _MainTex_ST);
 		//dx中纹理从左上角为初始坐标，需要反向  
-#if UNITY_UV_STARTS_AT_TOP  
-		if (_MainTex_TexelSize.y < 0)
-			o.uv.y = 1 - o.uv.y;
-#endif    
+//#if UNITY_UV_STARTS_AT_TOP  
+//		if (_MainTex_TexelSize.y < 0)
+//			o.uv.y = 1 - o.uv.y;
+//#endif    
 		return o;
 	}
 
@@ -90,7 +93,9 @@ Shader "liangairan/postprocess/Bloom" {
 		o.pos = UnityObjectToClipPos(v.vertex);
 		o.uv = v.texcoord.xy;
         o.offs = _MainTex_TexelSize.xyxy * _offsets;
-
+#if UNITY_UV_STARTS_AT_TOP
+		o.uv.y = 1.0 - o.uv.y;
+#endif
 		//o.uv01 = v.texcoord.xyxy + _offsets.xyxy * float4(1, 1, -1, -1);
 		//o.uv23 = v.texcoord.xyxy + _offsets.xyxy * float4(1, 1, -1, -1) *2.0;
 		//o.uv45 = v.texcoord.xyxy + _offsets.xyxy * float4(1, 1, -1, -1) *3.0;
@@ -126,8 +131,8 @@ Shader "liangairan/postprocess/Bloom" {
 		o.uv.xy = v.texcoord.xy;
 		o.uv1.xy = o.uv.xy;
 #if UNITY_UV_STARTS_AT_TOP  
-		if (_MainTex_TexelSize.y < 0)
-			o.uv.y = 1 - o.uv.y;
+		//if (_MainTex_TexelSize.y < 0)
+		o.uv.y = 1 - o.uv.y;
 #endif    
 		return o;
 	}

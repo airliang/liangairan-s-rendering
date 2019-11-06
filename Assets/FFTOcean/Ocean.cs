@@ -40,6 +40,7 @@ public class Ocean : MonoBehaviour
     public ComputeShader mComputeShader;
 
     public Color waterColor = new Color(9, 45, 103);
+    public Color SkyColor = new Color(148, 245, 245);
     public Color foamColor = Color.white;
     public float mHeightScale = 1.0f;
 
@@ -114,6 +115,7 @@ public class Ocean : MonoBehaviour
 
             gameObject.GetComponent<Renderer>().sharedMaterial = mMaterial;
             mMaterial.SetColor("_Color", waterColor);
+            mMaterial.SetColor("_SkyColor", SkyColor);
             mMaterial.SetColor("_FoamColor", foamColor);
             mMaterial.SetFloat("texelSize", length);
             mMaterial.SetFloat("resolution", mResolution);
@@ -236,6 +238,7 @@ public class Ocean : MonoBehaviour
 
             mMaterial.SetColor("_Color", waterColor);
             mMaterial.SetColor("_FoamColor", foamColor);
+            mMaterial.SetColor("_SkyColor", SkyColor);
         }
     }
 
