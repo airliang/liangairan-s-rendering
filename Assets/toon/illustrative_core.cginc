@@ -28,9 +28,9 @@ fixed4 wrapfunction(float NdL, fixed4 lightColor)
 {
 	float alpha = alpha_beta_gama.x;
 	float beta = alpha_beta_gama.y;
-	float gama = alpha_beta_gama.y;
+	float gama = alpha_beta_gama.z;
 	float u = pow(alpha * NdL + beta, gama);
-	return tex2D(_WrapingTex, float2(u, 0.0)) * lightColor;
+	return tex2D(_WrapingTex, float2(u, u)) * lightColor;
 }
 
 fixed4 view_dependent(half3 normal, half3 view, half3 reflectlight, fixed4 lightColor)

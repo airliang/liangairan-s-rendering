@@ -70,7 +70,8 @@ Shader "liangairan/pbr/pbr in character by IBL" {
                 half3 tangentWorld : TEXCOORD3;
                 half3 binormalWorld : TEXCOORD4;
                 //SHADOW_COORDS(5)
-					half4 uvProj : TEXCOORD5;
+				MY_SHADOW_COORDS(5)
+					//half4 uvProj : TEXCOORD5;
 				half2 depth : TEXCOORD6;
             };
 
@@ -87,7 +88,7 @@ Shader "liangairan/pbr/pbr in character by IBL" {
                 //TRANSFER_VERTEX_TO_FRAGMENT(o);
                 o.tangentWorld = UnityObjectToWorldDir(v.tangent.xyz);
                 o.binormalWorld = cross(normalize(o.normalWorld), normalize(o.tangentWorld.xyz)) * v.tangent.w;
-                TRANSFER_MY_SHADOW(o);
+                TRANSFER_MY_SHADOW(o, v);
 
                 //float4x4 matWLP = mul(LightProjectionMatrix, unity_ObjectToWorld);
                 //o.proj = mul(matWLP, v.vertex);
@@ -156,7 +157,7 @@ Shader "liangairan/pbr/pbr in character by IBL" {
 
                 //float  atten = saturate(SHADOW_ATTENUATION(i) + _ShadowScale);
                 //fixed3 shadow = max(UNITY_LIGHTMODEL_AMBIENT.xyz, fixed3(atten, atten, atten));
-				float shadow = getShadowAttention(i.uvProj, normalDirection, i.posWorld);
+				float shadow = MY_SHADOW_ATTENTION(i, i.normalWorld, i.posWorld);//getShadowAttention(i.uvProj, normalDirection, i.posWorld);
 
                 lightOut.rgb *= shadow;
                 //lightOut.rgb = lightOut.rgb / (lightOut.rgb + fixed3(1.0, 1.0, 1.0));

@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: atlas_trees_01_leaf
-  m_Shader: {fileID: 4800000, guid: 6867877cc3f214d46a8dbd7e52df3d43, type: 3}
+  m_Shader: {fileID: 4800000, guid: e3692b59dbaf6234ab17289328e774f7, type: 3}
   m_ShaderKeywords: _ALPHATEST_ON _NORMALMAP
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 1
@@ -104,7 +104,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MainTex:
-        m_Texture: {fileID: 2800000, guid: 3cb89c8c82f227a41b5229cf1066988a, type: 3}
+        m_Texture: {fileID: 2800000, guid: 7f09bc146d11475459186c2cdfb55279, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MetallicGlossMap:

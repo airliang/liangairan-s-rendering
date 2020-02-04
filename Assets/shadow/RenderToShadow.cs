@@ -99,8 +99,6 @@ public class RenderToShadow : MonoBehaviour {
             transform.forward = mMainLight.forward;
         }
 
-
-
         if (mDepthTexture != null)
         {
             mMatR.m00 = 0.5f;
@@ -470,7 +468,7 @@ public class RenderToShadow : MonoBehaviour {
         mCamera.rect = new Rect(0, 0, 1, 1);
         mCamera.enabled = !useCommandBuf;
         mCamera.backgroundColor = (mVSM || SystemInfo.graphicsDeviceType == GraphicsDeviceType.Direct3D11 || SystemInfo.graphicsDeviceType == GraphicsDeviceType.Metal) ? new Color(0, 0, 0, 1) : Color.white;
-
+        //mCamera.backgroundColor = Color.white;
 
         if (mDepthTexture == null)
         {

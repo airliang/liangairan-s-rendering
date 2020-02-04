@@ -88,9 +88,9 @@ Material:
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
-    - _Kr: {r: 0.3207547, g: 0.3207547, b: 0.3207547, a: 1}
+    - _Kr: {r: 0.5, g: 0.4693396, b: 0.4693396, a: 1}
     - _Ks: {r: 0.7830189, g: 0.76208514, b: 0.69806874, a: 1}
     - _OutlineColor: {r: 0, g: 0, b: 0, a: 1}
     - _artist_fresnel: {r: 0.11320752, g: 0.11320752, b: 0.11320752, a: 1}
-    - _kexponent: {r: 10, g: 0.31, b: 0, a: 1}
+    - _kexponent: {r: 10, g: 0.51, b: 0, a: 1}
     - alpha_beta_gama: {r: 0.5, g: 0.5, b: 2, a: 1}

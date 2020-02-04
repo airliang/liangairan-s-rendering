@@ -49,7 +49,8 @@ Shader "liangairan/shadow/receiveShadow"
             {
                 float4 pos : SV_POSITION;
                 float2 uv : TEXCOORD0;
-				float4 uvProj : TEXCOORD1; 
+				//float4 uvProj : TEXCOORD1; 
+				MY_SHADOW_COORDS(1)
 				float3 depth : TEXCOORD2;        //z-length of receiver to light in worldspace
 				float3 normalWorld : TEXCOORD3;
 				float3 posWorld : TEXCOORD4;
@@ -63,9 +64,10 @@ Shader "liangairan/shadow/receiveShadow"
                 v2f o = (v2f)0;
                 o.pos = UnityObjectToClipPos(v.vertex);
 				o.uv = v.uv;
-				float4x4 projMatrix = mul(LightProjectionMatrix, unity_ObjectToWorld);
-				o.uvProj = mul(projMatrix, v.vertex);
-				o.depth.xy = o.uvProj.zw;
+				//float4x4 projMatrix = mul(LightProjectionMatrix, unity_ObjectToWorld);
+				//o.uvProj = mul(projMatrix, v.vertex);
+				TRANSFER_MY_SHADOW(o, v)
+				o.depth.xy = o.pos.zw;
 				float4 posWorld = mul(unity_ObjectToWorld, v.vertex);
 				o.depth.z = length(lightPos - posWorld.xyz);
 				o.normalWorld = UnityObjectToWorldNormal(v.normal);
@@ -78,8 +80,7 @@ Shader "liangairan/shadow/receiveShadow"
             {
 
 				fixed4 col = _Color * tex2D(_MainTex, i.uv);
-
-				float shadowAttention = getShadowAttention(i.uvProj, i.normalWorld, i.posWorld);
+				float shadowAttention = MY_SHADOW_ATTENTION(i, i.normalWorld, i.posWorld);//getShadowAttention(i.uvProj, i.normalWorld, i.posWorld);
 				return col * shadowAttention;
 
             }

@@ -100,8 +100,6 @@ Shader "liangairan/postprocess/Blur" {
 #pragma fragment frag_blur  
 			ENDCG
 		}
-
-
 	}
 
 	FallBack "Diffuse"
