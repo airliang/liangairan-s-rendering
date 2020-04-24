@@ -15,62 +15,14 @@ Shader "liangairan/toon/illustrative" {
 		_Ks("specular mask color", Color) = (1,1,1,1)
 		_Kr("rim mask color", Color) = (1,1,1,1)
 		_OutlineColor("Outline Color", Color) = (0,0,0,1)
-		_OutlineWidth("outline width", Range(0,2)) = 0
+		_OutlineWidth("outline width", Range(0,5)) = 0
 		_OutlineTex("Outline Texture", 2D) = "black"
 	}
 	SubShader {
 		Tags { "RenderType" = "Opaque" }
 		LOD 200
 
-		Pass
-		{
-			Tags { "LightMode" = "ForwardBase" }
-			Cull Front
-			CGPROGRAM
-			#include "UnityCG.cginc"
-			#pragma target 3.0
-			#pragma vertex vert
-			#pragma fragment frag
-			#pragma exclude_renderers xbox360 flash	
-
-			#define PI 3.14159265359
-
-			float4 _OutlineColor;
-			float _OutlineWidth;
-
-			struct appdata_outline
-			{
-				half4 vertex : POSITION;
-				half3 normal : NORMAL;
-			};
-
-			struct VSOut
-			{
-				half4 pos		: SV_POSITION;
-				//half3 normalWorld : TEXCOORD0;
-			};
-
-
-			VSOut vert(appdata_outline v)
-			{
-				VSOut o;
-				float4 clipPosition = UnityObjectToClipPos(v.vertex);
-				float3 clipNormal = mul((float3x3) UNITY_MATRIX_VP, mul((float3x3) UNITY_MATRIX_M, v.normal));
-
-				clipPosition.xyz += normalize(clipNormal) * _OutlineWidth;
-
-				o.pos = clipPosition;
-				//o.pos = UnityObjectToClipPos(v.vertex);
-
-				return o;
-			}
-
-			half4 frag(VSOut i) : COLOR
-			{
-				return _OutlineColor;
-			}
-			ENDCG
-		}
+		
 		
         Pass
         {
@@ -142,6 +94,58 @@ Shader "liangairan/toon/illustrative" {
             }
             ENDCG
         }
+
+		Pass
+		{
+			Tags { "LightMode" = "ForwardBase" }
+			Cull Front
+			CGPROGRAM
+			#include "UnityCG.cginc"
+			#pragma target 3.0
+			#pragma vertex vert
+			#pragma fragment frag
+			#pragma exclude_renderers xbox360 flash	
+
+			#define PI 3.14159265359
+
+			float4 _OutlineColor;
+			float _OutlineWidth;
+
+			struct appdata_outline
+			{
+				half4 vertex : POSITION;
+				half4 color  : COLOR;
+				half3 normal : NORMAL;
+			};
+
+			struct VSOut
+			{
+				half4 pos		: SV_POSITION;
+				//half3 normalWorld : TEXCOORD0;
+			};
+
+
+			VSOut vert(appdata_outline v)
+			{
+				VSOut o;
+				float4 clipPosition = UnityObjectToClipPos(v.vertex);
+				float3 worldNormal = UnityObjectToWorldNormal(v.normal);
+				float3 clipNormal = mul((float3x3) UNITY_MATRIX_VP, worldNormal);
+				float2 normalOffset = normalize(clipNormal.xy) / _ScreenParams.xy * _OutlineWidth * clipPosition.w;
+				clipPosition.xy += normalOffset;
+
+				o.pos = clipPosition;
+				//o.pos = UnityObjectToClipPos(v.vertex);
+
+				return o;
+			}
+
+			half4 frag(VSOut i) : COLOR
+			{
+				return _OutlineColor;
+			}
+			ENDCG
+		}
 	}
 
 }
