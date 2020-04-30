@@ -169,6 +169,9 @@ class SceneWriter
             fs.Write(bytes, 0, bytes.Length);
             FileOffset += bytes.Length;
         }
+
+        BSDFMaterial bsdfMaterial = shape.gameObject.GetComponent<BSDFMaterial>();
+        WriteMaterial(fs, bsdfMaterial);
     }
 
     public void WriteDiskShape(FileStream fs, Shape shape)
@@ -181,16 +184,82 @@ class SceneWriter
 
     }
 
-    public void WriteMaterial()
+    private void WriteTexture(FileStream fs, BSDFSpectrumTexture texture)
     {
+        byte[] bytes = BitConverter.GetBytes((int)texture.type);
+        fs.Write(bytes, 0, bytes.Length);
+        FileOffset += bytes.Length;
 
+        if (texture.type == BSDFTextureType.Constant)
+        {
+
+            bytes = BitConverter.GetBytes(texture.spectrum.r);
+            fs.Write(bytes, 0, bytes.Length);
+            FileOffset += bytes.Length;
+
+            bytes = BitConverter.GetBytes(texture.spectrum.g);
+            fs.Write(bytes, 0, bytes.Length);
+            FileOffset += bytes.Length;
+
+            bytes = BitConverter.GetBytes(texture.spectrum.b);
+            fs.Write(bytes, 0, bytes.Length);
+            FileOffset += bytes.Length;
+        }
+        else if (texture.type == BSDFTextureType.Image)
+        {
+            //暂时不支持
+        }
+    }
+
+    private void WriteTexture(FileStream fs, BSDFFloatTexture texture)
+    {
+        byte[] bytes = BitConverter.GetBytes((int)texture.type);
+        fs.Write(bytes, 0, bytes.Length);
+        FileOffset += bytes.Length;
+
+        if (texture.type == BSDFTextureType.Constant)
+        {
+            bytes = BitConverter.GetBytes(texture.constantValue);
+            fs.Write(bytes, 0, bytes.Length);
+            FileOffset += bytes.Length;
+        }
+        else if (texture.type == BSDFTextureType.Image)
+        {
+            //暂时不支持
+        }
+    }
+
+    public void WriteMaterial(FileStream fs, BSDFMaterial material)
+    {
+        byte[] bytes = BitConverter.GetBytes((int)material.materialType);
+        fs.Write(bytes, 0, bytes.Length);
+        FileOffset += bytes.Length;
+
+        if (material.materialType == BSDFMaterial.BSDFType.Matte)
+        {
+            WriteTexture(fs, material.matte.kd);
+            WriteTexture(fs, material.matte.sigma);
+        }
+        else if (material.materialType == BSDFMaterial.BSDFType.Plastic)
+        {
+            WriteTexture(fs, material.plastic.kd);
+            WriteTexture(fs, material.plastic.ks);
+            WriteTexture(fs, material.plastic.roughnessTexture);
+        }
+        else if (material.materialType == BSDFMaterial.BSDFType.Mirror)
+        {
+            WriteTexture(fs, material.mirror.kr);
+        }
     }
 
     public void WriteCamera(FileStream fs, Camera camera)
     {
         WriteTransform(fs, camera.transform, true);
+        byte[] bytes = BitConverter.GetBytes(camera.fieldOfView * Mathf.Deg2Rad);
+        fs.Write(bytes, 0, bytes.Length);
+        FileOffset += bytes.Length;
 
-        byte[] bytes = BitConverter.GetBytes(camera.orthographic);
+        bytes = BitConverter.GetBytes(camera.orthographic);
         fs.Write(bytes, 0, bytes.Length);
         FileOffset += bytes.Length;
     }
@@ -364,7 +433,7 @@ public static class SceneExport
         SceneWriter sw = new SceneWriter();
         sw.WriteScene("/scene.rt");
 
-        sw.WriteTriangleMeshes("/scene.mesh");
+        sw.WriteTriangleMeshes("/scene.m");
     }
     
     

@@ -132,8 +132,8 @@ GameObject:
   - component: {fileID: 195921855}
   - component: {fileID: 195921854}
   - component: {fileID: 195921853}
-  - component: {fileID: 195921852}
   - component: {fileID: 195921851}
+  - component: {fileID: 195921852}
   m_Layer: 0
   m_Name: Quad
   m_TagString: Untagged
@@ -156,20 +156,19 @@ MonoBehaviour:
   shapeType: 2
   isAreaLight: 0
   lightColor: {r: 1, g: 1, b: 1, a: 1}
---- !u!64 &195921852
-MeshCollider:
+--- !u!114 &195921852
+MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 195921850}
-  m_Material: {fileID: 0}
-  m_IsTrigger: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Convex: 0
-  m_CookingOptions: 30
-  m_Mesh: {fileID: 10210, guid: 0000000000000000e000000000000000, type: 0}
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3709d2bbc75fd194480d458287f8e6db, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  materialType: 2
 --- !u!23 &195921853
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -242,8 +241,8 @@ GameObject:
   - component: {fileID: 269155968}
   - component: {fileID: 269155967}
   - component: {fileID: 269155966}
-  - component: {fileID: 269155965}
   - component: {fileID: 269155969}
+  - component: {fileID: 269155970}
   m_Layer: 0
   m_Name: Sphere (1)
   m_TagString: Untagged
@@ -251,19 +250,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!135 &269155965
-SphereCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 269155964}
-  m_Material: {fileID: 0}
-  m_IsTrigger: 0
-  m_Enabled: 1
-  serializedVersion: 2
-  m_Radius: 0.5
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!23 &269155966
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -340,6 +326,19 @@ MonoBehaviour:
   shapeType: 0
   isAreaLight: 0
   lightColor: {r: 1, g: 1, b: 1, a: 1}
+--- !u!114 &269155970
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 269155964}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3709d2bbc75fd194480d458287f8e6db, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  materialType: 1
 --- !u!1 &596901692
 GameObject:
   m_ObjectHideFlags: 0
@@ -618,8 +617,8 @@ GameObject:
   - component: {fileID: 1583017725}
   - component: {fileID: 1583017724}
   - component: {fileID: 1583017723}
-  - component: {fileID: 1583017722}
   - component: {fileID: 1583017721}
+  - component: {fileID: 1583017726}
   m_Layer: 0
   m_Name: Plane
   m_TagString: Untagged
@@ -642,20 +641,6 @@ MonoBehaviour:
   shapeType: 2
   isAreaLight: 0
   lightColor: {r: 1, g: 1, b: 1, a: 1}
---- !u!64 &1583017722
-MeshCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1583017720}
-  m_Material: {fileID: 0}
-  m_IsTrigger: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Convex: 0
-  m_CookingOptions: 30
-  m_Mesh: {fileID: 10209, guid: 0000000000000000e000000000000000, type: 0}
 --- !u!23 &1583017723
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -717,3 +702,16 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 4
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1583017726
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1583017720}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3709d2bbc75fd194480d458287f8e6db, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  materialType: 0
