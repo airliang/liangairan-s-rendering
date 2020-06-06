@@ -72,17 +72,22 @@ Material:
     - _OcclusionStrength: 1
     - _OutlineWidth: 3
     - _Parallax: 0.02
+    - _RotationZ: 0
     - _SmoothnessTextureChannel: 0
     - _SpecularHighlights: 1
+    - _SpecularScale: 0.244
+    - _SquareN: 0
+    - _SquareTau: 0.916
     - _SrcBlend: 1
     - _UVSec: 0
     - _ZWrite: 1
-    - _shininess: 11.9
-    - ks: 0.244
+    - _shininess: 28
+    - ks: 0.192
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _DiffuseSegment: {r: 0.5, g: 0.9, b: 1, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
-    - _OutlineColor: {r: 0.6509434, g: 0.31626025, b: 0.31626025, a: 1}
+    - _OutlineColor: {r: 0, g: 0, b: 0, a: 1}
     - _ShadowColor: {r: 1, g: 1, b: 1, a: 1}
-    - _scaleTranslate: {r: -22.53, g: -0.37, b: 1.25, a: 0.81}
+    - _scaleTranslate: {r: 0, g: 0, b: 0.07, a: 0.1}
+    - _splitUV: {r: 0, g: 0, b: 0, a: 0}

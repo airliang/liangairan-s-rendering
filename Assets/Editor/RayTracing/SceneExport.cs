@@ -22,6 +22,7 @@ class SceneWriter
     private int FileOffset = 0;
 
     private List<Mesh> triangleMeshes = new List<Mesh>();
+    private Mesh rectangleMesh = null;
 
     public void WriteTransform(FileStream fs, Transform transform, bool ignoreScale)
     {
@@ -73,11 +74,11 @@ class SceneWriter
         }
     }
 
-    public void WriteLight(FileStream fs, Light light)
+    public void WriteLight(FileStream fs, RTLight light)
     {
         WriteTransform(fs, light.transform, true);
 
-        byte[] bytes = BitConverter.GetBytes((int)light.type);
+        byte[] bytes = BitConverter.GetBytes((int)light.lightType);
         fs.Write(bytes, 0, bytes.Length);
         FileOffset += bytes.Length;
 
@@ -97,9 +98,9 @@ class SceneWriter
         fs.Write(bytes, 0, bytes.Length);
         FileOffset += bytes.Length;
 
-        switch (light.type)
+        switch (light.lightType)
         {
-            case LightType.Directional:
+            case RTLight.LightType.delta_distant:
                 {
                     bytes = BitConverter.GetBytes(-light.transform.forward.x);
                     fs.Write(bytes, 0, bytes.Length);
@@ -114,19 +115,9 @@ class SceneWriter
                     FileOffset += bytes.Length;
                 }
                 break;
-            case LightType.Point:
+            case RTLight.LightType.delta_point:
                 {
-
-                }
-                break;
-            case LightType.Spot:
-                break;
-            case LightType.Area:
-                break;
-            case LightType.Disc:
-                {
-                    //写入半径
-                    bytes = BitConverter.GetBytes(light.range);
+                    bytes = BitConverter.GetBytes(light.pointRadius);
                     fs.Write(bytes, 0, bytes.Length);
                     FileOffset += bytes.Length;
                 }
@@ -140,7 +131,31 @@ class SceneWriter
         fs.Write(bytes, 0, bytes.Length);
         FileOffset += bytes.Length;
 
-        WriteTransform(fs, shape.transform, false);
+        bool ignoreScale = !(shape.shapeType == Shape.ShapeType.triangleMesh || shape.shapeType == Shape.ShapeType.rectangle);
+        WriteTransform(fs, shape.transform, ignoreScale);
+
+        bytes = BitConverter.GetBytes(shape.isAreaLight);
+        fs.Write(bytes, 0, bytes.Length);
+        FileOffset += bytes.Length;
+
+        if (shape.isAreaLight)
+        {
+            bytes = BitConverter.GetBytes(shape.lightSpectrum.r * shape.spectrumScale.x);
+            fs.Write(bytes, 0, bytes.Length);
+            FileOffset += bytes.Length;
+
+            bytes = BitConverter.GetBytes(shape.lightSpectrum.g * shape.spectrumScale.y);
+            fs.Write(bytes, 0, bytes.Length);
+            FileOffset += bytes.Length;
+
+            bytes = BitConverter.GetBytes(shape.lightSpectrum.b * shape.spectrumScale.z);
+            fs.Write(bytes, 0, bytes.Length);
+            FileOffset += bytes.Length;
+
+            bytes = BitConverter.GetBytes(shape.lightIntensity);
+            fs.Write(bytes, 0, bytes.Length);
+            FileOffset += bytes.Length;
+        }
 
         if (shape.shapeType == Shape.ShapeType.sphere)
         {
@@ -169,19 +184,49 @@ class SceneWriter
             fs.Write(bytes, 0, bytes.Length);
             FileOffset += bytes.Length;
         }
+        else if (shape.shapeType == Shape.ShapeType.rectangle)
+        {
+            if (rectangleMesh == null)
+            {
+                rectangleMesh = new Mesh();
+
+                Vector3[] vertices = new Vector3[4];
+                vertices[0] = new Vector3(-5.0f, 0.0f, 5.0f);
+                vertices[1] = new Vector3(5.0f, 0.0f, 5.0f);
+                vertices[2] = new Vector3(-5.0f, 0.0f, -5.0f);
+                vertices[3] = new Vector3(5.0f, 0.0f, -5.0f);
+                rectangleMesh.vertices = vertices;
+                int[] triangles = new int[] { 0, 1, 2, 1, 3, 2 };
+                rectangleMesh.triangles = triangles;
+
+                Vector3[] normals = new Vector3[4];
+                for (int i = 0; i < 4; ++i)
+                {
+                    normals[i] = Vector3.up;
+                }
+                rectangleMesh.normals = normals;
+
+                Vector2[] uvs = new Vector2[] { new Vector2(0.0f, 0.0f), 
+                    new Vector2(1.0f, 0.0f), new Vector2(0.0f, 1.0f), new Vector2(1.0f, 1.0f) };
+                rectangleMesh.uv = uvs;
+
+                triangleMeshes.Add(rectangleMesh);
+            }
+
+            int meshIndex = triangleMeshes.IndexOf(rectangleMesh);
+
+            bytes = BitConverter.GetBytes(meshIndex);
+            fs.Write(bytes, 0, bytes.Length);
+            FileOffset += bytes.Length;
+
+            if (shape.isAreaLight)
+            {
+                Debug.Log("Shape is areaLight, meshIndex = " + meshIndex + " triangles = " + rectangleMesh.triangles.Length / 3);
+            }
+        }
 
         BSDFMaterial bsdfMaterial = shape.gameObject.GetComponent<BSDFMaterial>();
         WriteMaterial(fs, bsdfMaterial);
-    }
-
-    public void WriteDiskShape(FileStream fs, Shape shape)
-    {
-
-    }
-
-    public void WriteRetangleShape(FileStream fs, Shape shape)
-    {
-
     }
 
     private void WriteTexture(FileStream fs, BSDFSpectrumTexture texture)
@@ -208,6 +253,45 @@ class SceneWriter
         else if (texture.type == BSDFTextureType.Image)
         {
             //暂时不支持
+            bytes = System.Text.Encoding.Default.GetBytes(texture.imageFile);
+            byte[] imageFileBytes = new byte[256];
+            for (int i = 0; i < bytes.Length; ++i)
+            {
+                imageFileBytes[i] = bytes[i];
+            }
+            fs.Write(imageFileBytes, 0, 256);
+            FileOffset += 256;
+
+            bytes = BitConverter.GetBytes(texture.gamma);
+            fs.Write(bytes, 0, bytes.Length);
+            FileOffset += bytes.Length;
+
+            bytes = BitConverter.GetBytes((int)texture.wrap);
+            fs.Write(bytes, 0, bytes.Length);
+            FileOffset += bytes.Length;
+
+            bytes = BitConverter.GetBytes((int)texture.mappingType);
+            fs.Write(bytes, 0, bytes.Length);
+            FileOffset += bytes.Length;
+
+            if (texture.mappingType == BSDFTextureUVMapping.UVMapping2D)
+            {
+                bytes = BitConverter.GetBytes((int)texture.uvMapping2D.su);
+                fs.Write(bytes, 0, bytes.Length);
+                FileOffset += bytes.Length;
+
+                bytes = BitConverter.GetBytes((int)texture.uvMapping2D.sv);
+                fs.Write(bytes, 0, bytes.Length);
+                FileOffset += bytes.Length;
+
+                bytes = BitConverter.GetBytes((int)texture.uvMapping2D.du);
+                fs.Write(bytes, 0, bytes.Length);
+                FileOffset += bytes.Length;
+
+                bytes = BitConverter.GetBytes((int)texture.uvMapping2D.dv);
+                fs.Write(bytes, 0, bytes.Length);
+                FileOffset += bytes.Length;
+            }
         }
     }
 
@@ -249,6 +333,14 @@ class SceneWriter
         else if (material.materialType == BSDFMaterial.BSDFType.Mirror)
         {
             WriteTexture(fs, material.mirror.kr);
+        }
+        else if (material.materialType == BSDFMaterial.BSDFType.Glass)
+        {
+            WriteTexture(fs, material.glass.kr);
+            WriteTexture(fs, material.glass.ks);
+            WriteTexture(fs, material.glass.uRougness);
+            WriteTexture(fs, material.glass.vRougness);
+            WriteTexture(fs, material.glass.index);
         }
     }
 
@@ -394,7 +486,7 @@ class SceneWriter
         Camera camera = GameObject.FindObjectOfType<Camera>();
         WriteCamera(fs, camera);
 
-        Light[] lights = GameObject.FindObjectsOfType<Light>();
+        RTLight[] lights = GameObject.FindObjectsOfType<RTLight>();
         byte[] bytes = BitConverter.GetBytes(lights.Length);
         fs.Write(bytes, 0, bytes.Length);
         FileOffset += bytes.Length;
@@ -413,6 +505,16 @@ class SceneWriter
         fs.Close();
         Debug.Log(OutputPath + filename + " write completed! totalBytes = " + FileOffset);
     }
+
+    public void Clear()
+    {
+        triangleMeshes.Clear();
+        if (rectangleMesh != null)
+        {
+            rectangleMesh.Clear();
+        }
+        rectangleMesh = null;
+    }
 }
 
 public static class SceneExport
@@ -421,19 +523,31 @@ public static class SceneExport
     [MenuItem("GameObject/Export Scene for RayTracing", false, 8)]
     private static void ExportRayTracingScene()
     {
-       
+
         //GameObject[] rootObjects = SceneManager.GetActiveScene().GetRootGameObjects();
         //for (int i = 0; i < rootObjects.Length; i++)
         //{
         //    GameObject rootObject = rootObjects[i];
-            
-        //}
 
+        //}
+        Ray ray = new Ray(new Vector3(-2.75519872f, 2.73157096f, 13.1390285f), new Vector3(0.383678913f, 0.121772133f, -0.915402591f));
+        ray = new Ray(new Vector3(-2.75519872f, 2.73157096f, 13.1390285f), new Vector3(0, 0, -1.0f));
+        RaycastHit info;
+        bool hit = Physics.Raycast(ray, out info);
+        if (hit)
+        {
+            Debug.LogWarning("ray hit succeed, info name = " + info.collider.gameObject.name);
+        }
+        else
+        {
+            Debug.LogWarning("ray hit nothing!");
+        }
 
         SceneWriter sw = new SceneWriter();
         sw.WriteScene("/scene.rt");
 
         sw.WriteTriangleMeshes("/scene.m");
+        sw.Clear();
     }
     
     

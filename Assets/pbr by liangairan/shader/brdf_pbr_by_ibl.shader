@@ -5,7 +5,7 @@ Shader "liangairan/pbr/pbr by IBL" {
 //f(l,v) = ---------------------------
 // 　　　　　　4(n·l)(n·v)
 	Properties {
-		_Color ("Color", Color) = (1,1,1,1)
+		_Color ("Color", Color) = (0.5,0.5,0.5,1)
 		_MainTex ("Albedo (RGB)", 2D) = "white" {}
     _NormalTex("NormalMap (RGB)", 2D) = "bump" {}
     //_ShadowmapTex("ShadowMap", 2D) = "black" {}
@@ -118,7 +118,8 @@ Shader "liangairan/pbr/pbr by IBL" {
                 float VdH = max(dot(viewDirection, h), 0);
                 float NdH = max(dot(normalDirection, h), 0);
                 float LdH = max(dot(lightDirection, h), 0);
-
+                
+                //return half4(fresnelSchlick(NdV, _F0), 1);
                 
                 fixed4 albedo = i.color * tex2D(_MainTex, i.uv) * _Color;
 
@@ -126,8 +127,13 @@ Shader "liangairan/pbr/pbr by IBL" {
                 fixed3 totalLightColor = UNITY_LIGHTMODEL_AMBIENT.xyz + attenColor;
                 //fixed3 diffuseLambert = max(0, (totalLightColor - UNITY_LIGHTMODEL_AMBIENT.xyz) * NdL + UNITY_LIGHTMODEL_AMBIENT.xyz);
 
-                fixed3 specularColor = lerp(fixed3(0.04, 0.04, 0.04), _F0.rgb, _Metallic);
-                half3 F = fresnelSchlick(VdH, specularColor.rgb);
+                //目的是当金属度为0时，也希望有0.04的高光
+                // calculate reflectance at normal incidence; if dia-electric (like plastic) use F0 
+                // of 0.04 and if it's a metal, use the albedo color as F0 (metallic workflow)  
+                fixed3 F0 = fixed3(0.04, 0.04, 0.04);
+                F0 = lerp(F0, albedo.rgb, _Metallic);
+                //fixed3 specularColor = lerp(fixed3(0.04, 0.04, 0.04), _F0.rgb, _Metallic);
+                half3 F = fresnelSchlick(VdH, F0);
                 half3 kS = F;
                 half3 kD = (half3(1, 1, 1) - kS) * (1.0 - _Metallic);
                 fixed3 directDiffuse = (albedo.rgb / PI) * kD * totalLightColor * NdL;
@@ -152,7 +158,8 @@ Shader "liangairan/pbr/pbr by IBL" {
 				lightOut.rgb = directDiffuse + specular * totalLightColor * NdL;
                 fixed4 irradianceColor = texCUBE(_IrradianceMap, normalDirection);
 
-                kS = fresnelSchlick(LdH, specularColor);
+                F = fresnelSchlickRoughness(NdV, F0, _Roughness);
+                kS = F;//fresnelSchlick(LdH, specularColor);
                 kD = 1.0 - kS;
                 kD *= 1.0 - _Metallic;
                 fixed3 indirectDiffuse = irradianceColor.rgb * albedo.rgb * kD;
@@ -161,7 +168,7 @@ Shader "liangairan/pbr/pbr by IBL" {
                 const float MAX_REFLECTION_LOD = 6.0;
                 fixed3 indirectEnvColor = UNITY_SAMPLE_TEXCUBE_LOD(_SpecularIndirectMap, R, _Roughness * MAX_REFLECTION_LOD).rgb;
                 fixed3 brdf = tex2D(_BRDFLUTTex, half2(NdV, _Roughness));
-                fixed3 indirectSpecular = indirectEnvColor * (kS * brdf.x + brdf.y);
+                fixed3 indirectSpecular = indirectEnvColor * (F * brdf.x + brdf.y);
 
                 lightOut.rgb += indirectDiffuse + indirectSpecular;
 

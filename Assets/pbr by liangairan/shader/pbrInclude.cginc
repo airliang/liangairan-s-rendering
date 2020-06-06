@@ -6,6 +6,12 @@ half3 fresnelSchlick(float cosTheta, half3 F0)
 	return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
 }
 
+half3 fresnelSchlickRoughness(float cosTheta, half3 F0, float roughness)
+{
+	float oneminusroughness = 1.0 - roughness;
+	return F0 + (max(half3(oneminusroughness, oneminusroughness, oneminusroughness), F0) - F0) * pow(1.0 - cosTheta, 5.0);
+}
+
 half3 DiffuseLambert(half3 diffuse)
 {
 	return diffuse / PI;

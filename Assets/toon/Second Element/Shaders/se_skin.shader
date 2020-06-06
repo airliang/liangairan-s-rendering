@@ -10,7 +10,12 @@
         _OutlineWidth("outline width", Range(0,5)) = 2
         ks("specular ks", Range(0,1)) = 0.5
         _shininess("specular shininess", Range(0, 64)) = 10
-            _scaleTranslate("xy scale, zw-translate xy", Vector) = (0, 0, 0, 0)
+        _scaleTranslate("xy scale, zw-translate xy", Vector) = (0, 0, 0, 0)
+        _SquareN("Square N", Range(0, 100)) = 1
+            _SquareTau("Square Tau", Range(0, 1)) = 0
+        _SpecularScale("specular scale", Range(0,1)) = 0
+        _RotationZ("half vector z-axis rotation", Range(-180, 180)) = 0
+        _splitUV("split uv", Vector) = (0, 0, 0, 0)
     }
     SubShader
     {

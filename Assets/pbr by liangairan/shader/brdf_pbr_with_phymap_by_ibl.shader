@@ -121,17 +121,19 @@ Shader "liangairan/pbr/pbr with phymap by IBL" {
                 float LdH = max(dot(lightDirection, h), 0);
 
                 
+                
                 fixed4 albedo = tex2D(_MainTex, i.uv);
                 fixed4 ctrlMap = tex2D(_RoughnessTex, i.uv);
                 float _Metallic = ctrlMap.r;
-                float _Roughness = ctrlMap.a;
+                float _Roughness = 1 - ctrlMap.a;
 
                 //radiance
                 fixed3 totalLightColor = UNITY_LIGHTMODEL_AMBIENT.xyz + attenColor;
                 //fixed3 diffuseLambert = max(0, (totalLightColor - UNITY_LIGHTMODEL_AMBIENT.xyz) * NdL + UNITY_LIGHTMODEL_AMBIENT.xyz);
-
-                fixed3 specularColor = lerp(fixed3(0.04, 0.04, 0.04), _F0.rgb, _Metallic);
-                half3 F = fresnelSchlick(VdH, specularColor.rgb);
+                fixed3 F0 = fixed3(0.04, 0.04, 0.04);
+                F0 = lerp(F0, albedo.rgb, _Metallic);
+                //fixed3 specularColor = lerp(fixed3(0.04, 0.04, 0.04), _F0.rgb, _Metallic);
+                half3 F = fresnelSchlick(VdH, F0);
                 half3 kS = F;
                 half3 kD = (half3(1, 1, 1) - kS) * (1.0 - _Metallic);
                 fixed3 directDiffuse = (albedo.rgb / PI) * kD * totalLightColor * NdL;
@@ -152,8 +154,10 @@ Shader "liangairan/pbr/pbr with phymap by IBL" {
                 fixed4 lightOut;
                 lightOut.rgb = directDiffuse + specular * totalLightColor * NdL;
                 fixed4 irradianceColor = texCUBE(_IrradianceMap, normalDirection);
-
-                kS = fresnelSchlick(VdH, specularColor);
+                 
+                F = fresnelSchlickRoughness(NdV, F0, _Roughness);
+                kS = F;
+                //kS = fresnelSchlick(VdH, specularColor);
                 kD = 1.0 - kS;
                 kD *= 1.0 - _Metallic;
                 fixed3 indirectDiffuse = irradianceColor.rgb * albedo.rgb * kD;

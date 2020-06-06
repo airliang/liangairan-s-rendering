@@ -1,4 +1,6 @@
-﻿#include "AutoLight.cginc"
+﻿// Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
+
+#include "AutoLight.cginc"
 sampler2D _MainTex;
 float4 _MainTex_ST;
 
@@ -13,6 +15,13 @@ float4 _LightColor0;
 float ks;
 float _shininess;
 float4 _scaleTranslate;  //xy-scale, zw-translate
+float2 _splitUV;
+float _SpecularScale;
+float _SquareN;
+float _SquareTau;
+float _RotationZ;
+
+#define DegreeToRadian 0.0174533
 
 struct CustomVertexInput
 {
@@ -55,9 +64,8 @@ CustomVertexOutput vert(CustomVertexInput v)
 	o.posWorld = mul(unity_ObjectToWorld, v.vertex);
 	//o.posWorld = mul(unity_ObjectToWorld, v.vertex);
 
-	float3 binormal = cross(v.normal, v.tangent.xyz) * v.tangent.w;
-
-	float3x3 rotation = float3x3(v.tangent.xyz, binormal, v.normal);
+	TANGENT_SPACE_ROTATION;
+	//tengent space's normal is (0, 0, 1).
 	o.normalTangent = mul(rotation, v.normal);
 	o.viewTangent = mul(rotation, ObjSpaceViewDir(v.vertex));
 	o.lightTangent = mul(rotation, ObjSpaceLightDir(v.vertex));
@@ -104,24 +112,61 @@ half4 frag_skin(CustomVertexOutput i) : COLOR
 	//}
 	half3 normalTangent = normalize(i.normalTangent);
 	half3 viewTangent = normalize(i.viewTangent);
-	half3 halfTangent = normalize(normalTangent + viewTangent);
-
+	half3 lightTangent = normalize(i.lightTangent);
+	half3 halfTangent = normalize(lightTangent + viewTangent);
+	//rotation
+	//z axis rotation
+	float zRad = _RotationZ * DegreeToRadian;
+	float3x3 zRotation = float3x3(cos(zRad), sin(zRad), 0,
+		-sin(zRad), cos(zRad), 0,
+		0, 0, 1);
+	halfTangent = mul(zRotation, halfTangent);
+	
 	// Scale
 	halfTangent = halfTangent - _scaleTranslate.x * halfTangent.x * half3(1, 0, 0);
 	halfTangent = normalize(halfTangent);
 	halfTangent = halfTangent - _scaleTranslate.y * halfTangent.y * half3(0, 1, 0);
 	halfTangent = normalize(halfTangent);
-	//return half4(halfTangent, 1);
+
+	
 
 	// Translation
+	// inside the tangent space
+	// tangent = (1, 0, 0) bnormal = (0, 1, 0)
+	//H' = h + alpha * tangent + beta * bnormal = h + (alpha, beta, 0);
 	halfTangent = halfTangent + half3(_scaleTranslate.z, _scaleTranslate.w, 0);
 	halfTangent = normalize(halfTangent);
-	half spec = dot(normalTangent, halfTangent);
-	float3 specular = _LightColor0.rgb * spec * ks;
+
+	//split
+	halfTangent = halfTangent - float3(_splitUV.x * sign(halfTangent.x), _splitUV.y * sign(halfTangent.y), 0);
+	halfTangent = normalize(halfTangent);
+	
+	// Square
+	float theta = min(acos(abs(halfTangent.x)), acos(abs(halfTangent.y)));
+	float sqrnorm = sin(pow(2 * theta, floor(_SquareN)));
+	halfTangent = halfTangent - _SquareTau * sqrnorm * float3(halfTangent.x, halfTangent.y, 0);
+	halfTangent = normalize(halfTangent);
+	
+	//float sqrThetaX = acos(halfTangent.x);
+	//float sqrThetaY = acos(halfTangent.y);
+	//fixed sqrnormX = sin(pow(2 * sqrThetaX, _SquareN));
+	//fixed sqrnormY = sin(pow(2 * sqrThetaY, _SquareN));
+	//halfTangent = halfTangent - _SquareTau * (sqrnormX * halfTangent.x * fixed3(1, 0, 0) + sqrnormY * halfTangent.y * fixed3(0, 1, 0));
+	//halfTangent = normalize(halfTangent);
+	
+
+	half spec = max(pow(max(dot(halfTangent, normalTangent), 0), _shininess), 0);
+#ifdef _USE_RAM
+	half4 rampSpecColor = tex2D(_RampSpecTex, float2(spec, 0));
+	half3 specular = _LightColor0.rgb * spec * ks * rampSpecColor.rgb;
+#else
+	w = fwidth(spec) * 3.0;
+	half3 specular = lerp(half3(0, 0, 0), _LightColor0.rgb * ks, smoothstep(-w, w, spec + _SpecularScale - 1));
+#endif
+	
 	//fixed3 viewDirection = normalize(_WorldSpaceCameraPos.xyz - i.posWorld.xyz);
 	//float3 H = normalize(lightDir + viewDirection);
 	//float specularLight = max(pow(max(dot(H, normalWorld), 0), _shininess), 0);
-
  //   float3 specular = _LightColor0.rgb * specularLight * ks;
 
 	col.rgb = diffuse + specular;
@@ -154,7 +199,7 @@ VSOut vert_outline(appdata_outline v)
     float4 clipPosition = UnityObjectToClipPos(v.vertex);
     float3 worldNormal = UnityObjectToWorldNormal(v.normal);
     float3 clipNormal = mul((float3x3) UNITY_MATRIX_VP, worldNormal);
-    float2 normalOffset = normalize(clipNormal.xy) / _ScreenParams.xy * _OutlineWidth * clipPosition.w;
+    float2 normalOffset = normalize(clipNormal.xy) / _ScreenParams.xy * _OutlineWidth * clipPosition.w * v.color.rg;
     clipPosition.xy += normalOffset;
 
     o.pos = clipPosition;

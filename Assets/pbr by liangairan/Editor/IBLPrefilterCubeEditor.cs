@@ -52,7 +52,7 @@ public class IBLPrefilterCubeEditor : EditorWindow {
             //创建一个cube
             mPBRObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
             mPBRObject.AddComponent<Camera>();
-            //mPBRObject.layer = LayerMask.NameToLayer("RenderToCubemap");
+            mPBRObject.layer = LayerMask.NameToLayer("RenderToCubemap");
             mPBRObject.transform.position = Vector3.zero;
             mPBRObject.transform.rotation = Quaternion.identity;
         }
@@ -77,7 +77,7 @@ public class IBLPrefilterCubeEditor : EditorWindow {
         mCamera.clearFlags = CameraClearFlags.SolidColor;
         mCamera.backgroundColor = Color.black;
         mCamera.targetTexture = null;
-        //camera.cullingMask = 1 << LayerMask.NameToLayer("RenderToCubemap");
+        mCamera.cullingMask = 1 << LayerMask.NameToLayer("RenderToCubemap");
 
 
         if (mPrefilterIrradianceDiffuseMaterial == null)
@@ -136,7 +136,7 @@ public class IBLPrefilterCubeEditor : EditorWindow {
         {
             //创建一个球
             mPBRObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            //mPBRObject.layer = LayerMask.NameToLayer("RenderToCubemap");
+            mPBRObject.layer = LayerMask.NameToLayer("RenderToCubemap");
             mPBRObject.transform.position = Vector3.zero;
             mPBRObject.transform.rotation = Quaternion.identity;
         }
@@ -160,7 +160,7 @@ public class IBLPrefilterCubeEditor : EditorWindow {
  
         mCamera.clearFlags = CameraClearFlags.SolidColor;
         mCamera.backgroundColor = Color.black;
-
+        mCamera.cullingMask = 1 << LayerMask.NameToLayer("RenderToCubemap");
         mCamera.targetTexture = null;
 
         if (mPrefilterEnvSpecularMaterial == null)
