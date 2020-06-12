@@ -174,7 +174,7 @@ public class IBLPrefilterCubeEditor : EditorWindow {
         mPBRObject.GetComponent<Renderer>().sharedMaterial = mPrefilterEnvSpecularMaterial;
 
         int cubeMapSize = mOutputSpecularMapSize;
-        int mipmapsNum = (int)Mathf.Log(cubeMapSize, 2);
+        int mipmapsNum = (int)Mathf.Log(cubeMapSize, 2) + 1;
 
         for (int i = 0; i < mipmapsNum; ++i)
         {
