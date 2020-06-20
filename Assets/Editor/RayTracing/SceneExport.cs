@@ -5,6 +5,7 @@ using UnityEditor;
 using UnityEngine.SceneManagement;
 using System.IO;
 using System;
+using System.Linq;
 
 class TriangleMesh
 {
@@ -22,6 +23,7 @@ class SceneWriter
     private int FileOffset = 0;
 
     private List<Mesh> triangleMeshes = new List<Mesh>();
+    private List<Medium> mediums = new List<Medium>();
     private Mesh rectangleMesh = null;
 
     public void WriteTransform(FileStream fs, Transform transform, bool ignoreScale)
@@ -74,6 +76,30 @@ class SceneWriter
         }
     }
 
+    public void WriteMediumInterface(FileStream fs, Transform transform)
+    {
+        MediumInterface mi = transform.GetComponent<MediumInterface>();
+        bool hasMedium = mi != null;
+        byte[] bytes = BitConverter.GetBytes(hasMedium);
+        fs.Write(bytes, 0, bytes.Length);
+        FileOffset += bytes.Length;
+
+        if (hasMedium)
+        {
+            int insideIndex = FindMediumIndex(mi.inside);
+
+            bytes = BitConverter.GetBytes(insideIndex);
+            fs.Write(bytes, 0, bytes.Length);
+            FileOffset += bytes.Length;
+
+            int outsideIndex = FindMediumIndex(mi.outside);
+
+            bytes = BitConverter.GetBytes(outsideIndex);
+            fs.Write(bytes, 0, bytes.Length);
+            FileOffset += bytes.Length;
+        }
+    }
+
     public void WriteLight(FileStream fs, RTLight light)
     {
         WriteTransform(fs, light.transform, true);
@@ -97,6 +123,14 @@ class SceneWriter
         bytes = BitConverter.GetBytes(light.intensity);
         fs.Write(bytes, 0, bytes.Length);
         FileOffset += bytes.Length;
+
+        //int mediumIndex = FindObjectMedium(light.transform);
+
+        //bytes = BitConverter.GetBytes(mediumIndex);
+        //fs.Write(bytes, 0, bytes.Length);
+        //FileOffset += bytes.Length;
+
+        WriteMediumInterface(fs, light.transform);
 
         switch (light.lightType)
         {
@@ -133,6 +167,8 @@ class SceneWriter
 
         bool ignoreScale = !(shape.shapeType == Shape.ShapeType.triangleMesh || shape.shapeType == Shape.ShapeType.rectangle);
         WriteTransform(fs, shape.transform, ignoreScale);
+
+        WriteMediumInterface(fs, shape.transform);
 
         bytes = BitConverter.GetBytes(shape.isAreaLight);
         fs.Write(bytes, 0, bytes.Length);
@@ -226,7 +262,15 @@ class SceneWriter
         }
 
         BSDFMaterial bsdfMaterial = shape.gameObject.GetComponent<BSDFMaterial>();
-        WriteMaterial(fs, bsdfMaterial);
+        bool hasMaterial = bsdfMaterial != null;
+        bytes = BitConverter.GetBytes(hasMaterial);
+        fs.Write(bytes, 0, bytes.Length);
+        FileOffset += bytes.Length;
+        if (hasMaterial)
+        {
+            WriteMaterial(fs, bsdfMaterial);
+        }
+        
     }
 
     private void WriteTexture(FileStream fs, BSDFSpectrumTexture texture)
@@ -354,6 +398,13 @@ class SceneWriter
         bytes = BitConverter.GetBytes(camera.orthographic);
         fs.Write(bytes, 0, bytes.Length);
         FileOffset += bytes.Length;
+
+        //int mediumIndex = FindObjectMedium(camera.transform);
+
+        //bytes = BitConverter.GetBytes(mediumIndex);
+        //fs.Write(bytes, 0, bytes.Length);
+        //FileOffset += bytes.Length;
+
     }
 
     private void WriteMesh(FileStream fs, Mesh mesh)
@@ -478,16 +529,77 @@ class SceneWriter
         Debug.Log(OutputPath + fileName + " write completed! totalBytes = " + FileOffset);
     }
 
+    public void WriteMedium(FileStream fs, Medium medium)
+    {
+        byte[] bytes = System.Text.Encoding.UTF8.GetBytes(medium.name);
+        byte[] nameBytes = new byte[128];
+        for (int i = 0; i < bytes.Length; ++i)
+        {
+            nameBytes[i] = bytes[i];
+        }
+        fs.Write(nameBytes, 0, 128);
+        FileOffset += bytes.Length;
+
+        bytes = BitConverter.GetBytes((int)medium.type);
+        fs.Write(bytes, 0, bytes.Length);
+        FileOffset += bytes.Length;
+
+        if (medium.type == Medium.MediumType.Homogeneous)
+        {
+            bytes = BitConverter.GetBytes(medium.sigma_a.r);
+            fs.Write(bytes, 0, bytes.Length);
+            FileOffset += bytes.Length;
+
+            bytes = BitConverter.GetBytes(medium.sigma_a.g);
+            fs.Write(bytes, 0, bytes.Length);
+            FileOffset += bytes.Length;
+
+            bytes = BitConverter.GetBytes(medium.sigma_a.b);
+            fs.Write(bytes, 0, bytes.Length);
+            FileOffset += bytes.Length;
+
+            bytes = BitConverter.GetBytes(medium.sigma_s.r);
+            fs.Write(bytes, 0, bytes.Length);
+            FileOffset += bytes.Length;
+
+            bytes = BitConverter.GetBytes(medium.sigma_s.g);
+            fs.Write(bytes, 0, bytes.Length);
+            FileOffset += bytes.Length;
+
+            bytes = BitConverter.GetBytes(medium.sigma_s.b);
+            fs.Write(bytes, 0, bytes.Length);
+            FileOffset += bytes.Length;
+
+            bytes = BitConverter.GetBytes(medium.g);
+            fs.Write(bytes, 0, bytes.Length);
+            FileOffset += bytes.Length;
+        }
+        else
+        {
+
+        }
+    }
+
     public void WriteScene(string filename)
     {
         FileOffset = 0;
         FileStream fs = new FileStream(OutputPath + filename, FileMode.OpenOrCreate, FileAccess.Write);
 
+        Medium[] mediumsTmp = UnityEngine.Object.FindObjectsOfType<Medium>();
+        byte[] bytes = BitConverter.GetBytes(mediumsTmp.Length);
+        fs.Write(bytes, 0, bytes.Length);
+        FileOffset += bytes.Length;
+        for (int i = 0; i < mediumsTmp.Length; ++i)
+        {
+            WriteMedium(fs, mediumsTmp[i]);
+        }
+        mediums = mediumsTmp.ToList();
+
         Camera camera = GameObject.FindObjectOfType<Camera>();
         WriteCamera(fs, camera);
 
         RTLight[] lights = GameObject.FindObjectsOfType<RTLight>();
-        byte[] bytes = BitConverter.GetBytes(lights.Length);
+        bytes = BitConverter.GetBytes(lights.Length);
         fs.Write(bytes, 0, bytes.Length);
         FileOffset += bytes.Length;
         for (int i = 0; i < lights.Length; ++i)
@@ -514,6 +626,21 @@ class SceneWriter
             rectangleMesh.Clear();
         }
         rectangleMesh = null;
+
+        mediums.Clear();
+    }
+
+    public int FindMediumIndex(Medium medium)
+    {
+        if (medium == null)
+            return -1;
+
+        for (int i = 0; i < mediums.Count; ++i)
+        {
+            if (medium == mediums[i])
+                return i;
+        }
+        return -1;
     }
 }
 
