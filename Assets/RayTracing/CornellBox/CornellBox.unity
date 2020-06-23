@@ -321,7 +321,7 @@ Transform:
   m_GameObject: {fileID: 10}
   m_LocalRotation: {x: -1, y: -0.000000043711385, z: -0.000000043711385, w: -0.00000008742278}
   m_LocalPosition: {x: -2.7552, y: 5.487, z: 2.8298204}
-  m_LocalScale: {x: 0.0012, y: 0.001, z: 0.001}
+  m_LocalScale: {x: 0.0012, y: 1, z: 0.001}
   m_Children: []
   m_Father: {fileID: 21}
   m_RootOrder: 5
@@ -2191,8 +2191,8 @@ MonoBehaviour:
         dv: 0
   matte:
     kd:
-      type: 2
-      spectrum: {r: 0, g: 0, b: 0, a: 0}
+      type: 0
+      spectrum: {r: 0.5849056, g: 0.5655927, b: 0.5655927, a: 0}
       image: {fileID: 2800000, guid: 8986c05d3889204438eea60fcd6fcbfb, type: 3}
       imageFile: parallax-detail-grid.png
       gamma: 0
@@ -2235,7 +2235,7 @@ MonoBehaviour:
   glass:
     kr:
       type: 0
-      spectrum: {r: 0.39215687, g: 0.39215687, b: 0.39215687, a: 0}
+      spectrum: {r: 1, g: 1, b: 1, a: 0}
       image: {fileID: 0}
       imageFile: 
       gamma: 0
@@ -2249,7 +2249,7 @@ MonoBehaviour:
         dv: 0
     ks:
       type: 0
-      spectrum: {r: 0.78431374, g: 0.78431374, b: 0.78431374, a: 0}
+      spectrum: {r: 1, g: 1, b: 1, a: 0}
       image: {fileID: 0}
       imageFile: 
       gamma: 0
@@ -2409,7 +2409,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   type: 0
   sigma_a: {r: 0, g: 0, b: 0, a: 0}
-  sigma_s: {r: 1, g: 0.9858491, b: 0.9858491, a: 0}
+  sigma_s: {r: 0.3529412, g: 0.3529412, b: 0.3529412, a: 0}
   g: 0
 --- !u!4 &1046712164
 Transform:
