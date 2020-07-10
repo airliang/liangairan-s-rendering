@@ -7,8 +7,8 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: distortion
-  m_Shader: {fileID: 4800000, guid: bed12e97904145943b0b98a655a071c1, type: 3}
+  m_Name: ocean
+  m_Shader: {fileID: 4800000, guid: 71e0035a5dde3fa4194a967e3ca9ccf1, type: 3}
   m_ShaderKeywords: 
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
@@ -20,8 +20,8 @@ Material:
     serializedVersion: 3
     m_TexEnvs:
     - _BumpMap:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
+        m_Texture: {fileID: 2800000, guid: 207096d7acf965345a4af1ef34affa35, type: 3}
+        m_Scale: {x: 4, y: 4}
         m_Offset: {x: 0, y: 0}
     - _DetailAlbedoMap:
         m_Texture: {fileID: 0}
@@ -39,20 +39,16 @@ Material:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
-    - _FlowTex:
-        m_Texture: {fileID: 2800000, guid: 7afb0e2355dd54c4691380419d6ccd5a, type: 3}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
     - _MainTex:
-        m_Texture: {fileID: 2800000, guid: 222b5bf72bed30247977fbb707f61e1c, type: 3}
+        m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MetallicGlossMap:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
-    - _NormalTex:
-        m_Texture: {fileID: 2800000, guid: c2421770cfa11c34c89f61ed82100e97, type: 3}
+    - _NoiseMap:
+        m_Texture: {fileID: 2800000, guid: 207096d7acf965345a4af1ef34affa35, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _OcclusionMap:
@@ -63,14 +59,15 @@ Material:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
+    - _skyCube:
+        m_Texture: {fileID: 8900000, guid: d9e18fc8a842fb44b8ba275aa637b146, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     m_Floats:
     - _BumpScale: 1
     - _Cutoff: 0.5
     - _DetailNormalMapScale: 1
     - _DstBlend: 0
-    - _FlowOffset: -0.5
-    - _FlowStrength: 0
-    - _Gloss: 0.73
     - _GlossMapScale: 1
     - _Glossiness: 0.5
     - _GlossyReflections: 1
@@ -79,15 +76,23 @@ Material:
     - _OcclusionStrength: 1
     - _Parallax: 0.02
     - _SmoothnessTextureChannel: 0
-    - _Specular: 0.529
     - _SpecularHighlights: 1
-    - _Speed: 0.72
     - _SrcBlend: 1
-    - _Tiling: 10
-    - _UJump: 0.25
+    - _Transparent: 1
     - _UVSec: 0
-    - _VJump: 0.25
+    - _WaterSize: 100
     - _ZWrite: 1
     m_Colors:
-    - _Color: {r: 0.72690463, g: 0.80455124, b: 0.9339623, a: 1}
+    - _Circle1: {r: 0.2, g: 0.2, b: 1, a: 1}
+    - _Circle2: {r: 0.82, g: 0.3, b: 1, a: 1}
+    - _Circle3: {r: 0.6, g: 0.75, b: 1, a: 1}
+    - _Color: {r: 0.7104397, g: 0.9479474, b: 0.9716981, a: 1}
+    - _D1: {r: 1, g: 1, b: 1, a: 1}
+    - _D2: {r: -0.3, g: 0.8, b: 3, a: 1}
+    - _D3: {r: -0.2, g: -0.7, b: 0, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
+    - _SeaBaseColor: {r: 0, g: 0.17254902, b: 0.22745098, a: 1}
+    - _SeaWaterColor: {r: 0.12941177, g: 0.6901961, b: 0.7411765, a: 1}
+    - _Wave1: {r: 10, g: 1, b: 0.88, a: 2}
+    - _Wave2: {r: 15, g: 0.42, b: 1.45, a: 2.5}
+    - _Wave3: {r: 30, g: 1, b: 2, a: 5}
