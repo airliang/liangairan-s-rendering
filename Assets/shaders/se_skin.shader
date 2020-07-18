@@ -33,7 +33,7 @@
 //#define _USE_RAM
 
             #include "UnityCG.cginc"
-            #include "se_core.cginc"
+            #include "include/se_core.cginc"
 
             
             ENDCG
@@ -50,7 +50,7 @@
             #pragma fragment frag_outline
             #pragma exclude_renderers xbox360 flash	
 
-            #include "se_core.cginc"
+            #include "include/se_core.cginc"
             ENDCG
         }
     }

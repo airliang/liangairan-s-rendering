@@ -39,7 +39,7 @@ Shader "liangairan/toon/illustrative" {
             #pragma multi_compile_fwdbase 
             #define PI 3.14159265359
 
-#include "illustrative_core.cginc"
+#include "include/illustrative_core.cginc"
 
 			sampler2D _MainTex;
 			

@@ -86,8 +86,12 @@ half4 frag_skin(CustomVertexOutput i) : COLOR
 	half4 rampColor = tex2D(_RampTex, float2(halfLambert, 0));
 	diffuse *= rampColor.rgb;
 #else
-	fixed w = fwidth(halfLambert) * 2.0;
-	if (halfLambert < _DiffuseSegment.x + w) {
+	//使用了fwidth就是和屏幕像素距离相关了
+	fixed w = 0.02;//fwidth(halfLambert) * 3.0;
+	if (halfLambert < _DiffuseSegment.x + w) 
+	{
+		//smoothstep返回 0 - 1的值
+		//这里halfLambert在_DiffuseSegment.x偏移w的距离做插值
 		halfLambert = lerp(_DiffuseSegment.x, _DiffuseSegment.y, smoothstep(_DiffuseSegment.x - w, _DiffuseSegment.x + w, halfLambert));
 		//  diff = lerp(_DiffuseSegment.x, _DiffuseSegment.y, clamp(0.5 * (diff - _DiffuseSegment.x) / w, 0, 1));
 	}
@@ -160,7 +164,7 @@ half4 frag_skin(CustomVertexOutput i) : COLOR
 	half4 rampSpecColor = tex2D(_RampSpecTex, float2(spec, 0));
 	half3 specular = _LightColor0.rgb * spec * ks * rampSpecColor.rgb;
 #else
-	w = fwidth(spec) * 3.0;
+	w = 0.02;//fwidth(spec) * 3;
 	half3 specular = lerp(half3(0, 0, 0), _LightColor0.rgb * ks, smoothstep(-w, w, spec + _SpecularScale - 1));
 #endif
 	
@@ -199,7 +203,7 @@ VSOut vert_outline(appdata_outline v)
     float4 clipPosition = UnityObjectToClipPos(v.vertex);
     float3 worldNormal = UnityObjectToWorldNormal(v.normal);
     float3 clipNormal = mul((float3x3) UNITY_MATRIX_VP, worldNormal);
-    float2 normalOffset = normalize(clipNormal.xy) / _ScreenParams.xy * _OutlineWidth * clipPosition.w * v.color.rg;
+    float2 normalOffset = normalize(clipNormal.xy) / _ScreenParams.xy * _OutlineWidth * clipPosition.w * v.color.r;
     clipPosition.xy += normalOffset;
 
     o.pos = clipPosition;

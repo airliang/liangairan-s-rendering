@@ -72,12 +72,12 @@ Material:
     - _OcclusionStrength: 1
     - _OutlineWidth: 3
     - _Parallax: 0.02
-    - _RotationZ: 0
+    - _RotationZ: 26
     - _SmoothnessTextureChannel: 0
     - _SpecularHighlights: 1
-    - _SpecularScale: 0.631
-    - _SquareN: 0
-    - _SquareTau: 0
+    - _SpecularScale: 0.565
+    - _SquareN: 1.6
+    - _SquareTau: 0.095
     - _SrcBlend: 1
     - _UVSec: 0
     - _ZWrite: 1
