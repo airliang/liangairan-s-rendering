@@ -25,7 +25,7 @@ float3 GerstnerWave(float3 pos, float waveLength, float amplitude, float steepne
 {
 	float w = 2.0 * UNITY_PI / waveLength;
 	float waveDotPos = dot(pos.xz, waveDir);
-	float x = w * waveDotPos - t + phase;
+	float x = w * waveDotPos - t + phase/* * 2 / waveLength*/;
 	float sinX = sin(x);
 	float cosX = cos(x);
 	float sinTerm = (sinX + 1) / 2;
@@ -140,3 +140,53 @@ float3 CircleWave(float3 pos, float waveLength, float amplitude, float steepness
 	
 	return GerstnerWaveCircle(length(pos.xz - center), waveLength, amplitude, steepness, t, waveDir, 0, normal);
 }
+
+
+//采用gpu gem 1的方案：
+
+float3 GerstnerWave2(float3 pos, float waveLength, float amplitude, float wavenum,
+	float2 waveDir, float speed)
+{
+	float w = 2.0 * UNITY_PI / waveLength;
+	float waveSpeed = sqrt(9.8 * w);
+	float waveDotPos = dot(pos.xz, waveDir);
+	float phase = speed * 2 / waveLength;
+	float x = w * waveDotPos + _Time.y * waveSpeed;
+	float sinX = sin(x);
+	float cosX = cos(x);
+	float Q = 1.0 / (w * amplitude * wavenum);
+
+	float2 xz = Q * waveDir * amplitude * cosX;
+	float height = amplitude * sinX;
+
+	half wa = w * amplitude;
+	// normal vector
+	half3 n = half3(-(waveDir.xy * wa * cosX),
+		1 - (Q * wa * sinX));
+
+	return float3(xz.x, height, xz.y);
+}
+
+//gem1是z向上，我这里是y向上，cross出来的normal不是yz调换这么简单
+//     ∑Di.xWAC
+// N = ∑QiWAS(Di.x² + Di.y²) - 1
+//     ∑Di.yWAC
+float3 GerstnerWaveNormal(float3 pos, float waveLength, float amplitude, float wavenum,
+	float2 waveDir, float speed)
+{
+	float w = 2.0 * UNITY_PI / waveLength;
+	float waveSpeed = sqrt(9.8 * w);
+	float waveDotPos = dot(pos.xz, waveDir);
+	float phase = speed * 2 / waveLength;
+	float x = w * waveDotPos + _Time.y * waveSpeed;
+	float sinX = sin(x);
+	float cosX = cos(x);
+	float Q = 1.0 / (w * amplitude * wavenum);
+	return float3(waveDir.x * w * amplitude * cosX,
+		 Q * w * amplitude * sinX,
+		waveDir.y * w * amplitude * cosX);
+}
+
+
+
+

@@ -7,13 +7,16 @@ Shader "liangairan/ocean/ocean" {
 	Properties {
 		_Color ("Color", Color) = (1,1,1,1)
 		_MainTex ("Albedo (RGB)", 2D) = "white" {}
+        _skyColor("Sky Color", Color) = (1,1,1,1)
         _skyCube("sky Cubemap", Cube) = ""{}
         _NoiseMap("Noise", 2D) = "bump" {}
-		_Wave1("Wave1 x-crest-to-crest wavelength y-amplitude z-speed w-steepness",Vector) = (2, 1, 10, 1)
+        _SurfaceMap("SurfaceMap", 2D) = "white" {}
+        _BumpScale("Bump Scale", Range(0, 2)) = 0.2
+		_Wave1("Wave1 wavelength y-amplitude z-speed w-waveNum",Vector) = (2, 1, 10, 1)
 		_Wave2("Wave2",Vector) = (20,0.3,30,0.1)
 		_Wave3("Wave3",Vector) = (15,1.2,20,0.5)
 
-		_D1("Wave1 xy-horizontal direction of wave z phase", Vector) = (1,0,1,1)
+		_D1("Wave1 xy-horizontal direction of wave", Vector) = (1,0,1,1)
 		_D2("Wave2 direction", Vector) = (-0.3,0.8,1,1)
 		_D3("Wave3 direction", Vector) = (0.3,0.9,1,1)
 
@@ -24,6 +27,7 @@ Shader "liangairan/ocean/ocean" {
 		_Transparent("Transparent", Float) = 0.7
         _SeaBaseColor("Sea base color", Color) = (0.1, 0.19, 0.22, 1)
         _SeaWaterColor("Sea diffuse color", Color) = (0.8, 0.9, 0.6, 1)
+        _Tess("Tessellation", Range(1,32)) = 4
 	}
 	SubShader {
 		Tags { "Queue" = "Transparent" "RenderType" = "Transparent"}
@@ -42,6 +46,7 @@ Shader "liangairan/ocean/ocean" {
             #include "Lighting.cginc"
 #include "gerstner_wave.cginc"
             #pragma target 3.0
+            //#pragma tessellate:tessFixed
             #pragma vertex vert
             #pragma fragment frag
             #pragma exclude_renderers xbox360 flash	
@@ -54,8 +59,11 @@ Shader "liangairan/ocean/ocean" {
             samplerCUBE   _skyCube;
             sampler2D _NoiseMap;
             float4 _NoiseMap_ST;
+            sampler2D _SurfaceMap;
+            float4 _SurfaceMap_ST;
+            half _BumpScale;
 			fixed4 _Color;
-
+            fixed4 _skyColor;
 			float4 _Wave1;
 			float4 _Wave2;
 			float4 _Wave3;
@@ -84,11 +92,20 @@ Shader "liangairan/ocean/ocean" {
             {
                 half4 pos		: SV_POSITION;
                 half4 color     : COLOR;
-                half2 uv : TEXCOORD0;
+                half4 uv : TEXCOORD0;
                 half3 normalWorld : TEXCOORD1;
                 half3 posWorld : TEXCOORD2;
 				half3 tangentWorld : TEXCOORD3;
             };
+
+            
+
+            float _Tess;
+
+            float4 tessFixed()
+            {
+                return _Tess;
+            }
 
             float fresnel(fixed3 I, fixed3 N)
             {
@@ -130,16 +147,23 @@ Shader "liangairan/ocean/ocean" {
 
                 
                 //TANGENT_SPACE_ROTATION;
-                o.uv = v.uv;
+                
 				
                 o.normalWorld = float3(0, 0, 0);//UnityObjectToWorldNormal(v.normal);
-                o.posWorld = mul(unity_ObjectToWorld, v.vertex);
-                
-                float3 gersterner = float3(0, 0, 0);
-                float3 normal = float3(0, 0, 0);
-                
-#ifdef CIRCLE_WAVE
+                float3 posWorld = mul(unity_ObjectToWorld, v.vertex);
 
+                o.uv.zw = posWorld.xz * 0.1 + _Time.y * 0.05;
+                o.uv.xy = posWorld.xz * 0.4 - _Time.y * 0.1;
+
+                float3 origPosWorld = posWorld;
+                float3 gersterner = float3(0, 0, 0);
+                float3 normal = float3(0, -1, 0);
+
+                float speed1 = _Wave1.z;
+                float speed2 = _Wave2.z;
+                float speed3 = _Wave3.z;
+#ifdef CIRCLE_WAVE
+                float waveNum = 3;
                 float2 circle = (_Circle1.xy - 0.5) * _WaterSize;
                 gersterner += CircleWave(o.posWorld, _Wave1.x, _Wave1.y, _Wave1.w, _Time.y * _Wave1.z, circle, normal);
                 o.normalWorld += normal;
@@ -149,7 +173,9 @@ Shader "liangairan/ocean/ocean" {
                 circle = (_Circle3.xy - 0.5) * _WaterSize;
                 gersterner += CircleWave(o.posWorld, _Wave3.x, _Wave3.y, _Wave3.w, _Time.y * _Wave3.z, circle, normal);
                 o.normalWorld += normal;
+                
 #else
+                /*
                 float2 noiseUV = v.uv.xy * _NoiseMap_ST.xy;
 #if !defined(SHADER_API_OPENGL)
                 float4 noiseTex = tex2Dlod(_NoiseMap, float4(noiseUV + frac(_Time.x * _Wave1.z * 0.1), 0, 0)) * 0.2;
@@ -175,11 +201,26 @@ Shader "liangairan/ocean/ocean" {
                 float speed3 = sqrt(9.8 * 2 * UNITY_PI / _Wave3.x);
                 gersterner += GerstnerWave(o.posWorld, _Wave3.x, _Wave3.y, _Wave3.w, _Time.y * speed3, normalize(_D3.xy), _D3.z, normal);
                 o.normalWorld += normal;
-#endif
-                o.posWorld.xz += gersterner.xz;
-                o.posWorld.y = gersterner.y;
+                */
+                float waveNum = 3;
+                gersterner += GerstnerWave2(posWorld, _Wave1.x, _Wave1.y, waveNum, normalize(_D1.xy), speed1);
 
-                o.normalWorld = normalize(o.normalWorld);
+                gersterner += GerstnerWave2(posWorld, _Wave2.x, _Wave2.y, waveNum, normalize(_D2.xy), speed2);
+
+                gersterner += GerstnerWave2(posWorld, _Wave3.x, _Wave3.y, waveNum, normalize(_D3.xy), speed3);
+#endif
+               
+                posWorld.xz += gersterner.xz;
+                posWorld.y = gersterner.y;
+
+                normal += GerstnerWaveNormal(posWorld, _Wave1.x, _Wave1.y, waveNum, normalize(_D1.xy), speed1);
+                normal += GerstnerWaveNormal(posWorld, _Wave2.x, _Wave2.y, waveNum, normalize(_D2.xy), speed2);
+                normal += GerstnerWaveNormal(posWorld, _Wave3.x, _Wave3.y, waveNum, normalize(_D3.xy), speed3);
+
+                o.normalWorld = -normal;
+                float opacity = 1 - _Transparent;
+                o.normalWorld *= float3(opacity, 1, opacity);
+                o.posWorld = posWorld;
 
                 o.pos = mul(UNITY_MATRIX_VP, float4(o.posWorld, 1));
 				o.tangentWorld = UnityObjectToWorldDir(v.tangent.xyz);
@@ -191,7 +232,19 @@ Shader "liangairan/ocean/ocean" {
             {
                 fixed3 lightDirection = normalize(_WorldSpaceLightPos0.xyz);
                 fixed3 viewDirection = normalize(_WorldSpaceCameraPos.xyz - i.posWorld.xyz);
-                fixed3 normalDirection = normalize(i.normalWorld); //UnpackNormal(tex2D(_NormalTex, i.uv));
+
+  
+                half2 detailBump1 = tex2D(_SurfaceMap, i.uv.zw * _SurfaceMap_ST.xy + _SurfaceMap_ST.zw).xy * 2 - 1;
+                half2 detailBump2 = tex2D(_SurfaceMap, i.uv.xy * _SurfaceMap_ST.xy + _SurfaceMap_ST.zw).xy * 2 - 1;
+                half2 detailBump = (detailBump1 + detailBump2 * 0.5) * 0.25;
+
+                i.normalWorld += half3(detailBump.x, 0, detailBump.y) * _BumpScale;
+                //i.normalWorld += half3(1-waterFX.y, 0.5h, 1-waterFX.z) - 0.5;
+                
+                float3 normalDirection = normalize(i.normalWorld); //UnpackNormal(tex2D(_NormalTex, i.uv));
+                float3 b = ddx(i.posWorld);
+                float3 t = ddy(i.posWorld);
+                //normalDirection = normalize(cross(t, b));
                 //return half4(normalDirection, 1);
                 float NoL = max(0, dot(lightDirection, normalDirection));
 
@@ -205,19 +258,20 @@ Shader "liangairan/ocean/ocean" {
                 fresnel = pow(fresnel, 3.0) * 0.65;
 
                 //float3 reflected = Sky(pos, reflect(rd, nor), lightDir);
-                fixed4 reflectColor = /*fixed4(fr, 1) * */texCUBE(_skyCube, reflectDir);
+                fixed4 reflectColor = _skyColor;//texCUBE(_skyCube, reflectDir);
                 float4 diff = pow(NoL * 0.4 + 0.6, 3.);
                 float4 refracted = _SeaBaseColor + diff * _SeaWaterColor * 0.12;
                 float4 col = lerp(refracted, reflectColor, fresnel);
 
-                float spec = pow(max(dot(reflectDir, lightDirection), 0.0), 60.);
+                half3 h = normalize(viewDirection + lightDirection);
+                float spec = pow(max(dot(h, normalDirection), 0.0), 150.);
                 col += spec;
                 col = pow(col, 0.6);
                 return col;
                 //return fixed4(normalDirection, 1);
 				//float3 vDir = normalize(_WorldSpaceCameraPos - i.posWorld);
 				//float fr = fresnel(viewDirection, i.normalWorld);
-                fixed4 albedo = (1 - half4(fr, 0)) * tex2D(_MainTex, i.uv) * _Color * NoL + reflectColor + spec;
+                fixed4 albedo = (1 - half4(fr, 0)) * tex2D(_MainTex, i.uv) * _Color * NoL + /*reflectColor + */spec;
 				albedo.a = _Transparent;
                 
                 return albedo;// *fr;

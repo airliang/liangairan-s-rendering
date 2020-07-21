@@ -78,7 +78,8 @@ Material:
     - _SmoothnessTextureChannel: 0
     - _SpecularHighlights: 1
     - _SrcBlend: 1
-    - _Transparent: 1
+    - _Tess: 4
+    - _Transparent: 0.64
     - _UVSec: 0
     - _WaterSize: 100
     - _ZWrite: 1
@@ -87,12 +88,13 @@ Material:
     - _Circle2: {r: 0.82, g: 0.3, b: 1, a: 1}
     - _Circle3: {r: 0.6, g: 0.75, b: 1, a: 1}
     - _Color: {r: 0.7104397, g: 0.9479474, b: 0.9716981, a: 1}
-    - _D1: {r: 1, g: 1, b: 1, a: 1}
+    - _D1: {r: 1, g: 1, b: 5, a: 1}
     - _D2: {r: -0.3, g: 0.8, b: 3, a: 1}
-    - _D3: {r: -0.2, g: -0.7, b: 0, a: 1}
+    - _D3: {r: -0.2, g: -0.7, b: 15, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
     - _SeaBaseColor: {r: 0, g: 0.17254902, b: 0.22745098, a: 1}
     - _SeaWaterColor: {r: 0.12941177, g: 0.6901961, b: 0.7411765, a: 1}
-    - _Wave1: {r: 10, g: 1, b: 0.88, a: 2}
-    - _Wave2: {r: 15, g: 0.42, b: 1.45, a: 2.5}
-    - _Wave3: {r: 30, g: 1, b: 2, a: 5}
+    - _Wave1: {r: 5, g: 0.2, b: 2, a: 2}
+    - _Wave2: {r: 10, g: 0.42, b: 5.8, a: 5}
+    - _Wave3: {r: 20, g: 1, b: 15, a: 2.59}
+    - _skyColor: {r: 0.2794144, g: 0.76940185, b: 0.8584906, a: 1}
