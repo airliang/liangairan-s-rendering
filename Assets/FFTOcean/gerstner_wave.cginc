@@ -1,4 +1,6 @@
-﻿
+﻿#include "UnityCG.cginc"
+#include "AutoLight.cginc"
+#include "Lighting.cginc"
 //K = (xk, zk)
 //s = steepness
 //f(x,z) = (xk, zk)A((sin(w * K·pos.xz - wt + φ) + 1) / 2)^s
@@ -145,12 +147,12 @@ float3 CircleWave(float3 pos, float waveLength, float amplitude, float steepness
 //采用gpu gem 1的方案：
 
 float3 GerstnerWave2(float3 pos, float waveLength, float amplitude, float wavenum,
-	float2 waveDir, float speed)
+	float2 waveDir, out float3 normal)
 {
 	float w = 2.0 * UNITY_PI / waveLength;
 	float waveSpeed = sqrt(9.8 * w);
 	float waveDotPos = dot(pos.xz, waveDir);
-	float phase = speed * 2 / waveLength;
+	//float phase = speed * 2 / waveLength;
 	float x = w * waveDotPos + _Time.y * waveSpeed;
 	float sinX = sin(x);
 	float cosX = cos(x);
@@ -163,7 +165,7 @@ float3 GerstnerWave2(float3 pos, float waveLength, float amplitude, float wavenu
 	// normal vector
 	half3 n = half3(-(waveDir.xy * wa * cosX),
 		1 - (Q * wa * sinX));
-
+	normal = n.xzy / wavenum;
 	return float3(xz.x, height, xz.y);
 }
 
@@ -172,12 +174,12 @@ float3 GerstnerWave2(float3 pos, float waveLength, float amplitude, float wavenu
 // N = ∑QiWAS(Di.x² + Di.y²) - 1
 //     ∑Di.yWAC
 float3 GerstnerWaveNormal(float3 pos, float waveLength, float amplitude, float wavenum,
-	float2 waveDir, float speed)
+	float2 waveDir)
 {
 	float w = 2.0 * UNITY_PI / waveLength;
 	float waveSpeed = sqrt(9.8 * w);
 	float waveDotPos = dot(pos.xz, waveDir);
-	float phase = speed * 2 / waveLength;
+	//float phase = speed * 2 / waveLength;
 	float x = w * waveDotPos + _Time.y * waveSpeed;
 	float sinX = sin(x);
 	float cosX = cos(x);
@@ -186,7 +188,4 @@ float3 GerstnerWaveNormal(float3 pos, float waveLength, float amplitude, float w
 		 Q * w * amplitude * sinX,
 		waveDir.y * w * amplitude * cosX);
 }
-
-
-
 

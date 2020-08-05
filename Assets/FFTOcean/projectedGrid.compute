@@ -16,6 +16,8 @@ struct VertexData {
 RWStructuredBuffer<VertexData> vertexBuffer;
 
 float planeBaseY;
+matrix projectionInv;
+matrix viewInv;
 
 [numthreads(8,8,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
