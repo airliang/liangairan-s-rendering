@@ -32,7 +32,7 @@ Shader "liangairan/ocean/wireframe" {
 
 			#pragma multi_compile _ INFINITE_OCEAN
 			#pragma multi_compile _ CIRCLE_WAVE
-            #include "gerstner_wave.cginc"
+            #include "ocean_core.cginc"
 
 
             ENDCG

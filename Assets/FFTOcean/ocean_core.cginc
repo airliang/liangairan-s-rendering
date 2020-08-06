@@ -3,7 +3,7 @@
 #include "Lighting.cginc"
 #include "ocean_projectedgrid.cginc"
 #include "gerstner_wave.cginc"
-
+#include "fft_wave.cginc"
 
 sampler2D _MainTex;
 samplerCUBE   _skyCube;
@@ -11,20 +11,11 @@ samplerCUBE   _skyCube;
 //float4 _NoiseMap_ST;
 sampler2D _SurfaceMap;
 float4 _SurfaceMap_ST;
-uniform sampler2D _ProjectedGridMap;
+//uniform sampler2D _ProjectedGridMap;
 
 half _BumpScale;
 fixed4 _skyColor;
-uniform float4 _Wave1;
-uniform float4 _Wave2;
-uniform float4 _Wave3;
-//float4 _D1;
-//float4 _D2;
-//float4 _D3;
-uniform float4 _Circle1;
-uniform float4 _Circle2;
-uniform float4 _Circle3;
-float _WaterSize;
+
 float _Transparent;
 
 
@@ -42,11 +33,11 @@ struct appdata
 
 struct VSOut
 {
-    half4 pos		: SV_POSITION;
+    float4 pos		: SV_POSITION;
     //half4 color     : COLOR;
     half4 uv : TEXCOORD0;
     half3 normalWorld : TEXCOORD1;
-    half3 posWorld : TEXCOORD2;
+    float3 posWorld : TEXCOORD2;
     //half3 tangentWorld : TEXCOORD3;
 };
 
@@ -89,65 +80,33 @@ VSOut vert(appdata v)
     //TANGENT_SPACE_ROTATION;
 
     o.normalWorld = float3(0, 0, 0);//UnityObjectToWorldNormal(v.normal);
-#ifdef INFINITE_OCEAN
-    float3 posWorld = tex2Dlod(_ProjectedGridMap, float4(v.uv, 0, 0));
-#else
-    float3 posWorld = mul(unity_ObjectToWorld, v.vertex);
-#endif
+
     float4 uv = float4(v.vertex.xy, v.uv.xy);
-    posWorld = oceanPos(uv);
+    float3 posWorld = oceanPos(uv);
 
     o.uv.zw = posWorld.xz * 0.1 + _Time.y * 0.05;
     o.uv.xy = posWorld.xz * 0.4 - _Time.y * 0.1;
-
-    float3 origPosWorld = posWorld;
-    float3 gersterner = float3(0, 0, 0);
-    float3 normal = float3(0, -1, 0);
-
-    float speed1 = _Wave1.z;
-    float speed2 = _Wave2.z;
-    float speed3 = _Wave3.z;
-#ifdef CIRCLE_WAVE
-    float waveNum = 3;
-    float2 circle = (_Circle1.xy - 0.5) * _WaterSize;
-    gersterner += CircleWave(o.posWorld, _Wave1.x, _Wave1.y, _Wave1.w, _Time.y * _Wave1.z, circle, normal);
-    o.normalWorld += normal;
-    circle = (_Circle2.xy - 0.5) * _WaterSize;
-    gersterner += CircleWave(o.posWorld, _Wave2.x, _Wave2.y, _Wave2.w, _Time.y * _Wave2.z, circle, normal);
-    o.normalWorld += normal;
-    circle = (_Circle3.xy - 0.5) * _WaterSize;
-    gersterner += CircleWave(o.posWorld, _Wave3.x, _Wave3.y, _Wave3.w, _Time.y * _Wave3.z, circle, normal);
-    o.normalWorld += normal;
-
-#else
-    float waveNum = 3;
-    gersterner += GerstnerWave2(posWorld, _Wave1.x, _Wave1.y, waveNum, normalize(_Wave1.zw), normal);
-    o.normalWorld += normal;
-    gersterner += GerstnerWave2(posWorld, _Wave2.x, _Wave2.y, waveNum, normalize(_Wave2.zw), normal);
-    o.normalWorld += normal;
-    gersterner += GerstnerWave2(posWorld, _Wave3.x, _Wave3.y, waveNum, normalize(_Wave3.zw), normal);
-    o.normalWorld += normal;
-
-#endif
+    float opacity = 1 - _Transparent;
+#if GERSTNER_WAVE
+    float heightScale = GerstnerWaves3Composite(posWorld, o.posWorld, o.normalWorld);
 
     
-	//f(x) = 1 / heightAttentionDis * x + 1
-	//向右移动s距离：
-	//f(x - s) = 1 / heightAttentionDis * (x - s) + 1
-    float s = 50;
-	float heightAttentionDis = 50;
-	float heightScale = saturate(-(distance(_WorldSpaceCameraPos, posWorld) - s) / heightAttentionDis + 1);
-
-	posWorld.xz += gersterner.xz * heightScale;
-	posWorld.y = gersterner.y * heightScale;
-
-    float opacity = 1 - _Transparent;
     opacity *= heightScale;
     o.normalWorld *= float3(opacity, 1, opacity);
+    //o.posWorld = posWorld;
+
+    
+#elif FFT_WAVE
+    float heightScale = FFTWavePos(posWorld, o.posWorld, o.normalWorld);
+
+    opacity *= heightScale;
+    o.normalWorld *= float3(opacity, 1, opacity);
+#else
+    o.normalWorld = float3(0, 1, 0);
     o.posWorld = posWorld;
-
+    
+#endif
     o.pos = mul(UNITY_MATRIX_VP, float4(o.posWorld, 1));
-
     return o;
 }
 
@@ -162,7 +121,11 @@ half4 frag(VSOut i) : COLOR
     half2 detailBump2 = tex2D(_SurfaceMap, i.uv.xy * _SurfaceMap_ST.xy + _SurfaceMap_ST.zw).xy * 2 - 1;
     half2 detailBump = (detailBump1 + detailBump2 * 0.5) * 0.95;
 
+#if FFT_WAVE
+    i.normalWorld = tex2Dlod(_NormalMap, float4(i.posWorld.xz / 128, 0, 0));
+#endif
     i.normalWorld += half3(detailBump.x, 0, detailBump.y) * _BumpScale;
+
     //i.normalWorld += half3(1-waterFX.y, 0.5h, 1-waterFX.z) - 0.5;
 
     float3 normalDirection = normalize(i.normalWorld);
@@ -258,52 +221,12 @@ v2g vert_wireframe(appdata v)
 {
 	v2g o;
 
-#ifdef INFINITE_OCEAN
-	float3 posWorld = tex2Dlod(_ProjectedGridMap, float4(v.uv, 0, 0));
-#else
-	float3 posWorld = mul(unity_ObjectToWorld, v.vertex);
-#endif
 
+    float4 uv = float4(v.vertex.xy, v.uv.xy);
+    float3 posWorld = oceanPos(uv);
+    float3 normalWorld = float3(0, 0, 0);
 	o.uv.xy = posWorld.xz * 0.4 - _Time.y * 0.1;
-
-	float3 origPosWorld = posWorld;
-	float3 gersterner = float3(0, 0, 0);
-	float3 normal = float3(0, 1, 0);
-
-	float speed1 = _Wave1.z;
-	float speed2 = _Wave2.z;
-	float speed3 = _Wave3.z;
-#ifdef CIRCLE_WAVE
-	float waveNum = 3;
-	float2 circle = (_Circle1.xy - 0.5) * _WaterSize;
-	gersterner += CircleWave(o.posWorld, _Wave1.x, _Wave1.y, _Wave1.w, _Time.y * _Wave1.z, circle, normal);
-
-	circle = (_Circle2.xy - 0.5) * _WaterSize;
-	gersterner += CircleWave(o.posWorld, _Wave2.x, _Wave2.y, _Wave2.w, _Time.y * _Wave2.z, circle, normal);
-
-	circle = (_Circle3.xy - 0.5) * _WaterSize;
-	gersterner += CircleWave(o.posWorld, _Wave3.x, _Wave3.y, _Wave3.w, _Time.y * _Wave3.z, circle, normal);
-
-
-#else
-	float waveNum = 3;
-	gersterner += GerstnerWave2(posWorld, _Wave1.x, _Wave1.y, waveNum, normalize(_Wave1.zw), normal);
-
-	gersterner += GerstnerWave2(posWorld, _Wave2.x, _Wave2.y, waveNum, normalize(_Wave2.zw), normal);
-
-	gersterner += GerstnerWave2(posWorld, _Wave3.x, _Wave3.y, waveNum, normalize(_Wave3.zw), normal);
-
-
-#endif
-
-	posWorld.xz += gersterner.xz;
-	
-	//f(x) = 1 / heightAttentionDis * x + 1
-	//向右移动s距离：
-	//f(x - s) = 1 / heightAttentionDis * (x - s) + 1
-	float heightAttentionDis = 50;
-	float heightScale = saturate(-(distance(_WorldSpaceCameraPos, posWorld) - 30) / heightAttentionDis + 1);
-	posWorld.y = gersterner.y * heightScale;
+    float heightScale = GerstnerWaves3Composite(posWorld, posWorld, normalWorld);
 
 	float opacity = 1 - _Transparent;
 	

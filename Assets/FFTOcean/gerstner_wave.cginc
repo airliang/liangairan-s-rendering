@@ -1,6 +1,15 @@
 ﻿#include "UnityCG.cginc"
 #include "AutoLight.cginc"
 #include "Lighting.cginc"
+
+
+uniform float4 _Wave1;
+uniform float4 _Wave2;
+uniform float4 _Wave3;
+uniform float4 _Circle1;
+uniform float4 _Circle2;
+uniform float4 _Circle3;
+float _WaterSize;
 //K = (xk, zk)
 //s = steepness
 //f(x,z) = (xk, zk)A((sin(w * K·pos.xz - wt + φ) + 1) / 2)^s
@@ -187,5 +196,47 @@ float3 GerstnerWaveNormal(float3 pos, float waveLength, float amplitude, float w
 	return float3(waveDir.x * w * amplitude * cosX,
 		 Q * w * amplitude * sinX,
 		waveDir.y * w * amplitude * cosX);
+}
+
+float GerstnerWaves3Composite(float3 pos, out float3 posWorld, out float3 normalWorld)
+{
+	float3 gersterner = float3(0, 0, 0);
+	float3 normal = float3(0, 0, 0);
+	normalWorld = float3(0, 0, 0);
+#ifdef CIRCLE_WAVE
+	float waveNum = 3;
+	float2 circle = (_Circle1.xy - 0.5) * _WaterSize;
+	gersterner += CircleWave(pos, _Wave1.x, _Wave1.y, _Wave1.w, _Time.y * _Wave1.z, circle, normal);
+	//o.normalWorld += normal;
+	circle = (_Circle2.xy - 0.5) * _WaterSize;
+	gersterner += CircleWave(pos, _Wave2.x, _Wave2.y, _Wave2.w, _Time.y * _Wave2.z, circle, normal);
+	//o.normalWorld += normal;
+	circle = (_Circle3.xy - 0.5) * _WaterSize;
+	gersterner += CircleWave(pos, _Wave3.x, _Wave3.y, _Wave3.w, _Time.y * _Wave3.z, circle, normal);
+	//o.normalWorld += normal;
+
+#else
+	float waveNum = 3;
+	gersterner += GerstnerWave2(pos, _Wave1.x, _Wave1.y, waveNum, normalize(_Wave1.zw), normal);
+	normalWorld += normal;
+	gersterner += GerstnerWave2(pos, _Wave2.x, _Wave2.y, waveNum, normalize(_Wave2.zw), normal);
+	normalWorld += normal;
+	gersterner += GerstnerWave2(pos, _Wave3.x, _Wave3.y, waveNum, normalize(_Wave3.zw), normal);
+	normalWorld += normal;
+
+#endif
+
+	//f(x) = 1 / heightAttentionDis * x + 1
+	//向右移动s距离：
+	//f(x - s) = 1 / heightAttentionDis * (x - s) + 1
+	float s = 50;
+	float heightAttentionDis = 50;
+	float heightScale = saturate(-(distance(_WorldSpaceCameraPos, pos) - s) / heightAttentionDis + 1);
+
+	pos.xz += gersterner.xz * heightScale;
+	pos.y = gersterner.y * heightScale;
+	posWorld = pos;
+
+	return heightScale;
 }
 

@@ -3,17 +3,10 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 
-//[ExecuteInEditMode]
-public class Ocean : MonoBehaviour
+[ExecuteInEditMode]
+public class FFTWave : WaterWave
 {
-    // Start is called before the first frame update
-    Mesh mOceanMesh;
-    Material mMaterial;
-    //GameObject mOceanObject;
-    private Vector3[] mVertices;
-    private Vector3[] mNormals;
-    private Vector2[] mUVs;
-    private int[] mTriangles;
+
 
     public RenderTexture mh0;
     public RenderTexture mHeightTexture;
@@ -52,88 +45,11 @@ public class Ocean : MonoBehaviour
 
     void Start()
     {
-        mVertices = new Vector3[mResolution * mResolution];
-        mNormals = new Vector3[mResolution * mResolution];
-        mUVs = new Vector2[mResolution * mResolution];
-
-        mTriangles = new int[(mResolution - 1) * (mResolution - 1) * 6];
-
-        int nIndex = 0;
-        for (int i = 0; i < mResolution; ++i)
-        {
-            for (int j = 0; j < mResolution; ++j)
-            {
-                nIndex = i * mResolution + j;
-
-                mVertices[nIndex] = new Vector3(i * length, 0, j * length);
-
-                mUVs[nIndex] = new Vector2((float)i / (mResolution - 1), (float)j / (mResolution - 1));
-
-                mNormals[nIndex] = new Vector3(0, 1, 0);
-            }
-        }
-
-        nIndex = 0;
-        for (int i = 0; i < mResolution - 1; ++i)
-        {
-            for (int j = 0; j < mResolution - 1; ++j)
-            {
-                mTriangles[nIndex++] = i * mResolution + j;
-                mTriangles[nIndex++] = i * mResolution + j + 1;
-                mTriangles[nIndex++] = (i + 1) * mResolution + j;
-                mTriangles[nIndex++] = i * mResolution + j + 1;
-                mTriangles[nIndex++] = (i + 1) * mResolution + j + 1;
-                mTriangles[nIndex++] = (i + 1) * mResolution + j;
-            }
-        }
-
-        if (mOceanMesh != null)
-        {
-            mOceanMesh.Clear();
-        }
-        mOceanMesh = new Mesh();
-        mOceanMesh.vertices = mVertices;
-        mOceanMesh.uv = mUVs;
-        mOceanMesh.triangles = mTriangles;
-
-        MeshRenderer renderer = gameObject.GetComponent<MeshRenderer>();
-        if (renderer == null)
-        {
-            gameObject.AddComponent<MeshRenderer>();
-        }
-        
-        MeshFilter meshFilter = gameObject.GetComponent<MeshFilter>();
-        if (meshFilter == null)
-        {
-            meshFilter = gameObject.AddComponent<MeshFilter>();
-        }
-        meshFilter.mesh = mOceanMesh;
-
-        if (mMaterial == null)
-        {
-            mMaterial = new Material(Shader.Find("liangairan/ocean/fft_ocean"));
-
-            gameObject.GetComponent<Renderer>().sharedMaterial = mMaterial;
-            mMaterial.SetColor("_Color", waterColor);
-            mMaterial.SetColor("_SkyColor", SkyColor);
-            mMaterial.SetColor("_FoamColor", foamColor);
-            mMaterial.SetFloat("texelSize", length);
-            mMaterial.SetFloat("resolution", mResolution);
-        }
-
         mPatchSize = mResolution * length;
 
-        RunComputeShader();
-
-        mMaterial.SetTexture("_HeightTex", mHeightTexture);
-        mMaterial.SetTexture("_NormalMap", mNormalMap);
-
-        screenQuad = new ScreenQuad(new Rect(2.0f * showTexturePos.x / Screen.width - 1.0f, 2.0f * showTexturePos.y / Screen.height - 1.0f, screenTextureWidth / Screen.width, screenTextureWidth / Screen.height));
-        Material screenQuadMtl = new Material(Shader.Find("liangairan/postprocess/ScreenTexture"));
-        int textureId = Shader.PropertyToID("_MainTex");
-        screenQuadMtl.SetTexture(textureId, mHeightTexture);
-        screenQuad.SetMaterial(screenQuadMtl);
-        screenQuad.SetParent(mMainCamera, new Vector3(0, 0, 10));
+        if (mComputeShader == null)
+            mComputeShader = Resources.Load<ComputeShader>("FFTOcean");
+        RunComputeShader();        
     }
 
     // Update is called once per frame
@@ -235,26 +151,11 @@ public class Ocean : MonoBehaviour
             mComputeShader.SetTexture(kNormalMap, "NormalMapTex", mNormalMap);
 
             mComputeShader.Dispatch(kNormalMap, 256 / 8, 256 / 8, 1);
-
-            mMaterial.SetColor("_Color", waterColor);
-            mMaterial.SetColor("_FoamColor", foamColor);
-            mMaterial.SetColor("_SkyColor", SkyColor);
         }
     }
 
     private void OnDestroy()
     {
-        if (mOceanMesh != null)
-        {
-            mOceanMesh.Clear();
-            mOceanMesh = null;
-        }
-
-        if (mMaterial != null)
-        {
-            DestroyImmediate(mMaterial);
-            mMaterial = null;
-        }
 
         if (mh0 != null)
         {
@@ -312,6 +213,8 @@ public class Ocean : MonoBehaviour
 
         if (mComputeShader != null)
         {
+            Resources.UnloadAsset(mComputeShader);
+            mComputeShader = null;
             //Object.DestroyImmediate(mComputeShader);
             //mComputeShader = null;
         }
@@ -498,6 +401,12 @@ public class Ocean : MonoBehaviour
         Destroy(tex2d); 
 
         File.WriteAllBytes(Application.dataPath + "/" + fileName, b); 
+    }
+
+    public override void ApplyMaterial(Material waterMaterial)
+    {
+        waterMaterial.SetTexture("_HeightTex", mHeightTexture);
+        waterMaterial.SetTexture("_NormalMap", mNormalMap);
     }
 
     void OnGUI()

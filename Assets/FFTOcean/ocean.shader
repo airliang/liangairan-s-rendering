@@ -49,9 +49,10 @@ Shader "liangairan/ocean/ocean" {
             #pragma fragment frag
             #pragma exclude_renderers xbox360 flash	
             #pragma multi_compile_fwdbase 
-            #pragma multi_compile _ INFINITE_OCEAN
+            //#pragma multi_compile _ INFINITE_OCEAN
             
             #pragma multi_compile _ CIRCLE_WAVE
+            #pragma multi_compile _ GERSTNER_WAVE FFT_WAVE
 
 //#define CIRCLE_WAVE
             

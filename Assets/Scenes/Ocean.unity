@@ -320,6 +320,8 @@ GameObject:
   m_Component:
   - component: {fileID: 585748323}
   - component: {fileID: 585748320}
+  - component: {fileID: 585748322}
+  - component: {fileID: 585748321}
   m_Layer: 0
   m_Name: GameObject (1)
   m_TagString: Untagged
@@ -342,8 +344,57 @@ MonoBehaviour:
   oceanMaterial: {fileID: 1335229277}
   wireFrameMaterial: {fileID: 2111963286}
   waterResource: {fileID: 11400000, guid: 2d777a412ebb0304181e985f76bf4490, type: 2}
+  resolution: 1
   shadedMode: 0
   showDebugInfo: 1
+  waterLevel: 0
+--- !u!33 &585748321
+MeshFilter:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 585748319}
+  m_Mesh: {fileID: 0}
+--- !u!23 &585748322
+MeshRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 585748319}
+  m_Enabled: 1
+  m_CastShadows: 1
+  m_ReceiveShadows: 1
+  m_DynamicOccludee: 1
+  m_MotionVectors: 1
+  m_LightProbeUsage: 1
+  m_ReflectionProbeUsage: 1
+  m_RayTracingMode: 2
+  m_RenderingLayerMask: 1
+  m_RendererPriority: 0
+  m_Materials:
+  - {fileID: 1335229277}
+  m_StaticBatchInfo:
+    firstSubMesh: 0
+    subMeshCount: 0
+  m_StaticBatchRoot: {fileID: 0}
+  m_ProbeAnchor: {fileID: 0}
+  m_LightProbeVolumeOverride: {fileID: 0}
+  m_ScaleInLightmap: 1
+  m_ReceiveGI: 1
+  m_PreserveUVs: 0
+  m_IgnoreNormalsForChartDetection: 0
+  m_ImportantGI: 0
+  m_StitchLightmapSeams: 1
+  m_SelectedEditorRenderState: 3
+  m_MinimumChartSize: 4
+  m_AutoUVMaxDistance: 0.5
+  m_AutoUVMaxAngle: 89
+  m_LightmapParameters: {fileID: 0}
+  m_SortingLayerID: 0
+  m_SortingLayer: 0
+  m_SortingOrder: 0
 --- !u!4 &585748323
 Transform:
   m_ObjectHideFlags: 0
@@ -551,17 +602,19 @@ Material:
     - _BumpScale: 0.35
     - _Transparent: 0.22
     - _WaterSize: 1024
+    - _seaFogDistance: 500
     m_Colors:
     - _Circle1: {r: 0.2, g: 0.2, b: 1, a: 1}
     - _Circle2: {r: 0.82, g: 0.3, b: 1, a: 1}
     - _Circle3: {r: 0.6, g: 0.75, b: 1, a: 1}
-    - _Color: {r: 1, g: 1, b: 1, a: 1}
+    - _Color: {r: 0.7311321, g: 0.97509736, b: 1, a: 1}
     - _SeaBaseColor: {r: 0, g: 0.17254902, b: 0.22745098, a: 1}
+    - _SeaFogColor: {r: 0.6650943, g: 0.8568925, b: 0.8867924, a: 1}
     - _SeaWaterColor: {r: 0.35826805, g: 0.9150943, b: 0.60985124, a: 1}
     - _Wave1: {r: 5, g: 0.1, b: 1, a: 1}
     - _Wave2: {r: 10, g: 0.12, b: -0.3, a: 0.8}
     - _Wave3: {r: 20, g: 0.5, b: -0.2, a: -0.7}
-    - _skyColor: {r: 1, g: 1, b: 1, a: 1}
+    - _skyColor: {r: 0.6650944, g: 0.9580341, b: 1, a: 1}
 --- !u!1 &1351327276
 GameObject:
   m_ObjectHideFlags: 0

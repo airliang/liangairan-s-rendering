@@ -6,6 +6,7 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering;
 
+/*
 [System.Serializable]
 public struct GerstnerWave
 {
@@ -22,7 +23,7 @@ public struct GerstnerWave
     //public float speed;
     public float steepness;
 }
-
+*/
 [System.Serializable]
 [CreateAssetMenu(fileName = "WaterResources", menuName = "WaterResource", order = 0)]
 public class WaterResources : ScriptableObject
@@ -34,8 +35,9 @@ public class WaterResources : ScriptableObject
     public Color SeaBaseColor;
     public Color SeaDiffuseColor;
 
-    public GerstnerWave[] Waves; // = new GerstnerWave[3];
+    //public GerstnerWave[] Waves; // = new GerstnerWave[3];
 }
+
 
 public enum OceanShadeMode
 {
@@ -50,6 +52,13 @@ public enum MESH_RESOLUTION
     MEDIUM, 
     HIGH,
 };
+
+public enum WaveType
+{
+    Gerstner,
+    FFT,
+    None,
+}
 
 [ExecuteInEditMode]
 public class InfiniteOcean : MonoBehaviour
@@ -70,18 +79,19 @@ public class InfiniteOcean : MonoBehaviour
     public WaterResources waterResource;
     public MESH_RESOLUTION resolution = MESH_RESOLUTION.HIGH;
     public OceanShadeMode shadedMode = OceanShadeMode.Shaded;
-
+    public WaveType waveType = WaveType.Gerstner;
+    public WaterWave waterWave;
     public bool showDebugInfo = true;
     private Mesh oceanMesh = null;
 
     private bool needRenderOcean = true;
 
 
-    private ComputeBuffer vertexBuffer = null;
-    private RenderTexture positionBuffer = null;
-    private CommandBuffer renderProjectedGridCommand = null;
-    private CommandBuffer renderOceanCommand = null;
-    private Material projectedGridMaterial;
+    //private ComputeBuffer vertexBuffer = null;
+    //private RenderTexture positionBuffer = null;
+    //private CommandBuffer renderProjectedGridCommand = null;
+    //private CommandBuffer renderOceanCommand = null;
+    //private Material projectedGridMaterial;
     private Matrix4x4 screenToView;
     private Matrix4x4 viewToWorld;
     private Vector3 projectedCameraPos;  //camera pos in world space
@@ -119,52 +129,8 @@ public class InfiniteOcean : MonoBehaviour
     {
         //ProjectGridResolution = Screen.currentResolution;
         //每8个像素一个网格
-        ProjectGridResolution.width = Mathf.Max(Screen.width / 8, 128);
-        ProjectGridResolution.height = Mathf.Max(Screen.height / 8, 128);
-        
-        /*
-        oceanMesh = new Mesh();
-
-        
-
-        Vector3[] positions = new Vector3[ProjectGridResolution.width * ProjectGridResolution.height];
-        Vector2[] uvs = new Vector2[ProjectGridResolution.width  * ProjectGridResolution.height];
-        for (int i = 0; i < ProjectGridResolution.height; ++i)
-        {
-            for (int j = 0; j < ProjectGridResolution.width; ++j)
-            {
-                int index = i * ProjectGridResolution.width + j;
-                uvs[index].x = (float)j / ProjectGridResolution.width;
-                uvs[index].y = 1.0f - (float)i / ProjectGridResolution.height;
-            }
-        }
-        Vector3[] normals = new Vector3[ProjectGridResolution.width * ProjectGridResolution.height];
-        oceanMesh.vertices = positions;
-        oceanMesh.uv = uvs;
-        oceanMesh.normals = normals;
-
-        int[] mTriangles = new int[(ProjectGridResolution.width - 1) * (ProjectGridResolution.height - 1) * 6];
-        int nIndex = 0;
-        //方向是从左到右，从上到下
-        for (int i = 0; i < ProjectGridResolution.height - 1; ++i)
-        {
-            for (int j = 0; j < ProjectGridResolution.width - 1; ++j)
-            {
-                mTriangles[nIndex++] = i * ProjectGridResolution.width + j;
-                mTriangles[nIndex++] = i * ProjectGridResolution.width + j + 1;
-                mTriangles[nIndex++] = (i + 1) * ProjectGridResolution.width + j;
-                mTriangles[nIndex++] = i * ProjectGridResolution.width + j + 1;
-                mTriangles[nIndex++] = (i + 1) * ProjectGridResolution.width + j + 1;
-                mTriangles[nIndex++] = (i + 1) * ProjectGridResolution.width + j;
-            }
-        }
-        oceanMesh.triangles = mTriangles;
-
-
-        
-        Shader.EnableKeyword("INFINITE_OCEAN");
-        */
-        //TestProjectedGrid();
+        //ProjectGridResolution.width = Mathf.Max(Screen.width / 8, 128);
+        //ProjectGridResolution.height = Mathf.Max(Screen.height / 8, 128);
     }
 
     private int PixelsPerGrid()
@@ -181,52 +147,6 @@ public class InfiniteOcean : MonoBehaviour
         return 32;
     }
 
-    private void CreateComputeShader()
-    {
-        /*
-        if (projectGridShader != null)
-        {
-            if (vertexBuffer == null)
-            {
-                vertexBuffer = new ComputeBuffer(ProjectGridResolution.width * ProjectGridResolution.height, 8 * sizeof(float), ComputeBufferType.Default);
-
-            }
-            
-            if (positionBuffer == null)
-            {
-                positionBuffer = new RenderTexture(ProjectGridResolution, ProjectGridResolution, 0, RenderTextureFormat.ARGBFloat);
-                positionBuffer.enableRandomWrite = true;
-                positionBuffer.wrapMode = TextureWrapMode.Repeat;
-                positionBuffer.filterMode = FilterMode.Point;
-                positionBuffer.useMipMap = false;
-                positionBuffer.Create();
-            }
-
-            if (normalBuffer == null)
-            {
-                normalBuffer = new RenderTexture(ProjectGridResolution, ProjectGridResolution, 0, RenderTextureFormat.ARGBFloat);
-                normalBuffer.enableRandomWrite = true;
-                normalBuffer.wrapMode = TextureWrapMode.Repeat;
-                normalBuffer.filterMode = FilterMode.Point;
-                normalBuffer.useMipMap = false;
-                normalBuffer.Create();
-            }
-            
-
-            kMain = projectGridShader.FindKernel("CSMain");
-            projectGridShader.SetBuffer(kMain, "vertexBuffer", vertexBuffer);
-        }*/
-    }
-
-
-    private float IntersectPlane(Vector3 normal, Vector3 p, Vector3 rayOrig, Vector3 rayDir)
-    {
-        float rdn = Vector3.Dot(-rayDir, normal);
-        if (rdn == 0 || rdn < float.Epsilon)
-            return 0;
-
-        return Mathf.Max(Vector3.Dot(rayOrig - p, normal) / rdn, 0);
-    }
 
     bool SegmentPlaneIntersection(Vector3 a, Vector3 b, Vector3 n, float d, out Vector3 intersect)
     {
@@ -246,154 +166,6 @@ public class InfiniteOcean : MonoBehaviour
 
     bool CaculateProjectedGridFrustum(Camera cam)
     {
-        /*
-        //判断camera是否看到water
-        Camera mainCamera = Camera.main;
-        mainCamera = SceneView.currentDrawingSceneView != null ? SceneView.currentDrawingSceneView.camera : Camera.main;
-
-        float yInNear = mainCamera.nearClipPlane * Mathf.Tan(mainCamera.fieldOfView * Mathf.Deg2Rad * 0.5f);
-
-
-        float ratio = mainCamera.aspect;
-        float xInNear = yInNear * ratio;
-        NativeArray<Vector4> frustumCorner = new NativeArray<Vector4>(8, Allocator.Temp);
-        frustumCorner[0] = new Vector4(-xInNear, yInNear, mainCamera.nearClipPlane, 1);
-        frustumCorner[1] = new Vector4(xInNear, yInNear, mainCamera.nearClipPlane, 1);
-        frustumCorner[2] = new Vector4(-xInNear, -yInNear, mainCamera.nearClipPlane, 1);
-        frustumCorner[3] = new Vector4(xInNear, -yInNear, mainCamera.nearClipPlane, 1);
-
-        float yInFar = mainCamera.farClipPlane * Mathf.Tan(mainCamera.fieldOfView * Mathf.Deg2Rad * 0.5f);
-        float xInFar = yInFar * ratio;
-
-        frustumCorner[4] = new Vector4(-xInFar, yInFar, mainCamera.farClipPlane, 1);
-        frustumCorner[5] = new Vector4(xInFar, yInFar, mainCamera.farClipPlane, 1);
-        frustumCorner[6] = new Vector4(-xInFar, -yInFar, mainCamera.farClipPlane, 1);
-        frustumCorner[7] = new Vector4(xInFar, -yInFar, mainCamera.farClipPlane, 1);
-
-        float mainCameraFarPlaneWidth = xInFar * 2.0f;
-
-        for (int i = 0; i < 8; ++i)
-        {
-            frustumCorner[i] = mainCamera.transform.localToWorldMatrix.MultiplyPoint(frustumCorner[i]);
-        }
-        int hitCount = 0;
-        for (int i = 4; i < 8; ++i)
-        {
-            if (frustumCorner[i].y < 0)
-                hitCount++;
-        }
-        needRenderOcean = true;
-        if (hitCount == 0)
-        {
-            needRenderOcean = false;
-            return needRenderOcean;
-        }
-
-        
-        else if (hitCount < 4)
-        {
-            //重新计算一个camera
-            Vector3 orig = mainCamera.transform.position;
-            Quaternion rotate = Quaternion.AngleAxis(mainCamera.fieldOfView * 0.5f, mainCamera.transform.right);
-            Vector3 downVec = rotate * mainCamera.transform.forward;
-            float t = IntersectPlane(Vector3.up, Vector3.zero, orig, downVec.normalized);
-            Vector3 pDown = Vector3.zero;
-            if (t > 0)
-            {
-                pDown = orig + downVec * t;
-            }
-            else
-            {
-                Debug.LogError("something wrong in intersect with bottom plane!");
-            }
-
-            orig = (frustumCorner[4] + frustumCorner[5]) * 0.5f;
-            Vector3 vec = mainCamera.transform.position + mainCamera.transform.forward * mainCamera.farClipPlane - orig;
-            vec.Normalize();
-            Vector3 pFarIntersect = Vector3.zero;
-            t = IntersectPlane(Vector3.up, Vector3.zero, orig, vec);
-
-            if (t > 0)
-            {
-                pFarIntersect = orig + vec * t;
-            }
-            else
-            {
-                Debug.LogError("something wrong in intersect with far plane!");
-            }
-
-            Vector3 center = (pDown + pFarIntersect) * 0.5f;
-
-            //
-            float dis = Vector3.Distance(pDown, center) + 10.0f;
-
-            Vector3 cameraInPlane = mainCamera.transform.forward;
-            cameraInPlane.y = 0;
-            cameraInPlane.Normalize();
-
-            Vector3 tmp = center - cameraInPlane * dis;
-            projectedCameraPos = tmp + Vector3.up * Mathf.Sqrt(3.0f) * dis;
-            Vector3 cameraForward = (center - projectedCameraPos).normalized;
-
-            //相机空间到世界空间的矩阵
-            viewToWorld = Matrix4x4.LookAt(projectedCameraPos, center, Vector3.up);
-
-
-            float far = Vector3.Distance(center, projectedCameraPos) * 2;
-            Matrix4x4 perspective = Matrix4x4.Perspective(60.0f, mainCamera.aspect, mainCamera.nearClipPlane, far);
-            //perspective = GL.GetGPUProjectionMatrix(perspective, false);
-            if (SystemInfo.usesReversedZBuffer)
-            {
-                perspective.m22 = -perspective.m22;
-                perspective.m32 = -perspective.m32;
-                //screenToView.m22 = -screenToView.m22;
-                //screenToView.m23 = -screenToView.m23;
-                //viewToWorld.m11 = -viewToWorld.m11;
-                //viewToWorld.m23 = -viewToWorld.m23;
-            }
-            screenToView = perspective.inverse;
-
-            if (showDebugInfo)
-            {
-                float farPlaneHeight = far / Mathf.Sqrt(3) * 2;
-                float farPlaneWidth = farPlaneHeight * mainCamera.aspect;
-                //farplane 的up向量
-                Vector3 farUp = viewToWorld.MultiplyVector(Vector3.up).normalized * farPlaneHeight * 0.5f;
-                //farplane 的right向量
-                Vector3 farRight = viewToWorld.MultiplyVector(Vector3.right).normalized * farPlaneWidth * 0.5f;
-                Vector3 farCenter = projectedCameraPos + cameraForward * far;
-                Vector3 farCornerTL = farCenter + farUp - farRight;
-                Vector3 farCornerTR = farCenter + farUp + farRight;
-                Vector3 farCornerBL = farCenter - farUp - farRight;
-                Vector3 farCornerBR = farCenter - farUp + farRight;
-                DrawDebugFrustrum(projectedCameraPos, farCornerTL, farCornerTR, farCornerBL, farCornerBR);
-            }
-            
-        }
-        else
-        {
-            //使用当 前的camera生成projected grid
-            //viewToWorld = mainCamera.cameraToWorldMatrix;
-            projectedCameraPos = mainCamera.transform.position - mainCamera.transform.forward * 50.0f;
-            viewToWorld = Matrix4x4.LookAt(projectedCameraPos, mainCamera.transform.position + mainCamera.transform.forward, Vector3.up);
-
-            Matrix4x4 perspective = Matrix4x4.Perspective(mainCamera.fieldOfView, mainCamera.aspect, mainCamera.nearClipPlane, mainCamera.farClipPlane + 50.0f);
-            
-            //perspective = GL.GetGPUProjectionMatrix(perspective, false);
-
-            if (SystemInfo.usesReversedZBuffer)
-            {
-                //screenToView.m22 = -screenToView.m22;
-                perspective.m22 = -perspective.m22;
-                perspective.m32 = -perspective.m32;
-            }
-            screenToView = perspective.inverse;
-
-            if (showDebugInfo)
-                DrawDebugFrustrum(projectedCameraPos, frustumCorner[4], frustumCorner[5], frustumCorner[6], frustumCorner[7]);
-        }
-        */
-
         //---以下是新方法---
         
 
@@ -493,94 +265,58 @@ public class InfiniteOcean : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-
-
-        //if (projectGridShader != null)
-        //{
-        //    Matrix4x4 viewMatrix = Camera.main.cameraToWorldMatrix;
-        //    Matrix4x4 projectMatrix = Matrix4x4.identity;
-
-        //    projectMatrix = GL.GetGPUProjectionMatrix(projectMatrix, false);
-        //}
         CreateGrid();
         
-
-        /*
-        if (needRenderOcean)
+        switch (waveType)
         {
-            RenderProjectedGrid();
-            //TestProjectedGrid();
-            RenderOcean();
+            case WaveType.Gerstner:
+                if (waterWave != null && waterWave is FFTWave)
+                {
+                    waterWave.enabled = false;
+                }
+                waterWave = GetComponent<GerstnerWave>();
+                if (waterWave == null)
+                {
+                    waterWave = gameObject.AddComponent<GerstnerWave>();
+                }
+                if (!waterWave.enabled)
+                {
+                    waterWave.enabled = true;
+                }
+                Shader.EnableKeyword("GERSTNER_WAVE");
+                Shader.DisableKeyword("FFT_WAVE");
+                waterWave.ApplyMaterial(oceanMaterial);
+                break;
+            case WaveType.FFT:
+                Shader.DisableKeyword("GERSTNER_WAVE");
+                Shader.EnableKeyword("FFT_WAVE");
+                if (waterWave != null && waterWave is GerstnerWave)
+                {
+                    waterWave.enabled = false;
+                }
+                waterWave = GetComponent<FFTWave>();
+                if (waterWave == null)
+                {
+                    waterWave = gameObject.AddComponent<FFTWave>();
+                }
+                if (!waterWave.enabled)
+                {
+                    waterWave.enabled = true;
+                }
+                waterWave.ApplyMaterial(oceanMaterial);
+                break;
+            case WaveType.None:
+                if (waterWave != null && waterWave.enabled)
+                {
+                    waterWave.enabled = false;
+                }
+                Shader.DisableKeyword("GERSTNER_WAVE");
+                Shader.DisableKeyword("FFT_WAVE");
+                break;
         }
-        else
-        {
-            Camera mainCamera = SceneView.currentDrawingSceneView != null ? SceneView.currentDrawingSceneView.camera : Camera.main;
-            if (renderProjectedGridCommand != null)
-                mainCamera.RemoveCommandBuffer(CameraEvent.BeforeForwardOpaque, renderProjectedGridCommand);
-
-            if (renderOceanCommand != null)
-                mainCamera.RemoveCommandBuffer(CameraEvent.AfterForwardOpaque, renderOceanCommand);
-        }   
-        */
+        
     }
 
-    private void RenderProjectedGrid()
-    {
-        if (renderProjectedGridCommand == null)
-        {
-            renderProjectedGridCommand = new CommandBuffer();
-            renderProjectedGridCommand.name = "Render Projected Grid";
-            Camera mainCamera = SceneView.currentDrawingSceneView != null ? SceneView.currentDrawingSceneView.camera : Camera.main;
-            mainCamera.AddCommandBuffer(CameraEvent.BeforeForwardOpaque, renderProjectedGridCommand);
-        }
-        
-
-        renderProjectedGridCommand.Clear();
-
-        if (positionBuffer == null)
-        {
-            positionBuffer = new RenderTexture(ProjectGridResolution.width, ProjectGridResolution.height, 1, RenderTextureFormat.ARGBHalf);
-            //renderProjectedGridCommand.SetRenderTarget(positionBuffer);
-        }
-
-        renderProjectedGridCommand.SetRenderTarget(positionBuffer, 0);
-        renderProjectedGridCommand.ClearRenderTarget(true, true, Color.green);
-
-        if (projectedGridMaterial == null)
-        {
-            projectedGridMaterial = new Material(Shader.Find("liangairan/ocean/projectedgrid"));
-        }
-
-        renderProjectedGridCommand.SetGlobalMatrix("screenToView", screenToView);
-        renderProjectedGridCommand.SetGlobalMatrix("viewToWorld", viewToWorld);
-        renderProjectedGridCommand.SetGlobalVector("cameraPosProj", projectedCameraPos);
-
-        renderProjectedGridCommand.Blit(null, positionBuffer, projectedGridMaterial);
-
-        
-        
-        //renderProjectedGridCommand.DrawMesh(oceanMesh, Matrix4x4.identity, oceanMaterial);
-    }
-
-    private void RenderOcean()
-    {
-        if (renderOceanCommand == null)
-        {
-            renderOceanCommand = new CommandBuffer();
-            renderOceanCommand.name = "render ocean";
-            Camera mainCamera = Camera.main;
-            mainCamera = SceneView.currentDrawingSceneView != null ? SceneView.currentDrawingSceneView.camera : Camera.main;
-            mainCamera.AddCommandBuffer(CameraEvent.AfterForwardOpaque, renderOceanCommand);
-            Debug.Log("AddCommandBuffer render ocean");
-        }
-
-        
-
-        renderOceanCommand.Clear();
-        if (positionBuffer != null)
-            renderOceanCommand.SetGlobalTexture("_ProjectedGridMap", positionBuffer);
-        renderOceanCommand.DrawMesh(oceanMesh, Matrix4x4.identity, oceanMaterial);
-    }
 
     private void OnDestroy()
     {
@@ -599,74 +335,7 @@ public class InfiniteOcean : MonoBehaviour
             oceanMesh.Clear();
             oceanMesh = null;
         }
-        if (vertexBuffer != null)
-        {
-            //DestroyImmediate(vertexBuffer);
-            vertexBuffer.Release();
-            vertexBuffer = null;
-        }
-        if (positionBuffer != null)
-        {
-            DestroyImmediate(positionBuffer);
-            positionBuffer = null;
-        }
-
-        if (renderProjectedGridCommand != null && Camera.main != null)
-        {
-            Camera mainCamera = SceneView.currentDrawingSceneView != null ? SceneView.currentDrawingSceneView.camera : Camera.main;
-            mainCamera.RemoveCommandBuffer(CameraEvent.BeforeForwardOpaque, renderProjectedGridCommand);
-            renderProjectedGridCommand.Clear();
-            renderProjectedGridCommand = null;
-        }
-
-        if (renderOceanCommand != null && Camera.main != null)
-        {
-            Camera mainCamera = SceneView.currentDrawingSceneView != null ? SceneView.currentDrawingSceneView.camera : Camera.main;
-            mainCamera.RemoveCommandBuffer(CameraEvent.AfterSkybox, renderOceanCommand);
-            renderOceanCommand.Clear();
-            renderOceanCommand = null;
-        }
-
-        
     }
-
-    /*
-    private void TestProjectedGrid()
-    {
-        CaculateProjectedGridFrustum();
-        Vector3[] positions = new Vector3[ProjectGridResolution.width * ProjectGridResolution.height];
-        for (int i = 0; i < ProjectGridResolution.height; ++i)
-        {
-            for (int j = 0; j < ProjectGridResolution.width; ++j)
-            {
-                int index = i * ProjectGridResolution.width + j;
-                //positions[index].x = ((float)j / ProjectGridResolution.width - 0.5f) * 2 * ProjectGridResolution.width;
-                //positions[index].z = ((float)i / ProjectGridResolution.height - 0.5f) * 2 * ProjectGridResolution.height;
-                //positions[index].y = 0;
-                positions[index].x = ((float)j / (ProjectGridResolution.width - 1) - 0.5f) * 2;
-                positions[index].y = -((float)i / (ProjectGridResolution.height - 1) - 0.5f) * 2;
-                positions[index].z = 1;
-                Vector4 screenPos = Vector4.one;
-                screenPos.x = ((float)j / (ProjectGridResolution.width - 1) - 0.5f) * 2;
-                screenPos.y = -((float)i / (ProjectGridResolution.width - 1) - 0.5f) * 2;
-                screenPos.z = -1.0f;
-                screenPos.w = 1.0f;
-
-                Vector3 viewPos = screenToView.MultiplyPoint(positions[index]);
-                Vector4 viewPos2 = screenToView * screenPos;
-                if (viewPos2.w != 0)
-                    viewPos2 /= viewPos2.w;
-                Vector3 camDir = screenToView.MultiplyPoint(positions[index]).normalized;
-                Vector3 worldDir = viewToWorld.MultiplyVector(camDir).normalized;
-                float t = -projectedCameraPos.y / worldDir.y;
-                Vector3 planePos = projectedCameraPos + t * worldDir;
-
-                positions[index] = planePos;
-            }
-        }
-        oceanMesh.vertices = positions;
-    }
-    */
 
     private void DrawDebugFrustrum(Vector3 cameraPos, Vector3 farTopLeft, Vector3 farTopRight,
         Vector3 farBottomLeft, Vector3 farBottomRight)
@@ -682,57 +351,7 @@ public class InfiniteOcean : MonoBehaviour
         Debug.DrawLine(farTopLeft, farBottomLeft);
     }
 
-    /*
-    private void LateUpdate()
-    {
-        if (needRenderOcean)
-        {
-            if (projectedGridMaterial == null)
-            {
-                projectedGridMaterial = new Material(Shader.Find("liangairan/ocean/projectedgrid"));
-            }
-
-            if (positionBuffer == null)
-            {
-                positionBuffer = new RenderTexture(ProjectGridResolution.width, ProjectGridResolution.height, 1, RenderTextureFormat.ARGBHalf);
-            }
-
-            projectedGridMaterial.SetMatrix("screenToView", screenToView);
-            projectedGridMaterial.SetMatrix("viewToWorld", viewToWorld);
-            projectedGridMaterial.SetVector("cameraPosProj", projectedCameraPos);
-            Graphics.SetRenderTarget(positionBuffer);
-            GL.Clear(true, true, Color.black);
-            Graphics.Blit(null, positionBuffer, projectedGridMaterial);
-            oceanMesh.bounds = new Bounds(Vector3.zero, new Vector3(9999, 100, 9999));
-            Shader.SetGlobalTexture("_ProjectedGridMap", positionBuffer);
-            
-
-            if (shadedMode == OceanShadeMode.Shaded)
-            {
-                Graphics.DrawMesh(oceanMesh, Matrix4x4.identity, oceanMaterial, 0);
-                
-            }
-            else if (shadedMode == OceanShadeMode.Wireframe)
-            {
-                if (wireFrameMaterial == null)
-                {
-                    wireFrameMaterial = new Material(Shader.Find("liangairan/ocean/wireframe"));
-                }
-                Graphics.DrawMesh(oceanMesh, Matrix4x4.identity, wireFrameMaterial, 0);
-            }
-            else if (shadedMode == OceanShadeMode.ShadedWireframe)
-            {
-                Graphics.DrawMesh(oceanMesh, Matrix4x4.identity, oceanMaterial, 0);
-                if (wireFrameMaterial == null)
-                {
-                    wireFrameMaterial = new Material(Shader.Find("liangairan/ocean/wireframe"));
-                }
-                Graphics.DrawMesh(oceanMesh, Matrix4x4.identity, wireFrameMaterial, 0);
-            }
-        }
-    }
-    */
-
+    
     void CreateGrid()
     {
         int pixelsPerGrid = PixelsPerGrid();
@@ -772,9 +391,9 @@ public class InfiniteOcean : MonoBehaviour
                     oceanMaterial.SetTexture("_skyCube", waterResource.SkyCube);
                 }
 
-                oceanMaterial.SetVector("_Wave1", waterResource.Waves[0].waveData);
-                oceanMaterial.SetVector("_Wave2", waterResource.Waves[1].waveData);
-                oceanMaterial.SetVector("_Wave3", waterResource.Waves[2].waveData);
+                //oceanMaterial.SetVector("_Wave1", waterResource.Waves[0].waveData);
+                //oceanMaterial.SetVector("_Wave2", waterResource.Waves[1].waveData);
+                //oceanMaterial.SetVector("_Wave3", waterResource.Waves[2].waveData);
                 oceanMaterial.SetFloat("_BumpScale", waterResource.BumpScale);
             }
         }
@@ -798,7 +417,7 @@ public class InfiniteOcean : MonoBehaviour
             {
                 meshFilter = gameObject.AddComponent<MeshFilter>();
             }
-            meshFilter.mesh = oceanMesh;
+            meshFilter.sharedMesh = oceanMesh;
 
             oceanMesh.bounds = new Bounds(Camera.current != null ? Camera.current.transform.position : Vector3.zero, new Vector3(9999, 100, 9999));
         }
@@ -898,6 +517,7 @@ public class InfiniteOcean : MonoBehaviour
         return mesh;
     }
 
+    /*
     float GetWaterMaxHeight()
     {
         float maxHeight = 0;
@@ -911,6 +531,7 @@ public class InfiniteOcean : MonoBehaviour
 
         return maxHeight;
     }
+    */
 
     //最关键的函数，创建一个近截面缩放平移矩阵，该矩阵只包含可见的海平面
     Matrix4x4 CreateRangeMatrix(Matrix4x4 vp)
