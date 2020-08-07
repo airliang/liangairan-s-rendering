@@ -7,8 +7,8 @@
 
 sampler2D _MainTex;
 samplerCUBE   _skyCube;
-//sampler2D _NoiseMap;
-//float4 _NoiseMap_ST;
+sampler2D _NoiseMap;
+float4 _NoiseMap_ST;
 sampler2D _SurfaceMap;
 float4 _SurfaceMap_ST;
 //uniform sampler2D _ProjectedGridMap;
@@ -85,7 +85,7 @@ VSOut vert(appdata v)
     float3 posWorld = oceanPos(uv);
 
     o.uv.zw = posWorld.xz * 0.1 + _Time.y * 0.05;
-    o.uv.xy = posWorld.xz * 0.4 - _Time.y * 0.1;
+    o.uv.xy = posWorld.xz * 0.4  -_Time.y * 0.1;
     float opacity = 1 - _Transparent;
 #if GERSTNER_WAVE
     float heightScale = GerstnerWaves3Composite(posWorld, o.posWorld, o.normalWorld);
@@ -116,15 +116,20 @@ half4 frag(VSOut i) : COLOR
     float  viewsDistance = length(_WorldSpaceCameraPos.xz - i.posWorld.xz);
     fixed3 viewDirection = normalize(_WorldSpaceCameraPos.xyz - i.posWorld.xyz);
 
-
-    half2 detailBump1 = tex2D(_SurfaceMap, i.uv.zw * _SurfaceMap_ST.xy + _SurfaceMap_ST.zw).xy * 2 - 1;
-    half2 detailBump2 = tex2D(_SurfaceMap, i.uv.xy * _SurfaceMap_ST.xy + _SurfaceMap_ST.zw).xy * 2 - 1;
+    float2 noise  = 0;
+#if !defined(FFT_WAVE) && !defined(GERSTNER_WAVE)
+    //noise = tex2D(_NoiseMap, (i.uv + _Time.y) * _NoiseMap_ST.xy + _NoiseMap_ST.zw).rg * 2 - 1;
+#endif
+    half2 detailBump1 = tex2D(_SurfaceMap, (i.uv.zw + noise) * _SurfaceMap_ST.xy + _SurfaceMap_ST.zw).xy * 2 - 1;
+    half2 detailBump2 = tex2D(_SurfaceMap, (i.uv.xy + noise) * _SurfaceMap_ST.xy + _SurfaceMap_ST.zw).xy * 2 - 1;
     half2 detailBump = (detailBump1 + detailBump2 * 0.5) * 0.95;
 
 #if FFT_WAVE
     i.normalWorld = tex2Dlod(_NormalMap, float4(i.posWorld.xz / 128, 0, 0));
 #endif
     i.normalWorld += half3(detailBump.x, 0, detailBump.y) * _BumpScale;
+
+
 
     //i.normalWorld += half3(1-waterFX.y, 0.5h, 1-waterFX.z) - 0.5;
 
@@ -191,7 +196,7 @@ float3 CalculateDistToCenter(float4 v0, float4 v1, float4 v2) {
 // w = 1 gives screen-space consistent wireframe thickness
 float GetWireframeAlpha(float3 dist, float thickness, float firmness, float w = 1) {
 	// find the smallest distance
-	float val = min(dist.x, min(dist.y, dist.z));
+    float val = min(dist.x, min(dist.y, dist.z));
 	val *= w;
 
 	// calculate power to 2 to thin the line
@@ -226,7 +231,6 @@ v2g vert_wireframe(appdata v)
     float3 posWorld = oceanPos(uv);
     float3 normalWorld = float3(0, 0, 0);
 	o.uv.xy = posWorld.xz * 0.4 - _Time.y * 0.1;
-    float heightScale = GerstnerWaves3Composite(posWorld, posWorld, normalWorld);
 
 	float opacity = 1 - _Transparent;
 	
@@ -269,7 +273,7 @@ float4 frag_wireframe(g2f input) : COLOR
 	w = 1;
 	#endif
 
-	float alpha = GetWireframeAlpha(input.dist, _Thickness, _Firmness, w);
+	float alpha = GetWireframeAlpha(input.dist, _Thickness, _Firmness, 1);
 	float4 col = _Color * tex2D(_MainTex, input.uv);
 	col.a *= alpha;
 

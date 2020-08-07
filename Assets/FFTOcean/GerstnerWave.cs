@@ -19,12 +19,20 @@ public struct WaveData
     public float steepness;
 }
 
+[System.Serializable]
+[CreateAssetMenu(fileName = "GerstnerWave", menuName = "water/GerstnerWave", order = 0)]
+public class GerstnerWaveAsset : ScriptableObject
+{
+    public WaveData[] Waves;
+}
+
 
 public class GerstnerWave : WaterWave
 {
     //public WaterResources waterResources;
 
-    public WaveData[] Waves = new WaveData[3];
+    //public WaveData[] Waves = new WaveData[3];
+    public GerstnerWaveAsset waveAsset;
     // Start is called before the first frame update
     void Start()
     {
@@ -39,10 +47,32 @@ public class GerstnerWave : WaterWave
 
     public override void ApplyMaterial(Material waterMaterial)
     {
-        waterMaterial.SetVector("_Wave1", Waves[0].waveData);
-        waterMaterial.SetVector("_Wave2", Waves[1].waveData);
-        waterMaterial.SetVector("_Wave3", Waves[2].waveData);
+        if (waveAsset == null)
+        {
+            waveAsset = Resources.Load<GerstnerWaveAsset>("GerstnerWave");
+        }
+        if (waveAsset != null && waveAsset.Waves != null)
+        {
+            if (waveAsset.Waves.Length > 2)
+            {
+                waterMaterial.SetVector("_Wave1", waveAsset.Waves[0].waveData);
+                waterMaterial.SetVector("_Wave2", waveAsset.Waves[1].waveData);
+                waterMaterial.SetVector("_Wave3", waveAsset.Waves[2].waveData);
+            }
+        }
+    }
 
-        
+    public override float GetWaterMaxHeight()
+    {
+        float maxHeight = 0;
+        if (waveAsset != null && waveAsset.Waves != null)
+        {
+            for (int i = 0; i < waveAsset.Waves.Length; i++)
+            {
+                maxHeight = Mathf.Max(maxHeight, waveAsset.Waves[i].waveData.y);
+            }
+        }
+
+        return maxHeight;
     }
 }

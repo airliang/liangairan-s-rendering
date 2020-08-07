@@ -10,11 +10,11 @@ Shader "liangairan/ocean/wireframe" {
 		//_Wave1("Wave1 wavelength y-amplitude z-speed w-waveNum",Vector) = (2, 1, 10, 1)
 		//_Wave2("Wave2",Vector) = (20,0.3,30,0.1)
 		//_Wave3("Wave3",Vector) = (15,1.2,20,0.5)
-        _Thickness("Thickness", Range(0,1000)) = 255
-        _Firmness("Firmness", Range(0,1000)) = 255
+        _Thickness("Thickness", Range(0,10)) = 1
+        _Firmness("Firmness", Range(0,10)) = 1
 	}
 	SubShader {
-		Tags { "Queue" = "Transparent" "RenderType" = "Transparent"}
+		Tags { "Queue" = "Transparent+100" "RenderType" = "Transparent"}
 		LOD 200
 
         Pass
@@ -30,7 +30,7 @@ Shader "liangairan/ocean/wireframe" {
             #pragma fragment frag_wireframe
             #pragma exclude_renderers xbox360 flash	
 
-			#pragma multi_compile _ INFINITE_OCEAN
+			#pragma multi_compile _ GERSTNER_WAVE FFT_WAVE
 			#pragma multi_compile _ CIRCLE_WAVE
             #include "ocean_core.cginc"
 

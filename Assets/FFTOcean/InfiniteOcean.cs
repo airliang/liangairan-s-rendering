@@ -25,7 +25,7 @@ public struct GerstnerWave
 }
 */
 [System.Serializable]
-[CreateAssetMenu(fileName = "WaterResources", menuName = "WaterResource", order = 0)]
+[CreateAssetMenu(fileName = "WaterResources", menuName = "water/WaterResource", order = 0)]
 public class WaterResources : ScriptableObject
 {
     public Texture2D SurfaceMap;
@@ -517,21 +517,19 @@ public class InfiniteOcean : MonoBehaviour
         return mesh;
     }
 
-    /*
-    float GetWaterMaxHeight()
-    {
-        float maxHeight = 0;
-        if (waterResource != null)
-        {
-            for (int i = 0; i < waterResource.Waves.Length; i++)
-            {
-                maxHeight = Mathf.Max(maxHeight, waterResource.Waves[i].waveData.y);
-            }
-        }
 
-        return maxHeight;
+    private void LateUpdate()
+    {
+        if (shadedMode == OceanShadeMode.ShadedWireframe)
+        {
+            if (wireFrameMaterial == null)
+            {
+                wireFrameMaterial = new Material(Shader.Find("liangairan/ocean/wireframe"));
+            }
+            if (wireFrameMaterial)
+                Graphics.DrawMesh(oceanMesh, Matrix4x4.identity, wireFrameMaterial, 0);
+        }
     }
-    */
 
     //最关键的函数，创建一个近截面缩放平移矩阵，该矩阵只包含可见的海平面
     Matrix4x4 CreateRangeMatrix(Matrix4x4 vp)

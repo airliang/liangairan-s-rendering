@@ -346,6 +346,8 @@ MonoBehaviour:
   waterResource: {fileID: 11400000, guid: 2d777a412ebb0304181e985f76bf4490, type: 2}
   resolution: 1
   shadedMode: 0
+  waveType: 2
+  waterWave: {fileID: 0}
   showDebugInfo: 1
   waterLevel: 0
 --- !u!33 &585748321
@@ -589,6 +591,10 @@ Material:
     - _MainTex:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _NoiseMap:
+        m_Texture: {fileID: 2800000, guid: 479ec25f894ead44783d5845e1c59619, type: 3}
+        m_Scale: {x: 0.01, y: 0.01}
         m_Offset: {x: 0, y: 0}
     - _SurfaceMap:
         m_Texture: {fileID: 2800000, guid: 83786257964ff624d92ac2e3fc057736, type: 3}

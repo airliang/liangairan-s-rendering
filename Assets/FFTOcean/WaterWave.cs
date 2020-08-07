@@ -8,4 +8,9 @@ public class WaterWave :MonoBehaviour
     {
 
     }
+
+    public virtual float GetWaterMaxHeight()
+    {
+        return 0;
+    }
 }

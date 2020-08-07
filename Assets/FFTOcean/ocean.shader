@@ -11,6 +11,7 @@ Shader "liangairan/ocean/ocean" {
         _skyCube("sky Cubemap", Cube) = ""{}
         //_NoiseMap("Noise", 2D) = "bump" {}
         _SurfaceMap("SurfaceMap", 2D) = "white" {}
+        _NoiseMap("Flow (RG A-noise)", 2D) = "black" {}
         _BumpScale("Bump Scale", Range(0, 2)) = 0.35
 		_Wave1("Wave1 wavelength y-amplitude z-speed w-waveNum",Vector) = (2, 1, 10, 1)
 		_Wave2("Wave2",Vector) = (20,0.3,30,0.1)
