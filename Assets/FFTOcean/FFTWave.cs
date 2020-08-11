@@ -408,12 +408,4 @@ public class FFTWave : WaterWave
         waterMaterial.SetTexture("_HeightTex", mHeightTexture);
         waterMaterial.SetTexture("_NormalMap", mNormalMap);
     }
-
-    void OnGUI()
-    {
-        if (Event.current.type.Equals(EventType.Repaint))
-        {
-            Graphics.DrawTexture(new Rect(10, 10, 100, 100), mNormalMap);
-        }
-    }
 }

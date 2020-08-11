@@ -632,7 +632,7 @@ public class InfiniteOcean : MonoBehaviour
     {
         projectedCameraPos = cam.transform.position;
 
-        float fit = 20.0f;
+        float fit = 20.0f;  //避免nearplane和sea bound有交集
 
         float range = 0;// Math.Max(0.0, m_ocean.FindMaxDisplacement(true)) + fit;
 
