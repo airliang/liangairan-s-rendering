@@ -94,6 +94,10 @@ Shader "liangairan/pbr/prefilterIrradianceCubemap" {
                 }
                 irradiance = PI * irradiance * (1.0 / float(nrSamples));
 
+#if !defined(UNITY_COLORSPACE_GAMMA)
+                irradiance.rgb = pow(irradiance.rgb, 2.2);
+#endif
+
                 return fixed4(irradiance, 1.0);
             }
             ENDCG

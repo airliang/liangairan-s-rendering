@@ -152,16 +152,19 @@ Shader "liangairan/pbr/pbr by IBL" {
 				float D = BeckmannNormalDistribution(_Roughness, NdH);
 				float G = Schilck_GSF(_Roughness, NdV, NdL);
 #endif
-                fixed3 specular = brdf(F, D, G, NdV, NdL); // *_LightColor0.xyz;
+                fixed3 specular = brdf(F, D, G, NdV, NdL);
 				
-                fixed4 lightOut;
-				lightOut.rgb = directDiffuse + specular * totalLightColor * NdL;
-                fixed4 irradianceColor = texCUBE(_IrradianceMap, normalDirection);
+                
 
                 F = fresnelSchlickRoughness(NdV, F0, _Roughness);
-                kS = F;//fresnelSchlick(LdH, specularColor);
+                kS = F;
                 kD = 1.0 - kS;
                 kD *= 1.0 - _Metallic;
+
+                fixed4 lightOut;
+                lightOut.rgb = directDiffuse + specular * _LightColor0 * NdL;
+                fixed4 irradianceColor = texCUBE(_IrradianceMap, normalDirection);
+
                 fixed3 indirectDiffuse = irradianceColor.rgb * albedo.rgb * kD;
 
                 //下面是计算indirect specular
@@ -182,7 +185,7 @@ Shader "liangairan/pbr/pbr by IBL" {
 
                 //lightOut.rgb *= shadow;
                 //lightOut.rgb = lightOut.rgb / (lightOut.rgb + fixed3(1.0, 1.0, 1.0));
-                //float gama = 1.0 / 2.2;
+                //float gama = 2.2;
                 //lightOut.rgb = pow(lightOut.rgb, fixed3(gama, gama, gama));
 
                 return lightOut;

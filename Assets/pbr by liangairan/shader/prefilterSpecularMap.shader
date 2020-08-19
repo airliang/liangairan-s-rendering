@@ -164,6 +164,9 @@ Shader "liangairan/pbr/prefilterSpecularMap" {
                 }
 
                 prefilteredColor = prefilteredColor / totalWeight;
+#if !defined(UNITY_COLORSPACE_GAMMA)
+                prefilteredColor.rgb = pow(prefilteredColor.rgb, 2.2);
+#endif
 
                 return fixed4(prefilteredColor, 1.0);
             }

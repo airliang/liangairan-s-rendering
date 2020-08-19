@@ -133,13 +133,13 @@ half4 frag(VSOut i) : COLOR
 
     //i.normalWorld += half3(1-waterFX.y, 0.5h, 1-waterFX.z) - 0.5;
 
-    float3 normalDirection = normalize(i.normalWorld);
+    half3 normalDirection = normalize(i.normalWorld);
 
     //return half4(normalDirection, 1);
-    float NoL = max(0, dot(lightDirection, normalDirection));
+    half NoL = max(0, dot(lightDirection, normalDirection));
 
     fixed3 reflectDir = normalize(reflect(-viewDirection, normalDirection));
-    float NoR = max(0, dot(normalDirection, viewDirection));
+    float NoV = max(0, dot(normalDirection, viewDirection));
     //float fr = fresnel(reflectDir, normalDirection);
     float R0 = (1 - 1.3) * (1 - 1.3) / ((1 + 1.3) * (1 + 1.3));
     half fr = fresnelSchlick(dot(normalDirection, viewDirection), R0);
@@ -149,7 +149,7 @@ half4 frag(VSOut i) : COLOR
 
     //float3 reflected = Sky(pos, reflect(rd, nor), lightDir);
     half3 reflectColor = _skyColor * fr; //texCUBE(_skyCube, reflectDir) * fr;
-    //return float4(reflectColor, 1);
+    //return half4(reflectColor, 1);
     half3 h = normalize(viewDirection + lightDirection);
     half3 spec = pow(max(dot(h, normalDirection), 0.0), 150.) * _LightColor0;
 

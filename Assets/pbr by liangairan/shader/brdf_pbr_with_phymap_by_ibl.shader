@@ -124,8 +124,8 @@ Shader "liangairan/pbr/pbr with phymap by IBL" {
                 
                 fixed4 albedo = tex2D(_MainTex, i.uv);
                 fixed4 ctrlMap = tex2D(_RoughnessTex, i.uv);
-                float _Metallic = ctrlMap.r;
-                float _Roughness = 1 - ctrlMap.a;
+                float _Metallic = ctrlMap.a;
+                float _Roughness = 1 - ctrlMap.r;
 
                 //radiance
                 fixed3 totalLightColor = UNITY_LIGHTMODEL_AMBIENT.xyz + attenColor;
@@ -175,7 +175,7 @@ Shader "liangairan/pbr/pbr with phymap by IBL" {
 
                 //lightOut.rgb *= shadow;
                 //lightOut.rgb = lightOut.rgb / (lightOut.rgb + fixed3(1.0, 1.0, 1.0));
-                //float gama = 1.0 / 2.2;
+                //float gama = 2.2;
                 //lightOut.rgb = pow(lightOut.rgb, fixed3(gama, gama, gama));
 
                 return lightOut;
