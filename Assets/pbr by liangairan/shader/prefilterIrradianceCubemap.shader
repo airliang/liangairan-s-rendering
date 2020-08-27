@@ -72,7 +72,7 @@ Shader "liangairan/pbr/prefilterIrradianceCubemap" {
                 */
                 fixed3 normalDirection = normalize(i.posWorld);
 
-                fixed3 irradiance = fixed3(0, 0, 0);
+                half3 irradiance = half3(0, 0, 0);
                 fixed3 up = fixed3(0.0, 1.0, 0.0);
                 fixed3 right = cross(up, normalDirection);
                 up = cross(normalDirection, right);
@@ -98,7 +98,7 @@ Shader "liangairan/pbr/prefilterIrradianceCubemap" {
                 irradiance.rgb = pow(irradiance.rgb, 2.2);
 #endif
 
-                return fixed4(irradiance, 1.0);
+                return half4(irradiance, 1.0);
             }
             ENDCG
         }

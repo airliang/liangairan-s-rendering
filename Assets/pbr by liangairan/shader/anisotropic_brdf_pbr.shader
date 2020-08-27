@@ -25,6 +25,7 @@ Shader "liangairan/pbr/anisotropic pbr simple" {
             #include "UnityCG.cginc"
             #include "AutoLight.cginc"
             #include "Lighting.cginc"
+            #include "pbrInclude.cginc"
             #pragma target 3.0
             #pragma vertex vert
             #pragma fragment frag
@@ -59,60 +60,6 @@ Shader "liangairan/pbr/anisotropic pbr simple" {
 				half3 tangentWorld : TEXCOORD3;
                 SHADOW_COORDS(4)
             };
-
-            //F(v,h)公式 cosTheta = v dot h
-            half3 fresnelSchlick(float cosTheta, half3 F0)
-            {
-                return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
-            }
-
-            //D(h)GGX公式，计算法线分布
-            //alpha = roughness * roughness
-            float normalDistribution_GGX(float ndh, float alpha)
-            {
-                float alphaPow = alpha * alpha;
-                float t = ndh * ndh * (alphaPow - 1) + 1;
-                return alphaPow / (PI * t * t);
-            }
-
-            float BeckmannNormalDistribution(float roughness, float NdotH)
-            {
-                float roughnessSqr = roughness * roughness;
-                float NdotHSqr = NdotH * NdotH;
-                return max(0.000001, (1.0 / (3.1415926535 * roughnessSqr * NdotHSqr*NdotHSqr)) * exp((NdotHSqr - 1) / (roughnessSqr*NdotHSqr)));
-            }
-			
-			float D_GGXaniso( float RoughnessX, float RoughnessY, float NdotH, float3 H, float3 X, float3 Y )
-			{
-				float ax = RoughnessX * RoughnessX;
-				float ay = RoughnessY * RoughnessY;
-				float XoH = dot( X, H );
-				float YoH = dot( Y, H );
-				float d = XoH*XoH / (ax*ax) + YoH*YoH / (ay*ay) + NdotH * NdotH;
-				return 1 / ( PI * ax*ay * d*d + 0.0001);
-			}
-
-            //G(l,v,h)
-            float smith_schilck(float roughness, float ndv, float ndl)
-            {
-                float k = (roughness + 1) * (roughness + 1) / 8;
-                float Gv = ndv / (ndv * (1 - k) + k);
-                float Gl = ndl / (ndl * (1 - k) + k);
-                return Gv * Gl;
-            }
-
-            half3 brdf(half3 fresnel, float D, float G, float ndv, float ndl)
-            {
-                return fresnel * D * G / (4 * ndv * ndl + 0.0001);
-            }
-
-			float aniso_smith_schilck(float ax, float ay, float ndv, float ndl)
-			{
-				float k = (ax + 1) * (ay + 1) / 8;
-				float Gv = ndv / (ndv * (1 - k) + k);
-				float Gl = ndl / (ndl * (1 - k) + k);
-				return Gv * Gl;
-			}
 
 			half3 wardBrdf(half3 fresnel, float NdotH, float ndv, float ndl, float3 H, float3 X, float3 Y)
 			{

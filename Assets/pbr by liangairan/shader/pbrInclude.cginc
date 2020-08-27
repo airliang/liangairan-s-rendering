@@ -122,3 +122,26 @@ half3 brdf(half3 fresnel, float D, float G, float ndv, float ndl)
 {
 	return fresnel * D * G / (4 * ndv * ndl + 0.0001);
 }
+
+//roughnessX roughnessY X和Y切线方向的粗糙度
+//NoH 宏观法线和微表面法线的点乘
+//H 微表面法线
+//X 切线向量
+//Y 切线向量
+float D_GGXaniso(float RoughnessX, float RoughnessY, float NoH, float3 H, float3 X, float3 Y)
+{
+	float ax = RoughnessX * RoughnessX;
+	float ay = RoughnessY * RoughnessY;
+	float XoH = dot(X, H);
+	float YoH = dot(Y, H);
+	float d = XoH * XoH / (ax * ax) + YoH * YoH / (ay * ay) + NoH * NoH;
+	return 1 / (PI * ax * ay * d * d);
+}
+
+float aniso_smith_schilck(float ax, float ay, float ndv, float ndl)
+{
+	float k = (ax + 1) * (ay + 1) / 8;
+	float Gv = ndv / (ndv * (1 - k) + k);
+	float Gl = ndl / (ndl * (1 - k) + k);
+	return Gv * Gl;
+}

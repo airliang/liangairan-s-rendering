@@ -109,8 +109,8 @@ Shader "liangairan/pbr/pbr by IBL" {
                 //微表面法线
                 fixed3 h = normalize(lightDirection + viewDirection);
 
-                fixed3 attenColor = _LightColor0.xyz;
-                fixed3 R = reflect(-viewDirection, normalDirection);
+                half3 attenColor = _LightColor0.xyz;
+                half3 R = reflect(-viewDirection, normalDirection);
                 
 
                 float NdL = max(dot(normalDirection, lightDirection), 0);
@@ -121,22 +121,22 @@ Shader "liangairan/pbr/pbr by IBL" {
                 
                 //return half4(fresnelSchlick(NdV, _F0), 1);
                 
-                fixed4 albedo = i.color * tex2D(_MainTex, i.uv) * _Color;
+                half4 albedo = i.color * tex2D(_MainTex, i.uv) * _Color;
 
                 //radiance
-                fixed3 totalLightColor = UNITY_LIGHTMODEL_AMBIENT.xyz + attenColor;
+                half3 totalLightColor = UNITY_LIGHTMODEL_AMBIENT.xyz + attenColor;
                 //fixed3 diffuseLambert = max(0, (totalLightColor - UNITY_LIGHTMODEL_AMBIENT.xyz) * NdL + UNITY_LIGHTMODEL_AMBIENT.xyz);
 
                 //目的是当金属度为0时，也希望有0.04的高光
                 // calculate reflectance at normal incidence; if dia-electric (like plastic) use F0 
                 // of 0.04 and if it's a metal, use the albedo color as F0 (metallic workflow)  
-                fixed3 F0 = fixed3(0.04, 0.04, 0.04);
+                half3 F0 = half3(0.04, 0.04, 0.04);
                 F0 = lerp(F0, albedo.rgb, _Metallic);
                 //fixed3 specularColor = lerp(fixed3(0.04, 0.04, 0.04), _F0.rgb, _Metallic);
                 half3 F = fresnelSchlick(VdH, F0);
                 half3 kS = F;
                 half3 kD = (half3(1, 1, 1) - kS) * (1.0 - _Metallic);
-                fixed3 directDiffuse = (albedo.rgb / PI) * kD * totalLightColor * NdL;
+                half3 directDiffuse = (albedo.rgb / PI) * kD * totalLightColor * NdL;
 				//float f0 = F0(NdL, NdV, LdH, _Roughness);
 				//directDiffuse *= f0;
 #ifdef NDF_GGX
@@ -152,7 +152,7 @@ Shader "liangairan/pbr/pbr by IBL" {
 				float D = BeckmannNormalDistribution(_Roughness, NdH);
 				float G = Schilck_GSF(_Roughness, NdV, NdL);
 #endif
-                fixed3 specular = brdf(F, D, G, NdV, NdL);
+                half3 specular = brdf(F, D, G, NdV, NdL);
 				
                 
 
@@ -161,32 +161,33 @@ Shader "liangairan/pbr/pbr by IBL" {
                 kD = 1.0 - kS;
                 kD *= 1.0 - _Metallic;
 
-                fixed4 lightOut;
+                half4 lightOut;
                 lightOut.rgb = directDiffuse + specular * _LightColor0 * NdL;
-                fixed4 irradianceColor = texCUBE(_IrradianceMap, normalDirection);
+                half4 irradianceColor = texCUBE(_IrradianceMap, normalDirection);
 
-                fixed3 indirectDiffuse = irradianceColor.rgb * albedo.rgb * kD;
+                half3 indirectDiffuse = irradianceColor.rgb * albedo.rgb * kD;
 
                 //下面是计算indirect specular
                 const float MAX_REFLECTION_LOD = 7.0;
                 float mipLevel = floor(_Roughness * MAX_REFLECTION_LOD);
                 float r_max = 1.0 / MAX_REFLECTION_LOD;
                 float mipT = _Roughness * MAX_REFLECTION_LOD - mipLevel;
-                fixed3 indirectEnvColor = UNITY_SAMPLE_TEXCUBE_LOD(_SpecularIndirectMap, R, mipLevel).rgb;
-                fixed3 indirectEnvColor2 = UNITY_SAMPLE_TEXCUBE_LOD(_SpecularIndirectMap, R, mipLevel + 1).rgb;
+                half3 indirectEnvColor = UNITY_SAMPLE_TEXCUBE_LOD(_SpecularIndirectMap, R, mipLevel).rgb;
+                half3 indirectEnvColor2 = UNITY_SAMPLE_TEXCUBE_LOD(_SpecularIndirectMap, R, mipLevel + 1).rgb;
                 indirectEnvColor = lerp(indirectEnvColor, indirectEnvColor2, mipT);
-                fixed3 brdf = tex2D(_BRDFLUTTex, half2(NdV, _Roughness));
-                fixed3 indirectSpecular = indirectEnvColor * (F * brdf.x + brdf.y);
+                half3 brdf = tex2D(_BRDFLUTTex, half2(NdV, _Roughness));
+                half3 indirectSpecular = indirectEnvColor * (F * brdf.x + brdf.y);
 
                 lightOut.rgb += indirectDiffuse + indirectSpecular;
 
-                float  atten = saturate(SHADOW_ATTENUATION(i) + _ShadowScale);
-                fixed3 shadow = max(UNITY_LIGHTMODEL_AMBIENT.xyz, fixed3(atten, atten, atten));
+                //float  atten = saturate(SHADOW_ATTENUATION(i) + _ShadowScale);
+                //half3 shadow = max(UNITY_LIGHTMODEL_AMBIENT.xyz, fixed3(atten, atten, atten));
 
                 //lightOut.rgb *= shadow;
-                //lightOut.rgb = lightOut.rgb / (lightOut.rgb + fixed3(1.0, 1.0, 1.0));
-                //float gama = 2.2;
-                //lightOut.rgb = pow(lightOut.rgb, fixed3(gama, gama, gama));
+                //lightOut.rgb = lightOut.rgb / (lightOut.rgb + 1.0);
+                //lightOut.rgb = 1.0 - exp(-lightOut.rgb * 1.0);
+                //float gama = 1 / 2.2;
+                //lightOut.rgb = pow(lightOut.rgb, gama);
 
                 return lightOut;
             }

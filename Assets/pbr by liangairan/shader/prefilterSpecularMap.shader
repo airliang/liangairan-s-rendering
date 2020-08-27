@@ -127,7 +127,7 @@ Shader "liangairan/pbr/prefilterSpecularMap" {
                 fixed3 V = R;
 
                 const uint SAMPLE_COUNT = 1024u;
-                fixed3 prefilteredColor = fixed3(0.0, 0.0, 0.0);
+                half3 prefilteredColor = half3(0.0, 0.0, 0.0);
                 float totalWeight = 0.0;
 
                 for (uint i = 0u; i < SAMPLE_COUNT; ++i)
@@ -168,7 +168,7 @@ Shader "liangairan/pbr/prefilterSpecularMap" {
                 prefilteredColor.rgb = pow(prefilteredColor.rgb, 2.2);
 #endif
 
-                return fixed4(prefilteredColor, 1.0);
+                return half4(prefilteredColor, 1.0);
             }
             ENDCG
         }

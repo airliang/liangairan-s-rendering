@@ -44,7 +44,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _IrradianceMap:
-        m_Texture: {fileID: 8900000, guid: f7af426734f793342ab3c9c1766bdbfb, type: 2}
+        m_Texture: {fileID: 8900000, guid: edc157e0a80de6049a66990ff985b37c, type: 2}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MainTex:
@@ -68,7 +68,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _SpecularIndirectMap:
-        m_Texture: {fileID: 8900000, guid: 6a82c17984308794c9bdc950171ada10, type: 2}
+        m_Texture: {fileID: 8900000, guid: 29906e4f01f275d42953c163614bdac4, type: 2}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     m_Floats:
@@ -80,7 +80,7 @@ Material:
     - _GlossMapScale: 1
     - _Glossiness: 0.5
     - _GlossyReflections: 1
-    - _Metallic: 0.5
+    - _Metallic: 1
     - _Mode: 0
     - _OcclusionStrength: 1
     - _Parallax: 0.02
