@@ -145,3 +145,4 @@ float aniso_smith_schilck(float ax, float ay, float ndv, float ndl)
 	float Gl = ndl / (ndl * (1 - k) + k);
 	return Gv * Gl;
 }
+

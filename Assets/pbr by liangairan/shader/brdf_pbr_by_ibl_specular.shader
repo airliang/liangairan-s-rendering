@@ -1,19 +1,19 @@
 ﻿// Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
 
-Shader "liangairan/pbr/pbr by IBL" {
+Shader "liangairan/pbr/pbr by IBL(specular flow)" {
 // 　　　　　　D(h) F(v,h) G(l,v,h)
 //f(l,v) = ---------------------------
 // 　　　　　　4(n·l)(n·v)
 	Properties {
-		_Color ("Color", Color) = (0.5,0.5,0.5,1)
+        _Color("Color", Color) = (0.5,0.5,0.5,1)
 		_MainTex ("Albedo (RGB)", 2D) = "white" {}
+        _SpecularColor("Specular Color", Color) = (0.5,0.5,0.5,1)
     _NormalTex("NormalMap (RGB)", 2D) = "bump" {}
     //_ShadowmapTex("ShadowMap", 2D) = "black" {}
     _IrradianceMap("IrradianceMap", Cube) = "_Skybox" {}
     _SpecularIndirectMap("SpecularIndirectMap", Cube) = "_Skybox" {}
     _BRDFLUTTex("Brdf lut map", 2D) = "white" {}
-		_Roughness("Roughness", Range(0,1)) = 0
-		_Metallic("Metallicness",Range(0,1)) = 0
+		_glossiness("Glossiness", Range(0,1)) = 0
 	[KeywordEnum(DEFAULT, GGX, BECKMANN)]ndf("normal distribution function", float) = 0
 	}
 		SubShader{
@@ -35,17 +35,16 @@ Shader "liangairan/pbr/pbr by IBL" {
 				#pragma multi_compile_fwdbase 
 			#pragma multi_compile NDF_DEFAULT NDF_GGX NDF_BECKMANN
 
-				float4 _Color;
+            float4 _Color;
+			float4 _SpecularColor;
             sampler2D _MainTex;
         sampler2D _NormalTex;
         //sampler2D _ShadowmapTex;
         samplerCUBE _IrradianceMap;
         UNITY_DECLARE_TEXCUBE(_SpecularIndirectMap);
         sampler2D _BRDFLUTTex;
-            float _Roughness;
-            float _Metallic;
-            //fixed4 _F0;
-			float ndf;
+            float _glossiness;
+
 			
 
             struct appdata
@@ -124,36 +123,36 @@ Shader "liangairan/pbr/pbr by IBL" {
                 //目的是当金属度为0时，也希望有0.04的高光
                 // calculate reflectance at normal incidence; if dia-electric (like plastic) use F0 
                 // of 0.04 and if it's a metal, use the albedo color as F0 (metallic workflow)  
-                half3 F0 = half3(0.04, 0.04, 0.04);
-                F0 = lerp(F0, albedo.rgb, _Metallic);
+                half3 F0 = _SpecularColor.rgb;
+                //F0 = lerp(F0, albedo.rgb, _Metallic);
                 //fixed3 specularColor = lerp(fixed3(0.04, 0.04, 0.04), _F0.rgb, _Metallic);
                 half3 F = fresnelSchlick(VdH, F0);
                 half3 kS = F;
-                half3 kD = (half3(1, 1, 1) - kS) * (1.0 - _Metallic);
+                half kD = (1 - max(_SpecularColor.r, max(_SpecularColor.g, _SpecularColor.b)));
+                float roughness = (1 - _glossiness) * (1 - _glossiness);
                 half3 directDiffuse = (albedo.rgb / PI) * kD * totalLightColor * NdL;
 				//float f0 = F0(NdL, NdV, LdH, _Roughness);
 				//directDiffuse *= f0;
 #ifdef NDF_GGX
-				_Roughness = max(_Roughness, 0.007);
-				float D = normalDistribution_GGX(_Roughness, NdH);
-				float G = GGX_GSF(_Roughness, NdV, NdL);
+                roughness = max(roughness, 0.007);
+				float D = normalDistribution_GGX(roughness, NdH);
+				float G = GGX_GSF(roughness, NdV, NdL);
 #elif NDF_BECKMANN
-				_Roughness = max(_Roughness, 0.01);
-                float D = BeckmannNormalDistribution(_Roughness, NdH);
-                float G = smith_schilck(_Roughness, NdV, NdL);
+                roughness = max(roughness, 0.01);
+                float D = BeckmannNormalDistribution(roughness, NdH);
+                float G = smith_schilck(roughness, NdV, NdL);
 #else
-				_Roughness = max(_Roughness, 0.01);
-				float D = BeckmannNormalDistribution(_Roughness, NdH);
-				float G = Schilck_GSF(_Roughness, NdV, NdL);
+                roughness = max(roughness, 0.01);
+				float D = BeckmannNormalDistribution(roughness, NdH);
+				float G = Schilck_GSF(roughness, NdV, NdL);
 #endif
                 half3 specular = brdf(F, D, G, NdV, NdL);
 				
                 
 
-                F = fresnelSchlickRoughness(NdV, F0, _Roughness);
+                F = fresnelSchlickRoughness(NdV, F0, roughness);
                 kS = F;
-                kD = 1.0 - kS;
-                kD *= 1.0 - _Metallic;
+                //kD = 1.0 - kS;
 
                 half4 lightOut;
                 lightOut.rgb = directDiffuse + specular * _LightColor0 * NdL;
@@ -163,13 +162,13 @@ Shader "liangairan/pbr/pbr by IBL" {
 
                 //下面是计算indirect specular
                 const float MAX_REFLECTION_LOD = 7.0;
-                float mipLevel = floor(_Roughness * MAX_REFLECTION_LOD);
+                float mipLevel = floor(roughness * MAX_REFLECTION_LOD);
                 float r_max = 1.0 / MAX_REFLECTION_LOD;
-                float mipT = _Roughness * MAX_REFLECTION_LOD - mipLevel;
+                float mipT = roughness * MAX_REFLECTION_LOD - mipLevel;
                 half3 indirectEnvColor = UNITY_SAMPLE_TEXCUBE_LOD(_SpecularIndirectMap, R, mipLevel).rgb;
                 half3 indirectEnvColor2 = UNITY_SAMPLE_TEXCUBE_LOD(_SpecularIndirectMap, R, mipLevel + 1).rgb;
                 indirectEnvColor = lerp(indirectEnvColor, indirectEnvColor2, mipT);
-                half3 brdf = tex2D(_BRDFLUTTex, half2(NdV, _Roughness));
+                half3 brdf = tex2D(_BRDFLUTTex, half2(NdV, roughness));
                 half3 indirectSpecular = indirectEnvColor * (F * brdf.x + brdf.y);
 
                 lightOut.rgb += indirectDiffuse + indirectSpecular;
