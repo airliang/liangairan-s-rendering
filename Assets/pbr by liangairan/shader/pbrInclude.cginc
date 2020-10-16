@@ -146,3 +146,28 @@ float aniso_smith_schilck(float ax, float ay, float ndv, float ndl)
 	return Gv * Gl;
 }
 
+
+half3 rough_sss(half3 l, half3 v, half3 h, half3 n, float roughness, float3 rou_ss, float3 ks)
+{
+	half ndl = dot(n, l);
+	half ndv = dot(n, v);
+	float alhpa = roughness * roughness;
+	half hdl = dot(h, l);
+	float F_SS90 = roughness * hdl * hdl;
+	float F_D90 = 0.5 + 2 * F_SS90;
+	float one_minus_ndl_5 = (1.0 - ndl) * (1.0 - ndl);
+	one_minus_ndl_5 *= one_minus_ndl_5;
+	one_minus_ndl_5 *= (1.0 - ndl);
+
+	float one_minus_ndv_5 = (1.0 - ndv) * (1.0 - ndv);
+	one_minus_ndv_5 *= one_minus_ndv_5;
+	one_minus_ndv_5 *= (1.0 - ndv);
+
+	float F_SS = (1 + (F_SS90 - 1) * one_minus_ndl_5) * (1 + (F_SS90 - 1) * one_minus_ndv_5);
+
+	float f_ss = (1.0 / ((ndl * ndv) + 0.001) - 0.5) * F_SS + 0.5;
+	float f_d = (1 + (F_D90 - 1) * one_minus_ndl_5) * (1 + (F_D90 - 1) * one_minus_ndv_5);
+
+	return max(ndl, 0) * max(ndv, 0) * rou_ss / PI * ((1 - ks) * f_d + 1.25 * ks * f_ss);
+}
+

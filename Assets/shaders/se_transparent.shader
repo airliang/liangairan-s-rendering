@@ -20,7 +20,7 @@
             #pragma multi_compile_fog
 
             #include "UnityCG.cginc"
-            #include "se_core.cginc"
+            #include "include/se_core.cginc"
 
             
             ENDCG
