@@ -23,12 +23,13 @@ Shader "liangairan/shadow/receiveShadow"
             ZWrite On
 			CGPROGRAM
             #include "UnityCG.cginc" 
-		
+#define _RECEIVESHADOW
 #include "shadowmap.cginc"
             
 #pragma vertex vert  
 #pragma fragment frag
 		#pragma multi_compile PCF_OFF PCF_ON
+		#pragma multi_compile _ _CASCADE_SHADOW
 		//#pragma shader_feature OUTZ_OFF OUTZ_ON
 		#pragma shader_feature VSM_OFF VSM_ON
 

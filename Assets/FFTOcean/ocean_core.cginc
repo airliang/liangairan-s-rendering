@@ -87,25 +87,20 @@ VSOut vert(appdata v)
     o.uv.zw = posWorld.xz * 0.1 + _Time.y * 0.05;
     o.uv.xy = posWorld.xz * 0.4  -_Time.y * 0.1;
     float opacity = 1 - _Transparent;
+    float heightScale = 0;
 #if GERSTNER_WAVE
-    float heightScale = GerstnerWaves3Composite(posWorld, o.posWorld, o.normalWorld);
+    heightScale = GerstnerWaves3Composite(posWorld, o.posWorld, o.normalWorld);
 
-    
-    opacity *= heightScale;
-    o.normalWorld *= float3(opacity, 1, opacity);
-    //o.posWorld = posWorld;
-
-    
 #elif FFT_WAVE
-    float heightScale = FFTWavePos(posWorld, o.posWorld, o.normalWorld);
-
-    opacity *= heightScale;
-    o.normalWorld *= float3(opacity, 1, opacity);
+    heightScale = FFTWavePos(posWorld, o.posWorld, o.normalWorld);
 #else
     o.normalWorld = float3(0, 1, 0);
     o.posWorld = posWorld;
-    
 #endif
+    
+    opacity *= heightScale;
+    o.normalWorld *= float3(opacity, 1, opacity);
+
     o.pos = mul(UNITY_MATRIX_VP, float4(o.posWorld, 1));
     return o;
 }

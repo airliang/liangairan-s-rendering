@@ -1,82 +1,64 @@
-﻿// Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
-
-Shader "liangairan/shadow/RenderToShadow" 
+﻿Shader "liangairan/shadow/RenderToShadow" 
 {
+    Properties
+    {
+        _MainTex ("Texture", 2D) = "white" {}
+        _Cutoff("Alpha Cutoff", Range(0.0, 1.0)) = 0.5
+    }
+    SubShader
+    {
+        Tags { "RenderType" = "TransparentCutout" "Shadow" = "Character"}
+        Pass
+        {
+            Name "AlphaTest"
+            ColorMask 0
+            Cull Off
+            ZClip Off
+            CGPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+            #include "UnityCG.cginc"
+            sampler2D _MainTex;
+            float4 _MainTex_ST;
+            fixed _Cutoff;
 
-	Properties{
-		_MainTex("Albedo (RGB)", 2D) = "white" {}
-	}
-
-	SubShader
-	{
-        Tags { "RenderType" = "Opaque" "Shadow" = "Character"}
-		Pass
-		{
-            ZWrite On
-			//Cull front
-			CGPROGRAM
-            #include "UnityCG.cginc" 
-			#pragma shader_feature VSM_OFF VSM_ON
-
-
-		#pragma vertex vert_shadow  
-		#pragma fragment frag_shadow  
-
-			struct appdata
-			{
-				half4 vertex : POSITION;
-				half2 uv : TEXCOORD0;
-			};
-
-            struct v2f
+            v2f_img vert(appdata_img v)
             {
-                float4 pos : SV_POSITION;
-				float2 uv : TEXCOORD0;
-#if VSM_ON
-				float4 posWorld : TEXCOORD1;
-#else
-                float2 depth : TEXCOORD1;
-#endif
-            };
-
-			sampler2D _MainTex;
-			float3 lightPos;
-
-            v2f vert_shadow(appdata v)
-            {
-                v2f o = (v2f)0;
+                v2f_img o;
                 o.pos = UnityObjectToClipPos(v.vertex);
-				o.uv = v.uv;
-#if VSM_ON
-				o.posWorld = mul(unity_ObjectToWorld, v.vertex);
-#else
-                o.depth = o.pos.zw;
-#endif
-                //UNITY_TRANSFER_DEPTH(o.depth);
+                o.uv = TRANSFORM_TEX(v.texcoord, _MainTex);
                 return o;
             }
 
-            float4 frag_shadow(v2f i) : SV_Target
+            fixed4 frag(v2f_img i) : SV_Target
             {
-                //return 0;
-                //UNITY_OUTPUT_DEPTH(i.depth);
-				fixed4 col = tex2D(_MainTex, i.uv);
-				clip(col.a - 0.6);
-#if VSM_ON
-				float depth = length(lightPos - i.posWorld.xyz) + 0.01;
-
-				return float4(depth, depth * depth, 0, 1);
-#else
-				float depth = i.depth.x / i.depth.y * 0.5 + 0.5;
-                //float4 color = EncodeFloatRGBA(depth);
-                //return color;
-                return float4(depth, depth, depth, 1);
-#endif
+                clip(tex2D(_MainTex, i.uv).a - _Cutoff);
+                return 0;
             }
-			ENDCG
-		}
+            ENDCG
+        }
+    }
+    SubShader
+    {
+        Tags { "RenderType" = "Opaque" "Shadow" = "Character"}
+        Pass
+        {
+            Name "Opaque"
+            ColorMask 0
+            Offset 1, 1
+            ZClip Off
+            CGPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+            #include "UnityCG.cginc"
 
-		
-
-	}
+            float4 vert (float4 vertex : POSITION) : SV_POSITION
+            {
+                return UnityObjectToClipPos(vertex);
+            }
+            
+            fixed4 frag () : SV_Target { return 0; }
+            ENDCG
+        }
+    }
 }

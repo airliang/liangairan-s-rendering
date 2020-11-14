@@ -159,24 +159,28 @@ public class FFTWave : WaterWave
 
         if (mh0 != null)
         {
+            mh0.Release();
             DestroyImmediate(mh0);
             mh0 = null;
         }
 
         if (mHeightTexture != null)
         {
+            mHeightTexture.Release();
             DestroyImmediate(mHeightTexture);
             mHeightTexture = null;
         }
 
         if (mGaussionRandom != null)
         {
+            mGaussionRandom.Release();
             DestroyImmediate(mGaussionRandom);
             mGaussionRandom = null;
         }
 
         if (mButterflyTexture != null)
         {
+            mButterflyTexture.Release();
             DestroyImmediate(mButterflyTexture);
             mButterflyTexture = null;
         }
@@ -186,12 +190,14 @@ public class FFTWave : WaterWave
 
         if (mPingpong0 != null)
         {
+            mPingpong0.Release();
             DestroyImmediate(mPingpong0);
             mPingpong0 = null;
         }
 
         if (mPingpong1 == null)
         {
+            mPingpong1.Release();
             DestroyImmediate(mPingpong1);
             mPingpong1 = null;
         }
@@ -201,12 +207,14 @@ public class FFTWave : WaterWave
 
         if (mPingpongChoppy0 != null)
         {
+            mPingpongChoppy0.Release();
             DestroyImmediate(mPingpongChoppy0);
             mPingpongChoppy0 = null;
         }
 
         if (mPingpongChoppy1 == null)
         {
+            mPingpongChoppy1.Release();
             DestroyImmediate(mPingpongChoppy1);
             mPingpongChoppy1 = null;
         }
@@ -223,32 +231,56 @@ public class FFTWave : WaterWave
 
     private void RunComputeShader()
     {
-        if (mh0 == null)
+        if (mh0 != null)
         {
-            mh0 = new RenderTexture(256, 256, 0, RenderTextureFormat.ARGBFloat);
+            mh0.Release();
+            mh0.enableRandomWrite = true;
+            mh0.Create();
+        }
+        if (mh0 == default)
+        {
+            mh0 = new RenderTexture(256, 256, 0, RenderTextureFormat.ARGBFloat, 0);
             mh0.enableRandomWrite = true;
             mh0.Create();
         }
 
-        if (mHeightTexture == null)
+        if (mHeightTexture != null)
         {
-            mHeightTexture = new RenderTexture(256, 256, 0, RenderTextureFormat.ARGBFloat);
+            mHeightTexture.Release();
+            mHeightTexture.enableRandomWrite = true;
+            mHeightTexture.Create();
+        }
+        if (mHeightTexture == default)
+        {
+            mHeightTexture = new RenderTexture(256, 256, 0, RenderTextureFormat.ARGBFloat, 0);
             mHeightTexture.enableRandomWrite = true;
             mHeightTexture.wrapMode = TextureWrapMode.Repeat;
             mHeightTexture.useMipMap = false;
             mHeightTexture.Create();
         }
 
-        if (mGaussionRandom == null)
+        if (mGaussionRandom != null)
         {
-            mGaussionRandom = new RenderTexture(256, 256, 0, RenderTextureFormat.ARGBFloat);
+            mGaussionRandom.Release();
+            mGaussionRandom.enableRandomWrite = true;
+            mGaussionRandom.Create();
+        }
+        if (mGaussionRandom == default)
+        {
+            mGaussionRandom = new RenderTexture(256, 256, 0, RenderTextureFormat.ARGBFloat, 0);
             mGaussionRandom.enableRandomWrite = true;
             mGaussionRandom.Create();
         }
 
-        if (mNormalMap == null)
+        if (mNormalMap != null)
         {
-            mNormalMap = new RenderTexture(256, 256, 0);
+            mNormalMap.Release();
+            mNormalMap.enableRandomWrite = true;
+            mNormalMap.Create();
+        }
+        if (mNormalMap == default)
+        {
+            mNormalMap = new RenderTexture(256, 256, 0, RenderTextureFormat.ARGB32, 0);
             mNormalMap.enableRandomWrite = true;
             mNormalMap.wrapMode = TextureWrapMode.Repeat;
             mNormalMap.useMipMap = false;
@@ -298,13 +330,20 @@ public class FFTWave : WaterWave
 
             //生成butterfly纹理
             int widthButterfly = 0;
-            if (mButterflyTexture == null)
+            if (mButterflyTexture != null)
             {
-                widthButterfly = (int)(Mathf.Log(256) / Mathf.Log(2));
-                mButterflyTexture = new RenderTexture(widthButterfly, 256, 0, RenderTextureFormat.ARGBFloat);
+                mButterflyTexture.Release();
                 mButterflyTexture.enableRandomWrite = true;
                 mButterflyTexture.Create();
             }
+            if (mButterflyTexture == null)
+            {
+                
+                mButterflyTexture = new RenderTexture(widthButterfly, 256, 0, RenderTextureFormat.ARGBFloat, 0);
+                mButterflyTexture.enableRandomWrite = true;
+                mButterflyTexture.Create();
+            }
+            widthButterfly = (int)(Mathf.Log(256) / Mathf.Log(2));
 
             int generateButterfly = mComputeShader.FindKernel("GenerateButterfly");
 
@@ -325,16 +364,28 @@ public class FFTWave : WaterWave
             reserveBit.Release();
         }
 
+        if (mPingpong0 != null)
+        {
+            mPingpong0.Release();
+            mPingpong0.enableRandomWrite = true;
+            mPingpong0.Create();
+        }
         if (mPingpong0 == null)
         {
-            mPingpong0 = new RenderTexture(256, 256, 0, RenderTextureFormat.ARGBFloat);
+            mPingpong0 = new RenderTexture(256, 256, 0, RenderTextureFormat.ARGBFloat, 0);
             mPingpong0.enableRandomWrite = true;
             mPingpong0.Create();
         }
 
+        if (mPingpong1 != null)
+        {
+            mPingpong1.Release();
+            mPingpong1.enableRandomWrite = true;
+            mPingpong1.Create();
+        }
         if (mPingpong1 == null)
         {
-            mPingpong1 = new RenderTexture(256, 256, 0, RenderTextureFormat.ARGBFloat);
+            mPingpong1 = new RenderTexture(256, 256, 0, RenderTextureFormat.ARGBFloat, 0);
             mPingpong1.enableRandomWrite = true;
             mPingpong1.Create();
         }
@@ -342,16 +393,28 @@ public class FFTWave : WaterWave
         mPingpongs[0] = mPingpong0;
         mPingpongs[1] = mPingpong1;
 
+        if (mPingpongChoppy0 != null)
+        {
+            mPingpongChoppy0.Release();
+            mPingpongChoppy0.enableRandomWrite = true;
+            mPingpongChoppy0.Create();
+        }
         if (mPingpongChoppy0 == null)
         {
-            mPingpongChoppy0 = new RenderTexture(256, 256, 0, RenderTextureFormat.ARGBFloat);
+            mPingpongChoppy0 = new RenderTexture(256, 256, 0, RenderTextureFormat.ARGBFloat, 0);
             mPingpongChoppy0.enableRandomWrite = true;
             mPingpongChoppy0.Create();
         }
 
+        if (mPingpongChoppy1 != null)
+        {
+            mPingpongChoppy1.Release();
+            mPingpongChoppy1.enableRandomWrite = true;
+            mPingpongChoppy1.Create();
+        }
         if (mPingpongChoppy1 == null)
         {
-            mPingpongChoppy1 = new RenderTexture(256, 256, 0, RenderTextureFormat.ARGBFloat);
+            mPingpongChoppy1 = new RenderTexture(256, 256, 0, RenderTextureFormat.ARGBFloat, 0);
             mPingpongChoppy1.enableRandomWrite = true;
             mPingpongChoppy1.Create();
         }

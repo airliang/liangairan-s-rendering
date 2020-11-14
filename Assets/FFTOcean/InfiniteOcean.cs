@@ -231,6 +231,7 @@ public class InfiniteOcean : MonoBehaviour
             quad.Add(new Vector4(1, 1, 0, 1));
         }
         //------------------
+        //连接near far四个角的直线和海平面的交点
         Vector4 bottomLeft = ProjectedFrustumInsertPlane(projectorIVP, quad[0]);
         interpolation.SetRow(0, bottomLeft);
 
@@ -273,6 +274,7 @@ public class InfiniteOcean : MonoBehaviour
                 if (waterWave != null && waterWave is FFTWave)
                 {
                     waterWave.enabled = false;
+                    Destroy(waterWave);
                 }
                 waterWave = GetComponent<GerstnerWave>();
                 if (waterWave == null)
@@ -293,6 +295,7 @@ public class InfiniteOcean : MonoBehaviour
                 if (waterWave != null && waterWave is GerstnerWave)
                 {
                     waterWave.enabled = false;
+                    Destroy(waterWave);
                 }
                 waterWave = GetComponent<FFTWave>();
                 if (waterWave == null)
