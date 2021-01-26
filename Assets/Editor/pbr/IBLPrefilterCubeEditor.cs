@@ -99,6 +99,7 @@ public class IBLPrefilterCubeEditor : EditorWindow {
             bNewAsset = true;
         }
         camera.RenderToCubemap(irradianceDiffuseMap, 63);
+        
         irradianceDiffuseMap.Apply();
 
 
