@@ -8,8 +8,10 @@ Shader "liangairan/pbr/ltc" {
 		_Color ("Color", Color) = (1,1,1,1)
 		_MainTex ("Albedo (RGB)", 2D) = "white" {}
         _Roughness ("Roughness", Range(0,1)) = 0
-        _Metallic("Metallicness",Range(0,1)) = 0
+        //_Metallic("Metallicness",Range(0,1)) = 0
         _F0 ("Fresnel coefficient", Color) = (1,1,1,1)
+        ltc_mat("ltc lookup matrix texture", 2D) = "white" {}
+        ltc_mag("ltc lookup fresnel texture", 2D) = "gray" {}
 	}
 	SubShader {
 		Tags { "RenderType"="Opaque" }
@@ -30,17 +32,26 @@ Shader "liangairan/pbr/ltc" {
             #define PI 3.14159265359
 
             sampler2D _MainTex;
-            uniform sampler2D ltc_mat;
-            uniform sampler2D ltc_mag;
+            sampler2D ltc_mat;
+            sampler2D ltc_mag;
 
             float _Roughness;
-            float _Metallic;
+            //float _Metallic;
 			float _Ex;
 			float _Ey;
-            fixed4 _F0;
-			fixed4 _Color;
-            float4 _RectPoints[4];
+            half4 _F0;
+            half4 _Color;
+            //uniform half4 _RectPoints[4];
+            uniform float3 _RectCenter;
+            uniform half3 _RectDirX;
+            uniform half3 _RectDirY;
+            uniform half3 _RectSize;
+            uniform float4  AreaLightColor;
             matrix _RectWorldTransform;
+
+            static const float LUT_SIZE = 64.0;
+            static const float LUT_SCALE = (LUT_SIZE - 1.0) / LUT_SIZE;
+            static const float LUT_BIAS = 0.5 / LUT_SIZE;
 
             struct appdata
             {
@@ -61,6 +72,19 @@ Shader "liangairan/pbr/ltc" {
 				half3 tangentWorld : TEXCOORD3;
                 SHADOW_COORDS(4)
             };
+
+            void InitRectPoints(float2 wh, float3 center, half3 dirx, half3 diry, out half3 points[4])
+            {
+                float halfx = wh.x * 0.5;
+                float halfy = wh.y * 0.5;
+                float3 ex = halfx * dirx;
+                float3 ey = halfy * diry;
+
+                points[0] = center - ex - ey;
+                points[1] = center + ex - ey;
+                points[2] = center + ex + ey;
+                points[3] = center - ex + ey;
+            }
 
             //reference：Geometric Derivation of the Irradiance of Polygonal Lights
             //fomular:
@@ -85,14 +109,15 @@ Shader "liangairan/pbr/ltc" {
                 T2 = cross(N, T1);
 
                 // rotate area light in (T1, T2, N) basis
-                Minv = mul(Minv, transpose(float3x3(T1, T2, N)));
+                Minv = mul(Minv, float3x3(T1, T2, N));
 
                 // polygon (allocate 5 vertices for clipping)
                 half3 L[5];
-                L[0] = mul(Minv, points[0] - P);
-                L[1] = mul(Minv, points[1] - P);
-                L[2] = mul(Minv, points[2] - P);
-                L[3] = mul(Minv, points[3] - P);
+                L[0] = mul(Minv, points[0].xyz - P);
+                L[1] = mul(Minv, points[1].xyz - P);
+                L[2] = mul(Minv, points[2].xyz - P);
+                L[3] = mul(Minv, points[3].xyz - P);
+                L[4] = L[0];
 
                 int n = 5;
                 //下面这个是计算多少个顶点在平面下面，一般不需要做
@@ -145,16 +170,45 @@ Shader "liangairan/pbr/ltc" {
 
             half4 frag(VSOut i) : COLOR
             {
-                fixed3 lightDirection = normalize(_WorldSpaceLightPos0.xyz);
-                fixed3 viewDirection = normalize(_WorldSpaceCameraPos.xyz - i.posWorld.xyz);
-                fixed3 normalDirection = normalize(i.normalWorld); //UnpackNormal(tex2D(_NormalTex, i.uv));
+                half3 points[4];
+                InitRectPoints(_RectSize.xy, _RectCenter, _RectDirX, _RectDirY, points);
+                half3 lightDirection = normalize(_WorldSpaceLightPos0.xyz);
+                half3 V = normalize(_WorldSpaceCameraPos.xyz - i.posWorld.xyz);
+                half3 N = normalize(i.normalWorld); //UnpackNormal(tex2D(_NormalTex, i.uv));
                 //微表面法线
-                fixed3 h = normalize(lightDirection + viewDirection);
+                half3 h = normalize(lightDirection + V);
                 
-                fixed4 albedo = tex2D(_MainTex, i.uv) * _Color;
-                
+                half4 albedo = tex2D(_MainTex, i.uv) * _Color;
 
-                return albedo;
+                float theta = acos(dot(N, V));
+                half2 uv = half2(_Roughness, theta / (0.5 * UNITY_PI));
+                uv = uv * LUT_SCALE + LUT_BIAS;
+
+                half4 t = tex2D(ltc_mat, uv);
+                float3x3 Minv = float3x3(
+                    float3(1, 0, t.w),
+                    float3(0, t.z, 0),
+                    float3(t.y, 0, t.x)
+                );
+
+
+                bool twoSided = false;
+
+                half3 spec = LTC_Evaluate(N, V, i.posWorld, Minv, points, twoSided);
+                spec *= 1 - tex2D(ltc_mag, uv).w;
+
+                float3x3 identity = float3x3(
+                    float3(1, 0, 0),
+                    float3(0, 1, 0),
+                    float3(0, 0, 1)
+                    );
+                half3 diff = LTC_Evaluate(N, V, i.posWorld, identity, points, twoSided);
+
+                half3 col = 0;
+                col = AreaLightColor.rgb * (spec + albedo * diff);
+                col /= 2.0 * UNITY_PI;
+
+                return half4(col, 1);
             }
             ENDCG
         }

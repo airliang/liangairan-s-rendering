@@ -1,9 +1,24 @@
 ﻿#define PI 3.14159265359
 
+inline half pow5(half x)
+{
+    return x * x * x * x * x;
+}
+
+inline half3 pow5(half3 x)
+{
+    return x * x * x * x * x;
+}
+
+inline half4 pow5(half4 x)
+{
+    return x * x * x * x * x;
+}
+
 //F(v,h)公式 cosTheta = v dot h
 half3 fresnelSchlick(float cosTheta, half3 F0)
 {
-	return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+    return F0 + (1.0 - F0) * pow5(1.0 - cosTheta);
 }
 
 half3 fresnelSchlickRoughness(float cosTheta, half3 F0, float roughness)
@@ -120,7 +135,7 @@ float F0(float NdotL, float NdotV, float LdotH, float roughness) {
 
 half3 brdf(half3 fresnel, float D, float G, float ndv, float ndl)
 {
-	return fresnel * D * G / (4 * ndv * ndl + 0.0001);
+	return fresnel * D * G * 0.25/ (ndv * ndl + 0.0001);
 }
 
 //roughnessX roughnessY X和Y切线方向的粗糙度

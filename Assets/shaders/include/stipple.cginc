@@ -10,9 +10,11 @@ void StippleClip(float2 screenpos, half transparency)
       16.0 / 17.0, 8.0 / 17.0, 14.0 / 17.0, 6.0 / 17.0
     };
     float4x4 _RowAccess = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 };
+ 
     //float2 pos = IN.screenPos.xy / IN.screenPos.w;
     //pos *= _ScreenParams.xy; // pixel position
     clip(transparency - thresholdMatrix[fmod(screenpos.x, 4)] * _RowAccess[fmod(screenpos.y, 4)]);
+ 
 }
 
 void StippleClipFast(in float2 screenpos, half transparency)

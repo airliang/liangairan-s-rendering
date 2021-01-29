@@ -163,8 +163,13 @@ Shader "liangairan/pbr/pbr with phymap by IBL" {
                 half3 indirectDiffuse = irradianceColor.rgb * albedo.rgb * kD;
 
                 //下面是计算indirect specular
-                const float MAX_REFLECTION_LOD = 6.0;
-                half3 indirectEnvColor = UNITY_SAMPLE_TEXCUBE_LOD(_SpecularIndirectMap, R, _Roughness * MAX_REFLECTION_LOD).rgb;
+                const float MAX_REFLECTION_LOD = 7.0;
+                float mipLevel = floor(_Roughness * MAX_REFLECTION_LOD);
+                float r_max = 1.0 / MAX_REFLECTION_LOD;
+                float mipT = _Roughness * MAX_REFLECTION_LOD - mipLevel;
+                half3 indirectEnvColor = UNITY_SAMPLE_TEXCUBE_LOD(_SpecularIndirectMap, R, mipLevel).rgb;
+                half3 indirectEnvColor2 = UNITY_SAMPLE_TEXCUBE_LOD(_SpecularIndirectMap, R, mipLevel + 1).rgb;
+                indirectEnvColor = lerp(indirectEnvColor, indirectEnvColor2, mipT);
                 half3 brdf = tex2D(_BRDFLUTTex, half2(NdV, _Roughness));
                 half3 indirectSpecular = indirectEnvColor * (kS * brdf.x + brdf.y);
 

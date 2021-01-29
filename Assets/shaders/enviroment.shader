@@ -9,6 +9,7 @@ Shader "liangairan/enviroment/enviroment"
         //_ShadowmapTex("ShadowMap", 2D) = "gray" {}
 		//[Toggle] PCF("percentage closer filter enable", Float) = 0
 		//[Toggle] OUTZ("output the depth in lightspace", Float) = 0
+		[Enum(UnityEngine.Rendering.CullMode)] _Cull("Cull", Float) = 2
 	}
 
 		//CGINCLUDE
@@ -21,6 +22,7 @@ Shader "liangairan/enviroment/enviroment"
 		Pass
 		{
             ZWrite On
+			Cull[_Cull]
 			CGPROGRAM
             #include "UnityCG.cginc" 
 		#define _RECEIVESHADOW

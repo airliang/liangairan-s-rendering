@@ -27,7 +27,7 @@ Shader "liangairan/pbr/pbr with smoothmap" {
             #include "UnityCG.cginc"
             #include "AutoLight.cginc"
             #include "Lighting.cginc"
-			#include "../../shadow/shadowmap.cginc"
+			#include "shadowmap.cginc"
             #pragma target 3.0
             #pragma vertex vert
             #pragma fragment frag

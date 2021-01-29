@@ -24,7 +24,7 @@ Shader "liangairan/enviroment/unlittexture_cutout"
 			CGPROGRAM
             #include "UnityCG.cginc" 
 			#include "shadowmap.cginc"
-
+			#include "include/stipple.cginc"
 
 			#pragma vertex vert  
 			#pragma fragment frag

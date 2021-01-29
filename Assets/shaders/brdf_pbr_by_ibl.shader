@@ -151,7 +151,7 @@ Shader "liangairan/pbr/pbr by IBL" {
                 half3 F = fresnelSchlick(VdH, F0);
                 half3 kS = F;
                 half3 kD = (half3(1, 1, 1) - kS) * (1.0 - _Metallic);
-                half3 directDiffuse = (albedo.rgb / PI) * kD * totalLightColor * NdL;
+                half3 directDiffuse = (albedo.rgb/* / PI*/) * kD * totalLightColor * NdL;
 				//float f0 = F0(NdL, NdV, LdH, _Roughness);
 				//directDiffuse *= f0;
 #ifdef NDF_GGX
@@ -167,7 +167,7 @@ Shader "liangairan/pbr/pbr by IBL" {
 				float D = BeckmannNormalDistribution(_Roughness, NdH);
 				float G = Schilck_GSF(_Roughness, NdV, NdL);
 #endif
-                half3 specular = brdf(F, D, G, NdV, NdL);
+                half3 specular = brdf(F, D, G, NdV, NdL) * UNITY_PI;
 				
                 
 
@@ -200,7 +200,7 @@ Shader "liangairan/pbr/pbr by IBL" {
                 //half3 shadow = max(UNITY_LIGHTMODEL_AMBIENT.xyz, fixed3(atten, atten, atten));
 
                 //lightOut.rgb *= shadow;
-                lightOut.rgb = lightOut.rgb / (lightOut.rgb + 1.0);
+                //lightOut.rgb = lightOut.rgb / (lightOut.rgb + 1.0);
                 //lightOut.rgb = 1.0 - exp(-lightOut.rgb * 1.0);
                 //float gama = 1 / 2.2;
                 //lightOut.rgb = pow(lightOut.rgb, gama);
