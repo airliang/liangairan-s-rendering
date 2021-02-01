@@ -26,7 +26,7 @@ Shader "liangairan/pbr/prefilterSpecularMap" {
                 #pragma exclude_renderers xbox360 flash	
         //#pragma multi_compile_fwdbase 
         #define PI 3.14159265359
-
+        #define PREFILTER_CONVOLUTION
         //UNITY_DECLARE_TEXCUBE( _Cube);
     samplerCUBE _Cube;
     uniform float _roughness;
@@ -155,7 +155,7 @@ Shader "liangairan/pbr/prefilterSpecularMap" {
 
                         float mipLevel = _roughness == 0.0 ? 0.0 : 0.5 * log2(saSample / saTexel);
 
-                        prefilteredColor += UNITY_SAMPLE_TEXCUBE_LOD(_Cube, L, mipLevel).rgb * NdotL;
+                        prefilteredColor += texCUBElod(_Cube, half4(L, mipLevel)).rgb * NdotL;
 #else
 						prefilteredColor += texCUBE(_Cube, L).rgb * NdotL;
 #endif

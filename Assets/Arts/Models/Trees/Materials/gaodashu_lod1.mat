@@ -91,7 +91,7 @@ Material:
     - _SrcBlend: 1
     - _Stipple_enable: 1
     - _Stripple_enable: 1
-    - _Transparency: 1
+    - _Transparency: 0
     - _UVSec: 0
     - _ZWrite: 1
     - ndf: 0

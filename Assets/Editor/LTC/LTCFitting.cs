@@ -273,17 +273,17 @@ public class LTCFitting : EditorWindow
         }
         reader.Close();
 
-        Texture2D tab = new Texture2D(N, N, TextureFormat.RGBAHalf, false);
-        Texture2D tabAmplitudes = new Texture2D(N, N, TextureFormat.RGBAHalf, false);
-        tab.SetPixels(tex1);
-        tabAmplitudes.SetPixels(tex2);
+        Texture2D tab1 = new Texture2D(N, N, TextureFormat.RGBAFloat, false);
+        Texture2D tab2 = new Texture2D(N, N, TextureFormat.RGBAFloat, false);
+        tab1.SetPixels(tex1);
+        tab2.SetPixels(tex2);
 
-        byte[] bytes = tab.EncodeToPNG();
-        File.WriteAllBytes("Assets/pbr by liangairan/textures/ltc_mat.tga", bytes);
-        bytes = tabAmplitudes.EncodeToPNG();
-        File.WriteAllBytes("Assets/pbr by liangairan/textures/ltc_mag.tga", bytes);
-        DestroyImmediate(tab);
-        DestroyImmediate(tabAmplitudes);
+        byte[] bytes = tab1.EncodeToTGA();
+        File.WriteAllBytes("Assets/pbr by liangairan/textures/ltc_1.tga", bytes);
+        bytes = tab2.EncodeToTGA();
+        File.WriteAllBytes("Assets/pbr by liangairan/textures/ltc_2.tga", bytes);
+        DestroyImmediate(tab1);
+        DestroyImmediate(tab2);
 
         //AssetDatabase.CreateAsset(tab, "Assets/pbr by liangairan/textures/ltc_mat.tga");
         //AssetDatabase.CreateAsset(tabAmplitudes, "Assets/pbr by liangairan/textures/ltc_mag.tga");
@@ -307,10 +307,10 @@ public class LTCFitting : EditorWindow
 
         PackTab(ref tex1, ref tex2, tables, tabMagFresnel, tabSphere);
 
-        Texture2D tab = new Texture2D(N, N, TextureFormat.RGBAHalf, false);
-        Texture2D tabAmplitudes = new Texture2D(N, N, TextureFormat.RGBAHalf, false);
-        tab.SetPixels(tex1);
-        tabAmplitudes.SetPixels(tex2);
+        Texture2D tab1 = new Texture2D(N, N, TextureFormat.RGBAFloat, false);
+        Texture2D tab2 = new Texture2D(N, N, TextureFormat.RGBAFloat, false);
+        tab1.SetPixels(tex1);
+        tab2.SetPixels(tex2);
         /*
         for (int i = 0; i < N; ++i)
         {
@@ -328,8 +328,8 @@ public class LTCFitting : EditorWindow
         }
         */
         Debug.Log("Writing the texture to database......");
-        AssetDatabase.CreateAsset(tab, "Assets/pbr by liangairan/textures/ltc_mat.tga");
-        AssetDatabase.CreateAsset(tabAmplitudes, "Assets/pbr by liangairan/textures/ltc_mag.tga");
+        AssetDatabase.CreateAsset(tab1, "Assets/pbr by liangairan/textures/ltc_1.tga");
+        AssetDatabase.CreateAsset(tab2, "Assets/pbr by liangairan/textures/ltc_2.tga");
 
         yield return null;
     }

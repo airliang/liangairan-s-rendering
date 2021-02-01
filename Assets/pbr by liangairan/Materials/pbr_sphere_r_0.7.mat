@@ -44,7 +44,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _IrradianceMap:
-        m_Texture: {fileID: 8900000, guid: edc157e0a80de6049a66990ff985b37c, type: 2}
+        m_Texture: {fileID: 8900000, guid: 914908c8218843843b28e923cead68b8, type: 2}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MainTex:
@@ -68,7 +68,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _SpecularIndirectMap:
-        m_Texture: {fileID: 8900000, guid: 29906e4f01f275d42953c163614bdac4, type: 2}
+        m_Texture: {fileID: 8900000, guid: d851b3c38c8bcdb44a7917cad586bbdb, type: 2}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     m_Floats:

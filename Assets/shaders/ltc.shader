@@ -119,7 +119,7 @@ Shader "liangairan/pbr/ltc" {
                 L[3] = mul(Minv, points[3].xyz - P);
                 L[4] = L[0];
 
-                int n = 5;
+                int n = 4;
                 //下面这个是计算多少个顶点在平面下面，一般不需要做
                 //ClipQuadToHorizon(L, n);
 
@@ -184,18 +184,21 @@ Shader "liangairan/pbr/ltc" {
                 half2 uv = half2(_Roughness, theta / (0.5 * UNITY_PI));
                 uv = uv * LUT_SCALE + LUT_BIAS;
 
-                half4 t = tex2D(ltc_mat, uv);
+                half4 t1 = tex2D(ltc_mat, uv);
+                half4 t2 = tex2D(ltc_mag, uv);
                 float3x3 Minv = float3x3(
-                    float3(1, 0, t.w),
-                    float3(0, t.z, 0),
-                    float3(t.y, 0, t.x)
+                    float3(t1.x, 0, t1.z),
+                    float3(0, 1, 0),
+                    float3(t1.y, 0, t1.w)
                 );
 
 
                 bool twoSided = false;
 
                 half3 spec = LTC_Evaluate(N, V, i.posWorld, Minv, points, twoSided);
-                spec *= 1 - tex2D(ltc_mag, uv).w;
+                // BRDF shadowing and Fresnel
+                half3 scol = 1;
+                spec *= scol * t2.x + (1.0 - scol) * t2.y;
 
                 float3x3 identity = float3x3(
                     float3(1, 0, 0),
@@ -207,6 +210,7 @@ Shader "liangairan/pbr/ltc" {
                 half3 col = 0;
                 col = AreaLightColor.rgb * (spec + albedo * diff);
                 col /= 2.0 * UNITY_PI;
+                //col = pow(col, 2.2);
 
                 return half4(col, 1);
             }
