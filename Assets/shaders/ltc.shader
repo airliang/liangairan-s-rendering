@@ -41,13 +41,13 @@ Shader "liangairan/pbr/ltc" {
 			float _Ey;
             half4 _F0;
             half4 _Color;
-            //uniform half4 _RectPoints[4];
+            uniform half4 _RectPoints[4];
             uniform float3 _RectCenter;
             uniform half3 _RectDirX;
             uniform half3 _RectDirY;
             uniform half3 _RectSize;
             uniform float4  AreaLightColor;
-            matrix _RectWorldTransform;
+            uniform matrix _RectWorldTransform;
 
             static const float LUT_SIZE = 64.0;
             static const float LUT_SCALE = (LUT_SIZE - 1.0) / LUT_SIZE;
@@ -84,6 +84,11 @@ Shader "liangairan/pbr/ltc" {
                 points[1] = center + ex - ey;
                 points[2] = center + ex + ey;
                 points[3] = center - ex + ey;
+
+                points[0] = mul(_RectWorldTransform, half4(points[0], 1));
+                points[1] = mul(_RectWorldTransform, half4(points[1], 1));
+                points[2] = mul(_RectWorldTransform, half4(points[2], 1));
+                points[3] = mul(_RectWorldTransform, half4(points[3], 1));
             }
 
             //reference：Geometric Derivation of the Irradiance of Polygonal Lights
@@ -91,6 +96,7 @@ Shader "liangairan/pbr/ltc" {
             //        1
             // Iij = ---cross(vi, vj)·z acos(θ)
             //        2π
+            /*
             float IntegrateEdge(half3 v1, half3 v2)
             {
                 float cosTheta = dot(v1, v2);
@@ -99,9 +105,30 @@ Shader "liangairan/pbr/ltc" {
 
                 return res;
             }
+            */
 
+            half3 IntegrateEdgeVec(half3 v1, half3 v2)
+            {
+                float x = dot(v1, v2);
+                float y = abs(x);
+
+                float a = 0.8543985 + (0.4965155 + 0.0145206*y)*y;
+                float b = 3.4175940 + (4.1616724 + y)*y;
+                float v = a / b;
+
+                float theta_sintheta = (x > 0.0) ? v : 0.5 * rsqrt(max(1.0 - x*x, 1e-7)) - v;
+
+                return cross(v1, v2)*theta_sintheta;
+            }
+
+            float IntegrateEdge(half3 v1, half3 v2)
+            {
+                return IntegrateEdgeVec(v1, v2).z;
+            }
+
+            
             half3 LTC_Evaluate(
-                half3 N, half3 V, half3 P, float3x3 Minv, half3 points[4], bool twoSided)
+                half3 N, half3 V, half3 P, float3x3 Minv, half4 points[4], bool twoSided)
             {
                 // construct orthonormal basis around N
                 half3 T1, T2;
@@ -110,6 +137,7 @@ Shader "liangairan/pbr/ltc" {
 
                 // rotate area light in (T1, T2, N) basis
                 Minv = mul(Minv, float3x3(T1, T2, N));
+                //Minv = mul(transpose(float3x3(T1, T2, N)), Minv);
 
                 // polygon (allocate 5 vertices for clipping)
                 half3 L[5];
@@ -150,7 +178,6 @@ Shader "liangairan/pbr/ltc" {
 
                 return Lo_i;
             }
-
             
 
 
@@ -195,7 +222,7 @@ Shader "liangairan/pbr/ltc" {
 
                 bool twoSided = false;
 
-                half3 spec = LTC_Evaluate(N, V, i.posWorld, Minv, points, twoSided);
+                half3 spec = LTC_Evaluate(N, V, i.posWorld, Minv, _RectPoints, twoSided);
                 // BRDF shadowing and Fresnel
                 half3 scol = 1;
                 spec *= scol * t2.x + (1.0 - scol) * t2.y;
@@ -205,7 +232,7 @@ Shader "liangairan/pbr/ltc" {
                     float3(0, 1, 0),
                     float3(0, 0, 1)
                     );
-                half3 diff = LTC_Evaluate(N, V, i.posWorld, identity, points, twoSided);
+                half3 diff = LTC_Evaluate(N, V, i.posWorld, identity, _RectPoints, twoSided);
 
                 half3 col = 0;
                 col = AreaLightColor.rgb * (spec + albedo * diff);
