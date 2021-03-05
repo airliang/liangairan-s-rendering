@@ -12,6 +12,8 @@ Shader "liangairan/pbr/ltc" {
         _F0 ("Fresnel coefficient", Color) = (1,1,1,1)
         ltc_mat("ltc lookup matrix texture", 2D) = "white" {}
         ltc_mag("ltc lookup fresnel texture", 2D) = "gray" {}
+        [Toggle(RADIANCE_TEXTURE)] _RADIANCE_TEXTURE("RADIANCE_TEXTURE?", Int) = 0
+        _RadianceTexArray("radiance textures", 2DArray) = "white" {}
 	}
 	SubShader {
 		Tags { "RenderType"="Opaque" }
@@ -29,11 +31,13 @@ Shader "liangairan/pbr/ltc" {
             #pragma fragment frag
             #pragma exclude_renderers xbox360 flash	
             #pragma multi_compile_fwdbase 
-            #define PI 3.14159265359
+            #pragma shader_feature RADIANCE_TEXTURE
+ 
 
             sampler2D _MainTex;
             sampler2D ltc_mat;
             sampler2D ltc_mag;
+            UNITY_DECLARE_TEX2DARRAY(_RadianceTexArray);
 
             float _Roughness;
             //float _Metallic;
@@ -72,6 +76,18 @@ Shader "liangairan/pbr/ltc" {
 				half3 tangentWorld : TEXCOORD3;
                 SHADOW_COORDS(4)
             };
+
+            struct Ray
+            {
+                half3 origin;
+                half3 dir;
+            };
+
+            bool RayPlaneIntersect(Ray ray, half4 plane, out float t)
+            {
+                t = -dot(plane, half4(ray.origin, 1.0)) / dot(plane.xyz, ray.dir);
+                return t > 0.0;
+            }
 
             void InitRectPoints(float2 wh, float3 center, half3 dirx, half3 diry, out half3 points[4])
             {
@@ -126,6 +142,53 @@ Shader "liangairan/pbr/ltc" {
                 return IntegrateEdgeVec(v1, v2).z;
             }
 
+            half3 FetchDiffuseFilteredTexture(half3 p1, half3 p2, half3 p3, half3 p4, half3 dir)
+            {
+                //if (textured == false)
+                //    return half3(1, 1, 1);
+
+                // area light plane basis
+                half3 V1 = p2 - p1;
+                half3 V2 = p4 - p1;
+                half3 planeOrtho = cross(V1, V2);
+                float planeAreaSquared = dot(planeOrtho, planeOrtho);
+
+                Ray ray;
+                ray.origin = half3(0, 0, 0);
+                ray.dir = dir;
+                half4 plane = half4(planeOrtho, -dot(planeOrtho, p1));
+                float planeDist;
+                RayPlaneIntersect(ray, plane, planeDist);
+
+                half3 P = planeDist * ray.dir - p1;
+
+                // find tex coords of P
+                float dot_V1_V2 = dot(V1, V2);
+                float inv_dot_V1_V1 = 1.0 / dot(V1, V1);
+                half3 V2_ = V2 - V1 * dot_V1_V2 * inv_dot_V1_V1;
+                half2 Puv;
+                Puv.y = dot(V2_, P) / dot(V2_, V2_);
+                Puv.x = dot(V1, P) * inv_dot_V1_V1 - dot_V1_V2 * inv_dot_V1_V1 * Puv.y;
+
+                // LOD
+                float d = abs(planeDist) / pow(planeAreaSquared, 0.25);
+
+                // Flip texture to match OpenGL conventions
+                //Puv = Puv * half2(1, -1) + half2(0, 1);
+
+                float lod = log(2048.0 * d) / log(3.0);
+                lod = min(lod, 7.0);
+
+                float lodA = floor(lod);
+                float lodB = ceil(lod);
+                float t = lod - lodA;
+
+                half3 a = UNITY_SAMPLE_TEX2DARRAY(_RadianceTexArray, float3(Puv, lodA)).rgb;
+                half3 b = UNITY_SAMPLE_TEX2DARRAY(_RadianceTexArray, float3(Puv, lodB)).rgb;
+
+                return lerp(a, b, t);
+            }
+
             
             half3 LTC_Evaluate(
                 half3 N, half3 V, half3 P, float3x3 Minv, half4 points[4], bool twoSided)
@@ -147,12 +210,18 @@ Shader "liangairan/pbr/ltc" {
                 L[3] = mul(Minv, points[3].xyz - P);
                 L[4] = L[0];
 
+                half3 LL[4];
+                LL[0] = L[0];
+                LL[1] = L[1];
+                LL[2] = L[2];
+                LL[3] = L[3];
+
                 int n = 4;
                 //下面这个是计算多少个顶点在平面下面，一般不需要做
                 //ClipQuadToHorizon(L, n);
 
-                if (n == 0)
-                    return half3(0, 0, 0);
+                //if (n == 0)
+                //    return half3(0, 0, 0);
 
                 // project onto sphere
                 L[0] = normalize(L[0]);
@@ -163,7 +232,26 @@ Shader "liangairan/pbr/ltc" {
 
                 // integrate
                 float sum = 0.0;
+#ifdef RADIANCE_TEXTURE
+                half3 vsum;
 
+                // integrate
+                vsum = IntegrateEdgeVec(L[0], L[1]);
+                vsum += IntegrateEdgeVec(L[1], L[2]);
+                vsum += IntegrateEdgeVec(L[2], L[3]);
+                if (n >= 4)
+                    vsum += IntegrateEdgeVec(L[3], L[4]);
+                if (n == 5)
+                    vsum += IntegrateEdgeVec(L[4], L[0]);
+
+                sum = twoSided ? abs(vsum.z) : max(0.0, vsum.z);
+
+                half3 fetchDir = normalize(vsum);
+                half3 colorMap = FetchDiffuseFilteredTexture(LL[0], LL[1], LL[2], LL[3], fetchDir);
+                half3 Lo_i = sum * colorMap;
+
+                return Lo_i;
+#else
                 sum += IntegrateEdge(L[0], L[1]);
                 sum += IntegrateEdge(L[1], L[2]);
                 sum += IntegrateEdge(L[2], L[3]);
@@ -177,6 +265,7 @@ Shader "liangairan/pbr/ltc" {
                 half3 Lo_i = half3(sum, sum, sum);
 
                 return Lo_i;
+#endif
             }
             
 
