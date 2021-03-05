@@ -217,6 +217,9 @@ public class LTCFitting : EditorWindow
     float[] tabSphere;
     Matrix4x4[] tables;
     Vector2[] tabMagFresnel;
+    //private Texture2D radianceTexture;
+    private List<Texture2D> radianceTextures = new List<Texture2D>();
+
     [MenuItem("Tools/LTC Generate", false, 0)]
     public static void ShowWindow()
     {
@@ -242,11 +245,154 @@ public class LTCFitting : EditorWindow
         {
             GenerateLTCFromFiles();
         }
+
+        //radianceTexture = EditorGUILayout.ObjectField(radianceTexture, typeof(Texture2D), true) as Texture2D;
+        EditorGUILayout.LabelField("radiance textures num:");
+        int radianceTexturesNum = radianceTextures.Count;
+        radianceTexturesNum = EditorGUILayout.IntField(radianceTexturesNum);
+        if (radianceTexturesNum != radianceTextures.Count)
+        {
+            radianceTextures.Clear();
+            for (int i = 0; i < radianceTexturesNum; ++i)
+            {
+                radianceTextures.Add(null);
+            }
+        }
+
+        for (int i = 0; i < radianceTexturesNum; ++i)
+        {
+            radianceTextures[i] = EditorGUILayout.ObjectField(radianceTextures[i], typeof(Texture2D), true) as Texture2D;
+        }
+
+        if (GUILayout.Button("generate radiance texturearray"))
+        {
+            if (radianceTextures.Count > 0)
+            {
+                Texture2D input = radianceTextures[0];
+                Texture2DArray texture2DArray = new Texture2DArray(input.width, input.height, radianceTextures.Count, TextureFormat.ARGB32, false);
+                for (int i = 0; i < radianceTextures.Count; ++i)
+                {
+                    texture2DArray.SetPixels(radianceTextures[i].GetPixels(), i);
+                }
+
+                AssetDatabase.CreateAsset(texture2DArray, "Assets/pbr by liangairan/LTCRadiances.asset");
+                AssetDatabase.Refresh();
+            }
+            
+        }
+
+        /*
+        if (GUILayout.Button("radiance texture prefilter"))
+        {
+            PrefilterRadianceTexture(radianceTexture);
+        }
+        */
     }
 
     void OnDestroy()
     {
         generateLTC = null;
+        radianceTextures.Clear();
+    }
+
+    //https://github.com/selfshadow/ltc_code/blob/texture/prefilter/prefilterAreaLight.cpp
+    void PrefilterRadianceTexture(Texture2D input)
+    {
+        // Beyond 8 levels, the result is ~= a constant colour
+        // so pretend we have 12 levels, but truncate at 8
+        const int Nlevels = 12;
+        int maxLevels = 8;
+
+        Shader shader = Shader.Find("liangairan/postprocess/Blur");
+        if (shader == null)
+        {
+            Debug.LogError("shader liangairan/postprocess/gaussian_blur not exist!");
+            return;
+        }
+        Material gaussian = new Material(shader);
+
+        //Texture2D outputTexture = new Texture2D(input.width, input.height, input.format, false);
+
+
+        Texture2DArray texture2DArray = new Texture2DArray(input.width, input.height, maxLevels, TextureFormat.ARGB32, false);
+        //texture2DArray.SetPixels(input.GetPixels(), 0);
+        
+
+        for (int i = 0; i < maxLevels; ++i)
+        {
+            RenderTexture dest = RenderTexture.GetTemporary(input.width, input.height, 0, RenderTextureFormat.ARGB32);
+            FilterRadianceTexture(input, dest, gaussian, i);
+            Texture2D tmp = new Texture2D(input.width, input.height, TextureFormat.ARGB32, false);
+
+            Rect rectReadPicture = new Rect(0, 0, input.width, input.height);
+
+            RenderTexture.active = dest;
+
+            // Read pixels
+            tmp.ReadPixels(rectReadPicture, 0, 0);
+            tmp.Apply();
+            byte[] pngBytes = tmp.EncodeToPNG();
+            File.WriteAllBytes("Assets/pbr by liangairan/radianceTexture_" + i + ".png", pngBytes);
+
+            RenderTexture.active = null; // added to avoid errors 
+            texture2DArray.SetPixels(tmp.GetPixels(), i);
+            RenderTexture.ReleaseTemporary(dest);
+            Texture2D.DestroyImmediate(tmp);
+        }
+        
+
+        Material.DestroyImmediate(gaussian);
+
+        AssetDatabase.CreateAsset(texture2DArray, "Assets/pbr by liangairan/LTCRadiances.asset");
+        AssetDatabase.Refresh();
+        //Texture2DArray.DestroyImmediate(texture2DArray);
+    }
+
+
+    void CPUGaussian(int radius, float sigma, Texture2D input)
+    {
+        Color color = Color.black;
+
+        for (int i = 0; i < input.height; ++i)
+        {
+            for (int j = 0; j < input.width; ++j)
+            {
+
+            }
+        }
+    }
+
+    void FilterRadianceTexture(Texture2D input, RenderTexture dest, Material gaussian, int level)
+    {
+        int Nlevels = 12;
+        // distance to texture plane
+        // in shader: LOD = log(powf(2.0f, Nlevels - 1.0f) * dist) / log(3)
+        float dist = Mathf.Pow(3.0f, level) / Mathf.Pow(2.0f, (float)Nlevels - 1.0f);
+
+        // filter size
+        // at distance 1 ~= Gaussian of std 0.75
+        float filterStd = 0.75f * dist * input.width;
+        gaussian.SetFloat("sigma", filterStd);
+        
+        /*
+        Texture2D tmp = new Texture2D(input.width, input.height, input.format, false);
+
+        // renormalise based on alpha
+        for (int j = 0; j < input.height; ++j)
+            for (int i = 0; i < input.width; ++i)
+            {
+                Color pixel = input.GetPixel(i, j);
+                float alpha = pixel.a;
+                pixel.r /= alpha;
+                pixel.g /= alpha;
+                pixel.b /= alpha;
+                pixel.a = 1;
+                tmp.SetPixel(i, j, pixel);
+            }
+        */
+        Graphics.Blit(input, dest, gaussian);
+
+        //Texture2D.DestroyImmediate(tmp);
     }
 
     void GenerateLTCFromFiles()
@@ -287,6 +433,11 @@ public class LTCFitting : EditorWindow
 
         //AssetDatabase.CreateAsset(tab, "Assets/pbr by liangairan/textures/ltc_mat.tga");
         //AssetDatabase.CreateAsset(tabAmplitudes, "Assets/pbr by liangairan/textures/ltc_mag.tga");
+    }
+
+    void GenerateRadianceTexture()
+    {
+
     }
 
     IEnumerator GenerateLTC()
