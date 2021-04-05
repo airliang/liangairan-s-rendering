@@ -38,12 +38,12 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0, g: 0, b: 0, a: 1}
+  m_IndirectSpecularColor: {r: 0.18028378, g: 0.22571412, b: 0.30692285, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
   m_ObjectHideFlags: 0
-  serializedVersion: 11
+  serializedVersion: 12
   m_GIWorkflowMode: 1
   m_GISettings:
     serializedVersion: 2
@@ -98,7 +98,7 @@ LightmapSettings:
     m_TrainingDataDestination: TrainingData
     m_LightProbeSampleCountMultiplier: 4
   m_LightingDataAsset: {fileID: 0}
-  m_UseShadowmask: 1
+  m_LightingSettings: {fileID: 0}
 --- !u!196 &4
 NavMeshSettings:
   serializedVersion: 2
@@ -118,6 +118,8 @@ NavMeshSettings:
     manualTileSize: 0
     tileSize: 256
     accuratePlacement: 0
+    maxJobWorkers: 0
+    preserveTilesOutsideBounds: 0
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
@@ -155,7 +157,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   shapeType: 2
   isAreaLight: 0
-  lightColor: {r: 1, g: 1, b: 1, a: 1}
+  lightSpectrum: {r: 1, g: 1, b: 1, a: 1}
+  spectrumScale: {x: 1, y: 1, z: 1}
+  lightIntensity: 1
 --- !u!114 &195921852
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -169,6 +173,159 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   materialType: 2
+  plastic:
+    kd:
+      type: 0
+      spectrum: {r: 0, g: 0, b: 0, a: 0}
+      image: {fileID: 0}
+      imageFile: 
+      gamma: 0
+      wrap: 0
+      uvmapping: 0
+      mappingType: 0
+      uvMapping2D:
+        su: 1
+        sv: 1
+        du: 0
+        dv: 0
+    ks:
+      type: 0
+      spectrum: {r: 0, g: 0, b: 0, a: 0}
+      image: {fileID: 0}
+      imageFile: 
+      gamma: 0
+      wrap: 0
+      uvmapping: 0
+      mappingType: 0
+      uvMapping2D:
+        su: 1
+        sv: 1
+        du: 0
+        dv: 0
+    roughnessTexture:
+      type: 0
+      constantValue: 0
+      image: {fileID: 0}
+      imageFile: 
+      gamma: 0
+      wrap: 0
+      mappingType: 0
+      uvMapping2D:
+        su: 1
+        sv: 1
+        du: 0
+        dv: 0
+  matte:
+    kd:
+      type: 0
+      spectrum: {r: 0, g: 0, b: 0, a: 0}
+      image: {fileID: 0}
+      imageFile: 
+      gamma: 0
+      wrap: 0
+      uvmapping: 0
+      mappingType: 0
+      uvMapping2D:
+        su: 1
+        sv: 1
+        du: 0
+        dv: 0
+    sigma:
+      type: 0
+      constantValue: 0
+      image: {fileID: 0}
+      imageFile: 
+      gamma: 0
+      wrap: 0
+      mappingType: 0
+      uvMapping2D:
+        su: 1
+        sv: 1
+        du: 0
+        dv: 0
+  mirror:
+    kr:
+      type: 0
+      spectrum: {r: 0, g: 0, b: 0, a: 0}
+      image: {fileID: 0}
+      imageFile: 
+      gamma: 0
+      wrap: 0
+      uvmapping: 0
+      mappingType: 0
+      uvMapping2D:
+        su: 1
+        sv: 1
+        du: 0
+        dv: 0
+  glass:
+    kr:
+      type: 0
+      spectrum: {r: 0, g: 0, b: 0, a: 0}
+      image: {fileID: 0}
+      imageFile: 
+      gamma: 0
+      wrap: 0
+      uvmapping: 0
+      mappingType: 0
+      uvMapping2D:
+        su: 1
+        sv: 1
+        du: 0
+        dv: 0
+    ks:
+      type: 0
+      spectrum: {r: 0, g: 0, b: 0, a: 0}
+      image: {fileID: 0}
+      imageFile: 
+      gamma: 0
+      wrap: 0
+      uvmapping: 0
+      mappingType: 0
+      uvMapping2D:
+        su: 1
+        sv: 1
+        du: 0
+        dv: 0
+    uRougness:
+      type: 0
+      constantValue: 0
+      image: {fileID: 0}
+      imageFile: 
+      gamma: 0
+      wrap: 0
+      mappingType: 0
+      uvMapping2D:
+        su: 1
+        sv: 1
+        du: 0
+        dv: 0
+    vRougness:
+      type: 0
+      constantValue: 0
+      image: {fileID: 0}
+      imageFile: 
+      gamma: 0
+      wrap: 0
+      mappingType: 0
+      uvMapping2D:
+        su: 1
+        sv: 1
+        du: 0
+        dv: 0
+    index:
+      type: 0
+      constantValue: 0
+      image: {fileID: 0}
+      imageFile: 
+      gamma: 0
+      wrap: 0
+      mappingType: 0
+      uvMapping2D:
+        su: 1
+        sv: 1
+        du: 0
+        dv: 0
 --- !u!23 &195921853
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -184,6 +341,7 @@ MeshRenderer:
   m_LightProbeUsage: 1
   m_ReflectionProbeUsage: 1
   m_RayTracingMode: 2
+  m_RayTraceProcedural: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -208,6 +366,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_AdditionalVertexStreams: {fileID: 0}
 --- !u!33 &195921854
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -265,6 +424,7 @@ MeshRenderer:
   m_LightProbeUsage: 1
   m_ReflectionProbeUsage: 1
   m_RayTracingMode: 2
+  m_RayTraceProcedural: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -289,6 +449,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_AdditionalVertexStreams: {fileID: 0}
 --- !u!33 &269155967
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -325,7 +486,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   shapeType: 0
   isAreaLight: 0
-  lightColor: {r: 1, g: 1, b: 1, a: 1}
+  lightSpectrum: {r: 1, g: 1, b: 1, a: 1}
+  spectrumScale: {x: 1, y: 1, z: 1}
+  lightIntensity: 1
 --- !u!114 &269155970
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -339,6 +502,159 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   materialType: 1
+  plastic:
+    kd:
+      type: 0
+      spectrum: {r: 0, g: 0, b: 0, a: 0}
+      image: {fileID: 0}
+      imageFile: 
+      gamma: 0
+      wrap: 0
+      uvmapping: 0
+      mappingType: 0
+      uvMapping2D:
+        su: 1
+        sv: 1
+        du: 0
+        dv: 0
+    ks:
+      type: 0
+      spectrum: {r: 0, g: 0, b: 0, a: 0}
+      image: {fileID: 0}
+      imageFile: 
+      gamma: 0
+      wrap: 0
+      uvmapping: 0
+      mappingType: 0
+      uvMapping2D:
+        su: 1
+        sv: 1
+        du: 0
+        dv: 0
+    roughnessTexture:
+      type: 0
+      constantValue: 0
+      image: {fileID: 0}
+      imageFile: 
+      gamma: 0
+      wrap: 0
+      mappingType: 0
+      uvMapping2D:
+        su: 1
+        sv: 1
+        du: 0
+        dv: 0
+  matte:
+    kd:
+      type: 0
+      spectrum: {r: 0, g: 0, b: 0, a: 0}
+      image: {fileID: 0}
+      imageFile: 
+      gamma: 0
+      wrap: 0
+      uvmapping: 0
+      mappingType: 0
+      uvMapping2D:
+        su: 1
+        sv: 1
+        du: 0
+        dv: 0
+    sigma:
+      type: 0
+      constantValue: 0
+      image: {fileID: 0}
+      imageFile: 
+      gamma: 0
+      wrap: 0
+      mappingType: 0
+      uvMapping2D:
+        su: 1
+        sv: 1
+        du: 0
+        dv: 0
+  mirror:
+    kr:
+      type: 0
+      spectrum: {r: 0, g: 0, b: 0, a: 0}
+      image: {fileID: 0}
+      imageFile: 
+      gamma: 0
+      wrap: 0
+      uvmapping: 0
+      mappingType: 0
+      uvMapping2D:
+        su: 1
+        sv: 1
+        du: 0
+        dv: 0
+  glass:
+    kr:
+      type: 0
+      spectrum: {r: 0, g: 0, b: 0, a: 0}
+      image: {fileID: 0}
+      imageFile: 
+      gamma: 0
+      wrap: 0
+      uvmapping: 0
+      mappingType: 0
+      uvMapping2D:
+        su: 1
+        sv: 1
+        du: 0
+        dv: 0
+    ks:
+      type: 0
+      spectrum: {r: 0, g: 0, b: 0, a: 0}
+      image: {fileID: 0}
+      imageFile: 
+      gamma: 0
+      wrap: 0
+      uvmapping: 0
+      mappingType: 0
+      uvMapping2D:
+        su: 1
+        sv: 1
+        du: 0
+        dv: 0
+    uRougness:
+      type: 0
+      constantValue: 0
+      image: {fileID: 0}
+      imageFile: 
+      gamma: 0
+      wrap: 0
+      mappingType: 0
+      uvMapping2D:
+        su: 1
+        sv: 1
+        du: 0
+        dv: 0
+    vRougness:
+      type: 0
+      constantValue: 0
+      image: {fileID: 0}
+      imageFile: 
+      gamma: 0
+      wrap: 0
+      mappingType: 0
+      uvMapping2D:
+        su: 1
+        sv: 1
+        du: 0
+        dv: 0
+    index:
+      type: 0
+      constantValue: 0
+      image: {fileID: 0}
+      imageFile: 
+      gamma: 0
+      wrap: 0
+      mappingType: 0
+      uvMapping2D:
+        su: 1
+        sv: 1
+        du: 0
+        dv: 0
 --- !u!1 &596901692
 GameObject:
   m_ObjectHideFlags: 0
@@ -415,6 +731,7 @@ Light:
   m_UseColorTemperature: 0
   m_BoundingSphereOverride: {x: 0, y: 0, z: 0, w: 0}
   m_UseBoundingSphereOverride: 0
+  m_UseViewFrustumForShadowCasterCull: 1
   m_ShadowRadius: 0
   m_ShadowAngle: 0
 --- !u!4 &596901694
@@ -507,6 +824,7 @@ Light:
   m_UseColorTemperature: 0
   m_BoundingSphereOverride: {x: 0, y: 0, z: 0, w: 0}
   m_UseBoundingSphereOverride: 0
+  m_UseViewFrustumForShadowCasterCull: 1
   m_ShadowRadius: 0
   m_ShadowAngle: 0
 --- !u!4 &904540989
@@ -606,6 +924,49 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1302429804
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1302429806}
+  - component: {fileID: 1302429805}
+  m_Layer: 0
+  m_Name: Raytracing
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1302429805
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1302429804}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f6bcd70c86bfc09478f82f035f589c7a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!4 &1302429806
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1302429804}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 6
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1583017720
 GameObject:
   m_ObjectHideFlags: 0
@@ -640,7 +1001,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   shapeType: 2
   isAreaLight: 0
-  lightColor: {r: 1, g: 1, b: 1, a: 1}
+  lightSpectrum: {r: 1, g: 1, b: 1, a: 1}
+  spectrumScale: {x: 1, y: 1, z: 1}
+  lightIntensity: 1
 --- !u!23 &1583017723
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -656,6 +1019,7 @@ MeshRenderer:
   m_LightProbeUsage: 1
   m_ReflectionProbeUsage: 1
   m_RayTracingMode: 2
+  m_RayTraceProcedural: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -680,6 +1044,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_AdditionalVertexStreams: {fileID: 0}
 --- !u!33 &1583017724
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -715,3 +1080,156 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   materialType: 0
+  plastic:
+    kd:
+      type: 0
+      spectrum: {r: 0, g: 0, b: 0, a: 0}
+      image: {fileID: 0}
+      imageFile: 
+      gamma: 0
+      wrap: 0
+      uvmapping: 0
+      mappingType: 0
+      uvMapping2D:
+        su: 1
+        sv: 1
+        du: 0
+        dv: 0
+    ks:
+      type: 0
+      spectrum: {r: 0, g: 0, b: 0, a: 0}
+      image: {fileID: 0}
+      imageFile: 
+      gamma: 0
+      wrap: 0
+      uvmapping: 0
+      mappingType: 0
+      uvMapping2D:
+        su: 1
+        sv: 1
+        du: 0
+        dv: 0
+    roughnessTexture:
+      type: 0
+      constantValue: 0
+      image: {fileID: 0}
+      imageFile: 
+      gamma: 0
+      wrap: 0
+      mappingType: 0
+      uvMapping2D:
+        su: 1
+        sv: 1
+        du: 0
+        dv: 0
+  matte:
+    kd:
+      type: 0
+      spectrum: {r: 0, g: 0, b: 0, a: 0}
+      image: {fileID: 0}
+      imageFile: 
+      gamma: 0
+      wrap: 0
+      uvmapping: 0
+      mappingType: 0
+      uvMapping2D:
+        su: 1
+        sv: 1
+        du: 0
+        dv: 0
+    sigma:
+      type: 0
+      constantValue: 0
+      image: {fileID: 0}
+      imageFile: 
+      gamma: 0
+      wrap: 0
+      mappingType: 0
+      uvMapping2D:
+        su: 1
+        sv: 1
+        du: 0
+        dv: 0
+  mirror:
+    kr:
+      type: 0
+      spectrum: {r: 0, g: 0, b: 0, a: 0}
+      image: {fileID: 0}
+      imageFile: 
+      gamma: 0
+      wrap: 0
+      uvmapping: 0
+      mappingType: 0
+      uvMapping2D:
+        su: 1
+        sv: 1
+        du: 0
+        dv: 0
+  glass:
+    kr:
+      type: 0
+      spectrum: {r: 0, g: 0, b: 0, a: 0}
+      image: {fileID: 0}
+      imageFile: 
+      gamma: 0
+      wrap: 0
+      uvmapping: 0
+      mappingType: 0
+      uvMapping2D:
+        su: 1
+        sv: 1
+        du: 0
+        dv: 0
+    ks:
+      type: 0
+      spectrum: {r: 0, g: 0, b: 0, a: 0}
+      image: {fileID: 0}
+      imageFile: 
+      gamma: 0
+      wrap: 0
+      uvmapping: 0
+      mappingType: 0
+      uvMapping2D:
+        su: 1
+        sv: 1
+        du: 0
+        dv: 0
+    uRougness:
+      type: 0
+      constantValue: 0
+      image: {fileID: 0}
+      imageFile: 
+      gamma: 0
+      wrap: 0
+      mappingType: 0
+      uvMapping2D:
+        su: 1
+        sv: 1
+        du: 0
+        dv: 0
+    vRougness:
+      type: 0
+      constantValue: 0
+      image: {fileID: 0}
+      imageFile: 
+      gamma: 0
+      wrap: 0
+      mappingType: 0
+      uvMapping2D:
+        su: 1
+        sv: 1
+        du: 0
+        dv: 0
+    index:
+      type: 0
+      constantValue: 0
+      image: {fileID: 0}
+      imageFile: 
+      gamma: 0
+      wrap: 0
+      mappingType: 0
+      uvMapping2D:
+        su: 1
+        sv: 1
+        du: 0
+        dv: 0
