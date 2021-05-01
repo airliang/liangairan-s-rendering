@@ -1,0 +1,29 @@
+#include "sampler.hlsl"
+#include "bvhaccel.hlsl"
+
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel Extend
+
+
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+
+//use the matrix to calculate the world space ray
+
+
+RWTexture2D<half4> outputTexture;
+
+[numthreads(8,8,1)]
+void Extend(uint3 id : SV_DispatchThreadID)
+{
+    // TODO: insert actual code here!
+    Ray ray = Rays[id.x + id.y * rasterSize.x];
+    Interaction isect;
+    if (SceneIntersectTest(ray))
+    {
+        outputTexture[id.xy] = ray.direction;//half4(1, 1, 1, 1);
+    }
+    else
+        outputTexture[id.xy] = half4(0, 0, 0, 0);
+}

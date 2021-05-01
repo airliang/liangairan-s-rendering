@@ -7,4 +7,11 @@ public class BVHInterface
 {
     [DllImport("BVHLib")]
     public static extern int Add(int a, int b);
+
+    [DllImport("BVHLib")]
+    public static extern float SendArrayToCPP([Out][MarshalAs(UnmanagedType.LPArray)] Vector3[] pts, int cnt);
+
+
+    [DllImport("BVHLib")]
+    public static extern void GetArrayFromCPP([Out] Vector3[] positions, int length);
 }

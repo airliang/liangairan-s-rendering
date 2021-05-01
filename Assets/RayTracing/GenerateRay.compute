@@ -1,0 +1,34 @@
+#include "sampler.hlsl"
+#include "geometry.hlsl"
+#include "rtCommon.hlsl"
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel GenerateRay
+
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+
+//use the matrix to calculate the world space ray
+matrix RasterToCamera;
+matrix CameraToWorld;
+
+RandomSampler rs;
+
+[numthreads(8,8,1)]
+void GenerateRay(uint3 id : SV_DispatchThreadID)
+{
+    // TODO: insert actual code here!
+    if (id.x >= rasterSize.x || id.y >= rasterSize.y)
+        return;
+
+    //Result[id.xy] = float4(id.x & id.y, (id.x & 15)/15.0, (id.y & 15)/15.0, 0.0);
+    CameraSample cSample = rs.GetCameraSample(float2(id.x, id.y), _time);
+    float3 pFilm = float3(cSample.pFilm.xy, 0);
+    float3 nearplanePoint = mul(RasterToCamera, float4(pFilm, 1)).xyz;
+
+    Ray ray;
+    ray.orig = mul(CameraToWorld, float4(0, 0, 0, 1));
+    ray.direction = mul(CameraToWorld, float4(normalize(nearplanePoint), 0));
+    ray.orig.w = FLT_MAX;
+    Rays[id.x + id.y * rasterSize.x] = ray;
+}
