@@ -1032,7 +1032,7 @@ public class CascadeShadow : MonoBehaviour
                 max = Vector3.Max(max, frustumCornerInWorld_level0[i]);
             }
 
-            DrawDebugBound(min.x, max.x, min.y, max.y, min.z, max.z);
+            RenderDebug.DrawDebugBound(min.x, max.x, min.y, max.y, min.z, max.z);
         }
 
 #endif // UNITY_EDITOR
@@ -1110,7 +1110,7 @@ public class CascadeShadow : MonoBehaviour
                 max = Vector3.Max(max, frustumCornerInWorld_level1[i]);
             }
 
-            DrawDebugBound(min.x, max.x, min.y, max.y, min.z, max.z);
+            RenderDebug.DrawDebugBound(min.x, max.x, min.y, max.y, min.z, max.z);
         }
 
 #endif // UNITY_EDITOR
@@ -1119,6 +1119,7 @@ public class CascadeShadow : MonoBehaviour
         frustumCornerInLight_level1.Dispose();
     }
 
+    /*
 #if UNITY_EDITOR
 
     private void DrawDebugBound(float minX, float maxX, float minY, float maxY, float minZ, float maxZ)
@@ -1143,6 +1144,7 @@ public class CascadeShadow : MonoBehaviour
     }
 
 #endif // UNITY_EDITOR
+    */
 
     bool IsCameraCanMove(float minX, float maxX, float minY, float maxY, float shadowMapTexelWidth, float shadowMapTexelHeight)
     {
