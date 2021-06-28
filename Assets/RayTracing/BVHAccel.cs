@@ -13,7 +13,7 @@ public struct BVHNode
 
 struct BVHPrimitiveInfo
 {
-	public BVHPrimitiveInfo(int priIndex, Bounds bounds)	
+	public BVHPrimitiveInfo(int priIndex, GPUBounds bounds)	
 	{
 		primitiveIndex = priIndex;
 		worldBound = bounds;
@@ -21,15 +21,23 @@ struct BVHPrimitiveInfo
 	//primitive's index in primitive array
 	public int primitiveIndex;
 	
-	public Bounds worldBound;
+	public GPUBounds worldBound;
 	//worldbound's central point
 	//Vector3 centroid;
 };
 public class BVHBuildNode
 {
 	// BVHBuildNode Public Methods
-	//
-	public void InitLeaf(int first, int n, Bounds b) 
+	public static BVHBuildNode CreateInnerNode(GPUBounds bounds, BVHBuildNode left, BVHBuildNode right)
+    {
+		BVHBuildNode node = new BVHBuildNode();
+		node.bounds = bounds;
+		node.childrenLeft = left;
+		node.childrenRight = right;
+		node.nPrimitives = 0;
+		return node;
+    }
+	public void InitLeaf(int first, int n, GPUBounds b) 
 	{
 		firstPrimOffset = first;
 		nPrimitives = n;
@@ -43,12 +51,13 @@ public class BVHBuildNode
 	{
 		childrenLeft = c0;
 		childrenRight = c1;
-		bounds.SetMinMax(Vector3.Min(c0.bounds.min, c1.bounds.min), Vector3.Max(c0.bounds.max, c1.bounds.max));
+		//bounds.SetMinMax(Vector3.Min(c0.bounds.min, c1.bounds.min), Vector3.Max(c0.bounds.max, c1.bounds.max));
+		bounds = GPUBounds.Union(c0.bounds, c1.bounds);
 		splitAxis = axis;
 		nPrimitives = 0;
 		//++interiorNodes;
 	}
-	public Bounds bounds;
+	public GPUBounds bounds;
 	public BVHBuildNode childrenLeft;
 	public BVHBuildNode childrenRight;
 	public int splitAxis;
@@ -56,20 +65,19 @@ public class BVHBuildNode
 	public int firstPrimOffset;
 	//the number of primtives in leaf. 0 is a interior node
 	public int nPrimitives;
+
+	public bool IsLeaf()
+    {
+		return nPrimitives > 0;
+    }
 };
 
-struct BucketInfo
-{
-	//拥有的primitive的数量
-	public int count;
-	//bucket的bounds
-	public Bounds bounds;
-};
+
 
 //use as an array can transfer to the compute shader
 public struct LinearBVHNode
 {
-	public Bounds bounds;  //64bytes
+	public GPUBounds bounds;  //64bytes
 	
 	public int primitivesOffset;    // leaf
 	public int secondChildOffset;   // interior
@@ -81,27 +89,109 @@ public struct LinearBVHNode
     //ushort pad;        // ensure 32 byte total size
 };
 
+class StackEntry
+{
+	public BVHBuildNode node;
+	public int idx;
+
+	public StackEntry(BVHBuildNode n, int i)
+	{
+		node = n;
+		idx = i;
+	}
+
+	public int EncodeIdx() { return node.IsLeaf() ? ~idx : idx; }
+};
+
 public class BVHAccel
 {
 	int maxPrimsInNode;
-	int totalNodes = 0;
+	
 	BVHBuildNode root;
 	List<Primitive> primitives;
 	public LinearBVHNode[] linearNodes;
-	public void Build(List<Primitive> prims, int maxPrims, ref List<Primitive> orderedPrims)
+	BVHBuilder builder = new SplitBVHBuilder();
+	public static int maxLeafSize = 4;  //a node can contain leaves
+										//scene informations
+	//Texture2D bvhNodeTexture;
+	public GPUBVHNode[] m_nodes;
+	public List<Vector4> m_woodTriangleVertices = new List<Vector4>();
+
+	//woop's triangle transform
+	Vector4[] m_woop = new Vector4[3];
+	//public List<GPUTriangleIndex> triDatas;
+
+	public static unsafe int SingleToInt32Bits(float value)
+	{
+		return *(int*)(&value);
+	}
+
+	public static unsafe Vector4Int SingleToInt32Bits(Vector4 value)
     {
+		Vector4Int result = new Vector4Int();
+		result.x = SingleToInt32Bits(value.x);
+		result.y = SingleToInt32Bits(value.y);
+		result.z = SingleToInt32Bits(value.z);
+		result.w = SingleToInt32Bits(value.w);
+		return result;
+	}
+	public static unsafe float Int32BitsToSingle(int value)
+	{
+		return *(float*)(&value);
+	}
+
+	int min_min(int a, int b, int c)
+	{
+		return Mathf.Min(Mathf.Min(a, b), c);
+	}
+	int min_max(int a, int b, int c)
+	{
+		return Mathf.Max(Mathf.Min(a, b), c);
+
+	}
+	int max_min(int a, int b, int c)
+	{
+		return Mathf.Min(Mathf.Max(a, b), c);
+	}
+
+	int max_max(int a, int b, int c)
+	{
+		return Mathf.Max(Mathf.Max(a, b), c);
+	}
+
+	float fmin_fmin(float a, float b, float c) { return Int32BitsToSingle(min_min(SingleToInt32Bits(a), SingleToInt32Bits(b), SingleToInt32Bits(c))); }
+	float fmin_fmax(float a, float b, float c) { return Int32BitsToSingle(min_max(SingleToInt32Bits(a), SingleToInt32Bits(b), SingleToInt32Bits(c))); }
+	float fmax_fmin(float a, float b, float c) { return Int32BitsToSingle(max_min(SingleToInt32Bits(a), SingleToInt32Bits(b), SingleToInt32Bits(c))); }
+	float fmax_fmax(float a, float b, float c) { return Int32BitsToSingle(max_max(SingleToInt32Bits(a), SingleToInt32Bits(b), SingleToInt32Bits(c))); }
+
+	float spanBeginKepler(float a0, float a1, float b0, float b1, float c0, float c1, float d) 
+	{ 
+		return fmax_fmax(Mathf.Min(a0, a1), Mathf.Min(b0, b1), fmin_fmax(c0, c1, d)); 
+	}
+	float spanEndKepler(float a0, float a1, float b0, float b1, float c0, float c1, float d) 
+	{ 
+		return fmin_fmin(Mathf.Max(a0, a1), Mathf.Max(b0, b1), fmax_fmin(c0, c1, d)); 
+	}
+
+	public void Build(List<Primitive> prims, List<Primitive> orderedPrims, List<Vector3> positions, List<int> triangles)
+    {
+		/*
 		primitives = prims;
 		maxPrimsInNode = maxPrims;
 		List<BVHPrimitiveInfo> primitiveInfos = new List<BVHPrimitiveInfo>();
 		for (int i = 0; i < primitives.Count; ++i)
-			primitiveInfos.Add(new BVHPrimitiveInfo(i, primitives[i].worldBound));
+			primitiveInfos.Add(new BVHPrimitiveInfo(i, ConvertUnityBounds(primitives[i].worldBound)));
 		//List<Primitive> orderedPrims = new List<Primitive>();
 		root = RecursiveBuild(ref primitiveInfos, 0, prims.Count, ref orderedPrims);
 		primitives = orderedPrims;
-
+		*/
+		root = builder.Build(prims, orderedPrims, positions, triangles);
+		primitives = orderedPrims;
 		int offset = 0;
-		linearNodes = new LinearBVHNode[totalNodes];
+		linearNodes = new LinearBVHNode[builder.TotalNodes];
 		FlattenBVHTree(root, ref offset);
+		CreateCompact(root, positions);
+		//bvhNodeTexture = new Texture2D(builder.TotalNodes, 1, TextureFormat.RGBAFloat, false);
 	}
 
 	public void Clear()
@@ -109,214 +199,13 @@ public class BVHAccel
 		root = null;
 		primitives.Clear();
 		linearNodes = null;
-		totalNodes = 0;
 	}
-	int MaximunExtent(Vector3 extent)
-	{
-		if (extent.x > extent.y && extent.x > extent.z)
-			return 0;
-		else if (extent.y > extent.z)
-			return 1;
-		else
-			return 2;
-	}
-
-	Bounds Union(Bounds a, Bounds b)
-    {
-		Bounds bounds = a;
-		bounds.SetMinMax(Vector3.Min(bounds.min, b.min),
-				Vector3.Max(bounds.max, b.max));
-
-		return bounds;
-    }
-
-	float SurfaceArea(Bounds bounds)
-    {
-		return 2 * (bounds.size.x * bounds.size.y + bounds.size.x * bounds.size.z + bounds.size.y * bounds.size.z);
-
-	}
-
-	Vector3 Offset(Bounds b, Vector3 p)
-	{
-		Vector3 o = p - b.min;
-		if (b.max.x > b.min.x) o.x /= b.max.x - b.min.x;
-		if (b.max.y > b.min.y) o.y /= b.max.y - b.min.y;
-		if (b.max.z > b.min.z) o.z /= b.max.z - b.min.z;
-		return o;
-	}
-	BVHBuildNode RecursiveBuild(ref List<BVHPrimitiveInfo> primitiveInfo,
-		int start, int end,
-		ref List<Primitive> orderedPrims)
-    {
-		BVHBuildNode node = new BVHBuildNode();
-		totalNodes++;
-
-		Bounds bounds = new Bounds();
-		
-		Vector3 min = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
-		Vector3 max = new Vector3(float.MinValue, float.MinValue, float.MinValue);
-		bounds.SetMinMax(min, max);
-		for (int i = start; i < end; ++i)
-		{
-			bounds.SetMinMax(Vector3.Min(bounds.min, primitiveInfo[i].worldBound.min), 
-				Vector3.Max(bounds.max, primitiveInfo[i].worldBound.max));
-		}
-		node.bounds = bounds;
-
-		//判断数组长度
-		int nPrimitives = end - start;
-		if (nPrimitives == 1)
-		{
-			//数组是1的时候不能再往下划分，创建leaf
-			int firstPrimOffset = orderedPrims.Count;
-			int primIndex = primitiveInfo[start].primitiveIndex;
-			orderedPrims.Add(primitives[primIndex]);
-			node.InitLeaf(firstPrimOffset, nPrimitives, bounds);
-			return node;
-		}
-
-		//开始划分子节点
-		//首先计算出primitive的中心点构成的Bounds
-		Bounds centroidBounds = new Bounds();
-		centroidBounds.min = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
-		centroidBounds.max = new Vector3(float.MinValue, float.MinValue, float.MinValue);
-		for (int i = start; i < end; ++i)
-		{
-			centroidBounds.SetMinMax(Vector3.Min(centroidBounds.min, primitiveInfo[i].worldBound.center),
-				Vector3.Max(centroidBounds.max, primitiveInfo[i].worldBound.center)); //Union(centroidBounds, primitiveInfo[i].centroid);
-		}
-		int dim = MaximunExtent(centroidBounds.size);
-
-		//假如centroidBounds是一个点
-		//即上面的primitiveInfo的中心点在同一个位置
-		int mid = (start + end) / 2;
-		if (centroidBounds.max[dim] == centroidBounds.min[dim])
-		{
-			//build the leaf BVHBuildNode
-			int firstPrimOffset = orderedPrims.Count;
-			for (int i = start; i < end; ++i)
-			{
-				int primNum = primitiveInfo[i].primitiveIndex;
-				orderedPrims.Add(primitives[primNum]);
-			}
-			node.InitLeaf(firstPrimOffset, nPrimitives, bounds);
-			return node;
-		}
-		else
-		{
-			if (nPrimitives <= 2)
-			{
-				// Partition primitives into equally-sized subsets
-				mid = (start + end) / 2;
-				std.nth_element<BVHPrimitiveInfo>(ref primitiveInfo, start,
-					mid, end,
-					(a, b) => (a.worldBound.center[dim] < b.worldBound.center[dim]));
-			}
-			else
-			{
-				int nBuckets = 12;
-				BucketInfo[] buckets = new BucketInfo[nBuckets];
-
-				// Initialize _BucketInfo_ for SAH partition buckets
-				for (int i = start; i < end; ++i)
-				{
-					//计算当前的Primitive属于哪个bucket
-					int b = (int)(nBuckets *
-						Offset(centroidBounds, primitiveInfo[i].worldBound.center)[dim]);
-					if (b == nBuckets)
-						b = nBuckets - 1;
-					//CHECK_GE(b, 0);
-					//CHECK_LT(b, nBuckets);
-					buckets[b].count++;
-					//计算bucket的bounds
-					buckets[b].bounds =
-						Union(buckets[b].bounds, primitiveInfo[i].worldBound);
-				}
-
-				//分组，计算每组的cost
-				//cost(A,B) = t_trav + pA∑t_isect(ai) + pB∑t_isect(ai)
-				//t_trav = 0.125; t_isect = 1
-				float[] cost = new float[nBuckets - 1];
-				for (int i = 0; i < nBuckets - 1; ++i)
-				{
-					Bounds bA = new Bounds();
-					Bounds bB = new Bounds();
-					int count0 = 0, count1 = 0;
-					for (int j = 0; j <= i; ++j)
-					{
-						bA = Union(bA, buckets[j].bounds);
-						count0 += buckets[j].count;
-					}
-					for (int j = i + 1; j < nBuckets; ++j)
-					{
-						bB = Union(bB, buckets[j].bounds);
-						count1 += buckets[j].count;
-					}
-					//t_trav = 0.125f
-					cost[i] = 0.125f +
-						(count0 * SurfaceArea(bA) +
-							count1 * SurfaceArea(bB)) /
-						SurfaceArea(bounds);
-				}
-
-				// Find bucket to split at that minimizes SAH metric
-				float minCost = cost[0];
-				int minCostSplitBucket = 0;
-				for (int i = 1; i < nBuckets - 1; ++i)
-				{
-					if (cost[i] < minCost)
-					{
-						minCost = cost[i];
-						minCostSplitBucket = i;
-					}
-				}
-
-				//生成叶子节点或子树
-				float leafCost = nPrimitives;
-				if (nPrimitives > maxPrimsInNode || minCost < leafCost)
-				{
-					mid = std.partition<BVHPrimitiveInfo>(ref primitiveInfo, start, end, 
-						(pi) =>
-						{
-							int bNum = (int)(nBuckets * Offset(centroidBounds, pi.worldBound.center)[dim]);
-							if (bNum == nBuckets) bNum = nBuckets - 1;
-							return bNum <= minCostSplitBucket;
-						});
-					/*
-					BVHPrimitiveInfo* pmid = std::partition(&primitiveInfo[start],
-						&primitiveInfo[end - 1] + 1,
-						[=](const BVHPrimitiveInfo&pi) {
-						int b = nBuckets * centroidBounds.Offset(pi.centroid)[dim];
-						if (b == nBuckets) b = nBuckets - 1;
-						return b <= minCostSplitBucket;
-					});
-					mid = pmid - &primitiveInfo[0];
-					*/
-				}
-				else
-				{
-					int firstPrimOffset = orderedPrims.Count;
-					for (int i = start; i < end; ++i)
-					{
-						int primNum = primitiveInfo[i].primitiveIndex;
-						orderedPrims.Add(primitives[primNum]);
-					}
-					node.InitLeaf(firstPrimOffset, nPrimitives, bounds);
-					return node;
-				}
-			}
-
-			node.InitInterior(dim, RecursiveBuild(ref primitiveInfo, start, mid, ref orderedPrims),
-				RecursiveBuild(ref primitiveInfo, mid, end, ref orderedPrims));
-		}
-		return node;
-	}
-
 	int FlattenBVHTree(BVHBuildNode node, ref int offset)
 	{
 		//LinearBVHNode linearNode = linearNodes[offset];
 		int curOffset = offset;
-		linearNodes[curOffset].bounds = node.bounds;
+		linearNodes[curOffset].bounds.max = node.bounds.max;
+		linearNodes[curOffset].bounds.min = node.bounds.min;
 		int myOffset = offset++;
 		if (node.nPrimitives > 0)
 		{
@@ -338,14 +227,391 @@ public class BVHAccel
 
 	public void DrawDebug()
     {
+		/*
 		if (linearNodes != null)
         {
 			for (int i = 0; i < linearNodes.Length; ++i)
 			{
-				Bounds bound = linearNodes[i].bounds;
-				RenderDebug.DrawDebugBound(bound.min.x, bound.max.x, bound.min.y, bound.max.y, bound.min.z, bound.max.z);
+				if (linearNodes[i].nPrimitives > 0)
+                {
+					GPUBounds bound = linearNodes[i].bounds;
+					RenderDebug.DrawDebugBound(bound.min.x, bound.max.x, bound.min.y, bound.max.y, bound.min.z, bound.max.z);
+				}
+				
 			}
 		}
+		*/
 		
+		for (int i = 0; i < m_nodes.Length; ++i)
+        {
+			if (SingleToInt32Bits(m_nodes[i].cids.z) > 0)
+            {
+				//RenderDebug.DrawDebugBound(m_nodes[i].b0xy.x, m_nodes[i].b0xy.y, m_nodes[i].b0xy.z, m_nodes[i].b0xy.w, m_nodes[i].b01z.x, m_nodes[i].b01z.y, Color.white);
+			}
+			else
+            {
+				RenderDebug.DrawDebugBound(m_nodes[i].b0xy.x, m_nodes[i].b0xy.y, m_nodes[i].b0xy.z, m_nodes[i].b0xy.w, m_nodes[i].b01z.x, m_nodes[i].b01z.y, Color.red);
+			}
+
+			if (SingleToInt32Bits(m_nodes[i].cids.w) > 0)
+			{
+				//RenderDebug.DrawDebugBound(m_nodes[i].b1xy.x, m_nodes[i].b1xy.y, m_nodes[i].b1xy.z, m_nodes[i].b1xy.w, m_nodes[i].b01z.z, m_nodes[i].b01z.w, Color.white);
+			}
+			else
+            {
+				RenderDebug.DrawDebugBound(m_nodes[i].b1xy.x, m_nodes[i].b1xy.y, m_nodes[i].b1xy.z, m_nodes[i].b1xy.w, m_nodes[i].b01z.z, m_nodes[i].b01z.w, Color.red);
+			}
+		}
     }
+
+	public static void TestPartition()
+	{
+		List<int> numbers = new List<int>();
+		int[] a = { 5, 2, 9, 3, 7, 1, 6, 0, 4 };
+		for (int i = 0; i < a.Length; ++i)
+			numbers.Add(a[i]);
+
+		int mid = std.partition<int>(ref numbers, 0, numbers.Count,
+			(a) =>
+			{
+				return a < 5;
+			});
+
+		Debug.Log(numbers);
+	}
+
+	void CreateBasic(BVHBuildNode root, List<Vector3> positions)
+    {
+		//m_nodes.resizeDiscard((root->getSubtreeSize(BVH_STAT_NODE_COUNT) * 64 + Align - 1) & -Align);
+		m_nodes = new GPUBVHNode[builder.TotalNodes];
+
+		int nextNodeIdx = 0;
+		List<StackEntry> stack = new List<StackEntry>();
+		stack.Add(new StackEntry(root, nextNodeIdx++));
+		GPUBounds b0 = new GPUBounds();
+		GPUBounds b1 = new GPUBounds();
+		int c0;
+		int c1;
+		while (stack.Count > 0)
+		{
+			StackEntry e = stack[stack.Count - 1];
+			stack.RemoveAt(stack.Count - 1);
+
+			GPUBVHNode gpuBVH = new GPUBVHNode();
+
+
+			// Leaf?
+			if (e.node.IsLeaf())
+			{
+				BVHBuildNode leaf = e.node;
+				//gpuBVH.b1 = leaf.bounds;
+				//gpuBVH.b2 = leaf.bounds;
+				//gpuBVH.idx1 = leaf.firstPrimOffset;
+				//gpuBVH.idx2 = leaf.nPrimitives;
+				b0 = leaf.bounds;
+				b1 = leaf.bounds;
+				c0 = leaf.firstPrimOffset;
+				c1 = leaf.nPrimitives;
+			}
+
+			// Internal node?
+
+			else
+			{
+				StackEntry e0 = new StackEntry(e.node.childrenLeft, nextNodeIdx++);
+				stack.Add(e0);
+				StackEntry e1 = new StackEntry(e.node.childrenRight, nextNodeIdx++);
+				stack.Add(e1);
+				//gpuBVH.b1 = e0.node.bounds;
+				//gpuBVH.b2 = e1.node.bounds;
+				//gpuBVH.idx1 = e0.EncodeIdx();
+				//gpuBVH.idx2 = e1.EncodeIdx();
+				b0 = e0.node.bounds;
+				b1 = e1.node.bounds;
+				c0 = e0.EncodeIdx();
+				c1 = e1.EncodeIdx();
+			}
+
+			gpuBVH.b0xy = new Vector4(b0.min.x, b0.max.x, b0.min.y, b0.max.y);
+			gpuBVH.b1xy = new Vector4(b1.min.x, b1.max.x, b1.min.y, b1.max.y);
+			gpuBVH.b01z = new Vector4(b0.min.z, b0.max.z, b1.min.z, b1.max.z);
+			gpuBVH.cids = new Vector4(c0, c1, 0, 0);
+
+			m_nodes[e.idx] = gpuBVH;
+		}
+	}
+
+	void CreateCompact(BVHBuildNode root, List<Vector3> positions)
+	{
+		m_nodes = new GPUBVHNode[builder.TotalNodes];
+
+		int nextNodeIdx = 0;
+		List<StackEntry> stack = new List<StackEntry>();
+		stack.Add(new StackEntry(root, 0));
+		GPUBounds b0 = new GPUBounds();
+		GPUBounds b1 = new GPUBounds();
+		
+		while (stack.Count > 0)
+		{
+			int c0 = 0;
+			int c1 = 0;
+			int c2 = 0;  //left child primtives num;
+			int c3 = 0;  //right child primitves num
+			StackEntry e = stack[stack.Count - 1];
+			stack.RemoveAt(stack.Count - 1);
+
+			//left child
+			if (!e.node.childrenLeft.IsLeaf())
+            {
+				c0 = nextNodeIdx;
+				stack.Add(new StackEntry(e.node.childrenLeft, nextNodeIdx++));
+            }
+			else
+            {
+				c0 = ~m_woodTriangleVertices.Count;
+				BVHBuildNode child = e.node.childrenLeft;
+				//处理三角形
+				for (int i = child.firstPrimOffset; i < child.firstPrimOffset + child.nPrimitives; ++i)
+                {
+					//把三角形每个顶点按顺序写入buffer里，保证了每个三角形的索引是连续的
+					UnitTriangle(i, positions);
+					for (int v = 0; v < 3; ++v)
+					{
+						m_woodTriangleVertices.Add(m_woop[v]);
+					}
+                }
+				c2 = child.nPrimitives;
+
+			}
+
+			//right child
+			if (!e.node.childrenRight.IsLeaf())
+			{
+				c1 = nextNodeIdx;
+				stack.Add(new StackEntry(e.node.childrenRight, nextNodeIdx++));
+			}
+			else
+			{
+				c1 = ~m_woodTriangleVertices.Count;
+				BVHBuildNode child = e.node.childrenRight;
+				//处理三角形
+				for (int i = child.firstPrimOffset; i < child.firstPrimOffset + child.nPrimitives; ++i)
+				{
+					//把三角形写入buffer里
+					UnitTriangle(i, positions);
+
+					for (int v = 0; v < 3; ++v)
+					{
+						m_woodTriangleVertices.Add(m_woop[v]);
+					}
+				}
+				c3 = child.nPrimitives;
+			}
+
+			//添加结束
+			GPUBVHNode gpuBVH = new GPUBVHNode();
+			b0 = e.node.childrenLeft.bounds;
+			b1 = e.node.childrenRight.bounds;
+
+			gpuBVH.b0xy = new Vector4(b0.min.x, b0.max.x, b0.min.y, b0.max.y);
+			gpuBVH.b1xy = new Vector4(b1.min.x, b1.max.x, b1.min.y, b1.max.y);
+			gpuBVH.b01z = new Vector4(b0.min.z, b0.max.z, b1.min.z, b1.max.z);
+			gpuBVH.cids = new Vector4(Int32BitsToSingle(c0), Int32BitsToSingle(c1), Int32BitsToSingle(c2), Int32BitsToSingle(c3));
+
+			m_nodes[e.idx] = gpuBVH;
+		}
+	}
+
+	void UnitTriangle(int triIndex, List<Vector3> positions)
+    {
+		Primitive primitive = primitives[triIndex];
+		//primitive.triangleOffset 
+		Vector3 v0 = positions[primitive.triIndices.x];
+		Vector3 v1 = positions[primitive.triIndices.y];
+		Vector3 v2 = positions[primitive.triIndices.z];
+
+		Matrix4x4 matrix = new Matrix4x4();
+		Vector4 col0 = v0 - v2;
+		col0.w = 0;
+		matrix.SetColumn(0, col0);
+		Vector4 col1 = v1 - v2;
+		col1.w = 0;
+		matrix.SetColumn(1, col1);
+		Vector4 col2 = Vector3.Cross(v0 - v2, v1 - v2);
+		col2.w = 0;
+		matrix.SetColumn(2, col2);
+		Vector4 col3 = v2;
+		col3.w = 1;
+		matrix.SetColumn(3, col3);
+		matrix = Matrix4x4.Inverse(matrix);
+
+		m_woop[0] = matrix.GetRow(0);
+		m_woop[1] = matrix.GetRow(1);
+		m_woop[2] = matrix.GetRow(2);
+	}
+
+	public bool IntersectTest(GPURay ray)
+    {
+		const int EntrypointSentinel = 0x76543210;
+		Vector4 rayOrig = ray.orig;
+		Vector4 rayDir = ray.direction;
+		int[] traversalStack = new int[64];
+		traversalStack[0] = EntrypointSentinel;
+		int leafAddr = 0;               // If negative, then first postponed leaf, non-negative if no leaf (innernode).
+		int nodeAddr = 0;
+		int primitivesNum = 0;   //当前节点的primitives数量
+		int primitivesNum2 = 0;
+		int triIdx = 0;
+		float tmin = rayDir.w;
+		float hitT = rayOrig.w;  //tmax
+		float origx = rayOrig.x;
+		float origy = rayOrig.y;
+		float origz = rayOrig.z;            // Ray origin.
+		float ooeps = Mathf.Pow(2, -80.0f);//exp2f(-80.0f); // Avoid div by zero, returns 1/2^80, an extremely small number
+		float idirx = 1.0f / (Mathf.Abs(rayDir.x) > ooeps ? rayDir.x : Mathf.Sign(rayDir.x) * ooeps); // inverse ray direction
+		float idiry = 1.0f / (Mathf.Abs(rayDir.y) > ooeps ? rayDir.y : Mathf.Sign(rayDir.y) * ooeps); // inverse ray direction
+		float idirz = 1.0f / (Mathf.Abs(rayDir.z) > ooeps ? rayDir.z : Mathf.Sign(rayDir.z) * ooeps); // inverse ray direction
+		float dirx = rayDir.x;
+		float diry = rayDir.y;
+		float dirz = rayDir.z;
+		float oodx = rayOrig.x * idirx;  // ray origin / ray direction
+		float oody = rayOrig.y * idiry;  // ray origin / ray direction
+		float oodz = rayOrig.z * idirz;  // ray origin / ray direction
+		int stackIndex = 0;   //当前traversalStack的索引号
+		int hitIndex = -1;
+
+		//这个nodeAddr从哪里来？
+		while (nodeAddr != EntrypointSentinel)
+		{
+			while ((uint)nodeAddr < (uint)EntrypointSentinel)
+			{
+				GPUBVHNode curNode = m_nodes[nodeAddr];
+				Vector4Int cnodes = SingleToInt32Bits(curNode.cids);
+
+				float c0lox = curNode.b0xy.x * idirx - oodx;
+				float c0hix = curNode.b0xy.y * idirx - oodx;
+				float c0loy = curNode.b0xy.z * idiry - oody;
+				float c0hiy = curNode.b0xy.w * idiry - oody;
+				float c0loz = curNode.b01z.x * idirz - oodz;
+				float c0hiz = curNode.b01z.y * idirz - oodz;
+				float c1loz = curNode.b01z.z * idirz - oodz;
+				float c1hiz = curNode.b01z.w * idirz - oodz;
+				float c0min = spanBeginKepler(c0lox, c0hix, c0loy, c0hiy, c0loz, c0hiz, tmin);
+				float c0max = spanEndKepler(c0lox, c0hix, c0loy, c0hiy, c0loz, c0hiz, hitT);
+				float c1lox = curNode.b1xy.x * idirx - oodx;
+				float c1hix = curNode.b1xy.y * idirx - oodx;
+				float c1loy = curNode.b1xy.z * idiry - oody;
+				float c1hiy = curNode.b1xy.w * idiry - oody;
+				float c1min = spanBeginKepler(c1lox, c1hix, c1loy, c1hiy, c1loz, c1hiz, tmin);
+				float c1max = spanEndKepler(c1lox, c1hix, c1loy, c1hiy, c1loz, c1hiz, hitT);
+
+				bool swp = (c1min < c0min);
+
+				bool traverseChild0 = (c0max >= c0min);
+				bool traverseChild1 = (c1max >= c1min);
+
+				if (!traverseChild0 && !traverseChild1)
+				{
+					nodeAddr = traversalStack[stackIndex];
+					stackIndex--;
+					return false;
+				}
+				// Otherwise => fetch child pointers.
+				else
+				{
+					nodeAddr = (traverseChild0) ? cnodes.x : cnodes.y;
+					primitivesNum = (traverseChild0) ? cnodes.z : cnodes.w;
+					primitivesNum2 = (traverseChild0) ? cnodes.w : cnodes.z;
+					// Both children were intersected => push the farther one.
+					if (traverseChild0 && traverseChild1)
+					{
+						if (swp)
+						{
+							//swap(nodeAddr, cnodes.y);
+							int tmp = nodeAddr;
+							nodeAddr = cnodes.y;
+							cnodes.y = tmp;
+							tmp = primitivesNum;
+							primitivesNum = primitivesNum2;
+							primitivesNum2 = tmp;
+						}
+						//stackPtr += 4;
+						//stackIndex++;
+						//*(int*)stackPtr = cnodes.y;
+						traversalStack[++stackIndex] = cnodes.y;
+					}
+				}
+
+				// First leaf => postpone and continue traversal.
+				if (nodeAddr < 0 && leafAddr >= 0)     // Postpone max 1
+				{
+					//leafAddr2= leafAddr;          // postpone 2
+					leafAddr = nodeAddr;            //leafAddr成了当前要处理的节点
+					nodeAddr = traversalStack[stackIndex];  //出栈，nodeAddr这个时候是下一个要访问的node
+					stackIndex--;
+				}
+
+				if (!(leafAddr >= 0))   //leaf node小于0，需要处理叶子节点，退出循环
+					break;
+			}
+
+			//遍历叶子
+			while (leafAddr < 0)
+			{
+				for (int triAddr = ~leafAddr; triAddr < ~leafAddr + primitivesNum * 3; triAddr += 3)
+				{
+					Vector4 m0 = m_woodTriangleVertices[triAddr];     //matrix row 0 
+					Vector4 m1 = m_woodTriangleVertices[triAddr + 1]; //matrix row 1 
+					Vector4 m2 = m_woodTriangleVertices[triAddr + 2]; //matrix row 2
+
+					//Oz is a point, must plus w
+					float Oz = m2.w + origx * m2.x + origy * m2.y + origz * m2.z;
+					//Dz is a vector
+					float invDz = 1.0f / (dirx * m2.x + diry * m2.y + dirz * m2.z);
+					float t = -Oz * invDz;
+
+					//if t is in bounding and less than the ray.tMax
+					if (t > tmin && t < hitT)
+					{
+						// Compute and check barycentric u.
+						float Ox = m0.w + origx * m0.x + origy * m0.y + origz * m0.z;
+						float Dx = dirx * m0.x + diry * m0.y + dirz * m0.z;
+						float u = Ox + t * Dx;
+
+						if (u >= 0.0f)
+						{
+							// Compute and check barycentric v.
+							float Oy = m1.w + origx * m1.x + origy * m1.y + origz * m1.z;
+							float Dy = dirx * m1.x + diry * m1.y + dirz * m1.z;
+							float v = Oy + t * Dy;
+
+							if (v >= 0.0f && u + v <= 1.0f)
+							{
+								// Record intersection.
+								// Closest intersection not required => terminate.
+								hitT = t;
+								hitIndex = triAddr;
+								return true;
+								//if (anyHit)
+								//{
+								//	nodeAddr = EntrypointSentinel;
+								//	break;
+								//}
+							}
+						}
+					}
+
+				} // triangle
+
+				// Another leaf was postponed => process it as well.
+				leafAddr = nodeAddr;
+				if (nodeAddr < 0)
+				{
+					nodeAddr = traversalStack[stackIndex--];
+					primitivesNum = primitivesNum2;
+				}
+			} // leaf
+		}
+		return false;
+	}
 }

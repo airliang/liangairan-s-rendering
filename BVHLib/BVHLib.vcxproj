@@ -151,9 +151,16 @@ copy $(OutDir)$(TargetName).pdb $(SolutionDir)\..\Assets\plugins\x86_64</Command
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="BVHAccel.h" />
+    <ClInclude Include="math\geometry.h" />
+    <ClInclude Include="math\mathdef.h" />
+    <ClInclude Include="math\matrix.h" />
+    <ClInclude Include="math\quaternion.h" />
+    <ClInclude Include="RayTracing.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BVHAccel.cpp" />
+    <ClCompile Include="math\matrix.cpp" />
+    <ClCompile Include="math\quaternion.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

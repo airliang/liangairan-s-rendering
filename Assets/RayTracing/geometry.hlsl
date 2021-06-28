@@ -35,9 +35,27 @@ struct Bounds
 	float3 min;
 	float3 max;
 
-	float3 corner(int n)
+	float3 MinOrMax(int n)
 	{
 		return n == 0 ? min : max;
+	}
+
+	float3 corner(int n)
+	{
+		return float3(MinOrMax(n & 1).x,
+			MinOrMax((n & 2) ? 1 : 0).y,
+			MinOrMax((n & 4) ? 1 : 0).z);
+
+	}
+
+	float3 center()
+	{
+		return (min + max) * 0.5;
+	}
+
+	float radius()
+	{
+		return length(max - min) * 0.5;
 	}
 };
 
@@ -51,24 +69,57 @@ struct Primitive
 
 struct BVHNode
 {
-	Bounds bounds;
-	int    nPrimitives;  //primitives in this node
-	int    primitivesOffset;  //
-	int    secondChildOffset; //
-	int    axis;
+	//Bounds b0;
+	//Bounds b1;
+	//int    idx0;   //inner node for left child index, leaf for primitive index in primitive array 
+	//int    idx1;   //inner node for right child index, leaf for primitive's count
+	//int    c0;  //
+	//int    c1;
+	float4 b0xy;
+	float4 b1xy;
+	float4 b01z;
+	float4 cids;   //x leftchild node index, y rightchild node index, if the node is leaf, nodeindex is negative
 };
+
+/*
+float max(float3 v) { return max(max(v.x, v.y), v.z); }
+// box.rotation = object-to-world, invRayDir unused if oriented
+bool OurIntersectBox(Bounds box, Ray ray, out float distance, out float3 normal,
+	const bool canStartInBox, in float3 _invRayDir) 
+{
+	ray.orig.xyz = ray.orig.xyz - box.center();
+	
+	float boxInvRadius = 1.0 / box.radius();
+	float winding = canStartInBox && (max(abs(ray.orig.xyz) * boxInvRadius)
+		< 1.0) ? -1 : 1;
+	float3 sgn = -sign(ray.dir);
+	// Distance to plane
+	float3 d = box.radius() * winding * sgn - ray.orig.xyz;
+	
+	d *= _invRayDir;
+# define TEST(U, VW) (d.U >= 0.0) && \
+all(lessThan(abs(ray.origin.VW + ray.dir.VW * d.U), box.radius.VW))
+	bvec3 test = bvec3(TEST(x, yz), TEST(y, zx), TEST(z, xy));
+	sgn = test.x ? vec3(sgn.x, 0, 0) : (test.y ? vec3(0, sgn.y, 0) :
+		vec3(0, 0, test.z ? sgn.z : 0));
+# undef TEST
+	distance = (sgn.x != 0) ? d.x : ((sgn.y != 0) ? d.y : d.z);
+	normal = oriented ? (box.rot * sgn) : sgn;
+	return (sgn.x != 0) || (sgn.y != 0) || (sgn.z != 0);
+}
+*/
 
 bool BoundIntersectP(Ray ray, Bounds bounds, float3 invDir, int dirIsNeg[3])
 {
 	// Check for ray intersection against $x$ and $y$ slabs
-	float tMin = (bounds.corner(dirIsNeg[0]).x - ray.orig.x) * invDir.x;
-	float tMax = (bounds.corner(1 - dirIsNeg[0]).x - ray.orig.x) * invDir.x;
-	float tyMin = (bounds.corner(dirIsNeg[1]).y - ray.orig.y) * invDir.y;
-	float tyMax = (bounds.corner(1 - dirIsNeg[1]).y - ray.orig.y) * invDir.y;
+	float tMin = (bounds.MinOrMax(dirIsNeg[0]).x - ray.orig.x) * invDir.x;
+	float tMax = (bounds.MinOrMax(1 - dirIsNeg[0]).x - ray.orig.x) * invDir.x;
+	float tyMin = (bounds.MinOrMax(dirIsNeg[1]).y - ray.orig.y) * invDir.y;
+	float tyMax = (bounds.MinOrMax(1 - dirIsNeg[1]).y - ray.orig.y) * invDir.y;
 
 	// Update _tMax_ and _tyMax_ to ensure robust bounds intersection
-	tMax *= 1 + 2 * gamma(3);
-	tyMax *= 1 + 2 * gamma(3);
+	//tMax *= 1 + 2 * gamma(3);
+	//tyMax *= 1 + 2 * gamma(3);
 	if (tMin > tyMax || tyMin > tMax)
 		return false;
 	if (tyMin > tMin)
@@ -77,11 +128,11 @@ bool BoundIntersectP(Ray ray, Bounds bounds, float3 invDir, int dirIsNeg[3])
 		tMax = tyMax;
 
 	// Check for ray intersection against $z$ slab
-	float tzMin = (bounds.corner(dirIsNeg[2]).z - ray.orig.z) * invDir.z;
-	float tzMax = (bounds.corner(1 - dirIsNeg[2]).z - ray.orig.z) * invDir.z;
+	float tzMin = (bounds.MinOrMax(dirIsNeg[2]).z - ray.orig.z) * invDir.z;
+	float tzMax = (bounds.MinOrMax(1 - dirIsNeg[2]).z - ray.orig.z) * invDir.z;
 
 	// Update _tzMax_ to ensure robust bounds intersection
-	tzMax *= 1 + 2 * gamma(3);
+	//tzMax *= 1 + 2 * gamma(3);
 	if (tMin > tzMax || tzMin > tMax)
 		return false;
 	if (tzMin > tMin) tMin = tzMin;
@@ -91,10 +142,10 @@ bool BoundIntersectP(Ray ray, Bounds bounds, float3 invDir, int dirIsNeg[3])
 
 bool BoundIntersect(Ray ray, Bounds bounds, float3 invDir, int dirIsNeg[3])
 {
-	float tMin = (bounds.corner(dirIsNeg[0]).x - ray.orig.x) * invDir.x;
-	float tMax = (bounds.corner(1 - dirIsNeg[0]).x - ray.orig.x) * invDir.x;
-	float tyMin = (bounds.corner(dirIsNeg[1]).y - ray.orig.y) * invDir.y;
-	float tyMax = (bounds.corner(1 - dirIsNeg[1]).y - ray.orig.y) * invDir.y;
+	float tMin = (bounds.MinOrMax(dirIsNeg[0]).x - ray.orig.x) * invDir.x;
+	float tMax = (bounds.MinOrMax(1 - dirIsNeg[0]).x - ray.orig.x) * invDir.x;
+	float tyMin = (bounds.MinOrMax(dirIsNeg[1]).y - ray.orig.y) * invDir.y;
+	float tyMax = (bounds.MinOrMax(1 - dirIsNeg[1]).y - ray.orig.y) * invDir.y;
 
 	// Update _tMax_ and _tyMax_ to ensure robust bounds intersection
 	tMax *= 1 + 2 * gamma(3);
@@ -107,8 +158,8 @@ bool BoundIntersect(Ray ray, Bounds bounds, float3 invDir, int dirIsNeg[3])
 		tMax = tyMax;
 
 	// Check for ray intersection against $z$ slab
-	float tzMin = (bounds.corner(dirIsNeg[2]).z - ray.orig.z) * invDir.z;
-	float tzMax = (bounds.corner(1 - dirIsNeg[2]).z - ray.orig.z) * invDir.z;
+	float tzMin = (bounds.MinOrMax(dirIsNeg[2]).z - ray.orig.z) * invDir.z;
+	float tzMax = (bounds.MinOrMax(1 - dirIsNeg[2]).z - ray.orig.z) * invDir.z;
 
 	// Update _tzMax_ to ensure robust bounds intersection
 	tzMax *= 1 + 2 * gamma(3);

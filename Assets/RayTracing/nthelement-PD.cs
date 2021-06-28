@@ -161,21 +161,34 @@ public class std
 	public static int partition<T>(ref List<T> list, int start, int end, PartitionFunc<T> p)
 	{
 		int first = start;
-		if (start == end)
+
+		while (true)
         {
-			return start;
+			while (true)
+            {
+				if (first == end)
+					return first;
+				else if (p(list[first]))
+					++first;
+				else
+					break;
+            }
+			--end;
+			while (true)
+            {
+				if (first == end)
+					return first;
+				else if (!p(list[end]))
+					--end;
+				else
+					break;
+            }
+			T tmp = list[end];
+			list[end] = list[first];
+			list[first] = tmp;
+			++first;
         }
 
-		for (int i = first + 1; i != end; ++i)
-		{
-			if (p(list[i]))
-			{
-				T tmp = list[i];
-				list[i] = list[first];
-				list[first] = tmp;
-				++first;
-			}
-		}
 		return first;
 	}
 }

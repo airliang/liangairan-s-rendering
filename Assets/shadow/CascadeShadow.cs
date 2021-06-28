@@ -1032,7 +1032,7 @@ public class CascadeShadow : MonoBehaviour
                 max = Vector3.Max(max, frustumCornerInWorld_level0[i]);
             }
 
-            RenderDebug.DrawDebugBound(min.x, max.x, min.y, max.y, min.z, max.z);
+            RenderDebug.DrawDebugBound(min.x, max.x, min.y, max.y, min.z, max.z, Color.white);
         }
 
 #endif // UNITY_EDITOR
@@ -1110,7 +1110,7 @@ public class CascadeShadow : MonoBehaviour
                 max = Vector3.Max(max, frustumCornerInWorld_level1[i]);
             }
 
-            RenderDebug.DrawDebugBound(min.x, max.x, min.y, max.y, min.z, max.z);
+            RenderDebug.DrawDebugBound(min.x, max.x, min.y, max.y, min.z, max.z, Color.white);
         }
 
 #endif // UNITY_EDITOR

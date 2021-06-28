@@ -2,7 +2,7 @@
 #include "bvhaccel.hlsl"
 
 // Each #kernel tells which function to compile; you can have many kernels
-#pragma kernel Extend
+#pragma kernel RayTraversal
 
 
 
@@ -15,15 +15,18 @@
 RWTexture2D<half4> outputTexture;
 
 [numthreads(8,8,1)]
-void Extend(uint3 id : SV_DispatchThreadID)
+void RayTraversal(uint3 id : SV_DispatchThreadID)
 {
     // TODO: insert actual code here!
+    if (id.x >= rasterSize.x || id.y >= rasterSize.y)
+        return;
+
     Ray ray = Rays[id.x + id.y * rasterSize.x];
     Interaction isect;
-    if (SceneIntersectTest(ray))
+    if (SceneIntersectTest2(ray))
     {
-        outputTexture[id.xy] = ray.direction;//half4(1, 1, 1, 1);
+        outputTexture[id.xy] = half4(0, 0, 1, 1);//abs(ray.direction);
     }
     else
-        outputTexture[id.xy] = half4(0, 0, 0, 0);
+        outputTexture[id.xy] = half4(1, 0, 0, 1);
 }

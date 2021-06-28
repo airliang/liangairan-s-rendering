@@ -3,7 +3,18 @@ guid: 04307b611beaab641806ac3e6c4778c5
 MonoImporter:
   externalObjects: {}
   serializedVersion: 2
-  defaultReferences: []
+  defaultReferences:
+  - mh0: {instanceID: 0}
+  - mHeightTexture: {instanceID: 0}
+  - mGaussionRandom: {instanceID: 0}
+  - mButterflyTexture: {instanceID: 0}
+  - mPingpong0: {instanceID: 0}
+  - mPingpong1: {instanceID: 0}
+  - mPingpongChoppy0: {instanceID: 0}
+  - mPingpongChoppy1: {instanceID: 0}
+  - mNormalMap: {instanceID: 0}
+  - mComputeShader: {fileID: 7200000, guid: 14ca0d7f66911654d8551dee63b97690, type: 3}
+  - mMainCamera: {instanceID: 0}
   executionOrder: 0
   icon: {instanceID: 0}
   userData: 
