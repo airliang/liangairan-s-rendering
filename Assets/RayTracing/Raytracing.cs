@@ -19,7 +19,7 @@ public class Raytracing : MonoBehaviour
     List<Mesh> sharedMeshes = new List<Mesh>();
     List<RTMesh> sharedRTMeshes = new List<RTMesh>();
     //Mesh[] shareMeshes = null;
-    Matrix4x4[] worldMatrices = null;
+    //Matrix4x4[] worldMatrices = null;
     List<Vector3> positions = new List<Vector3>();
     List<int> triangles = new List<int>();
     GPUPrimitive[] gpuPrimitives = null;
@@ -37,6 +37,7 @@ public class Raytracing : MonoBehaviour
     //generate next event estimate light sample ray
     int kGenerateExplicit;
     int kRayTraversal;
+    ComputeBuffer woodTriBuffer;
     ComputeBuffer positionBuffer;
     ComputeBuffer triangleBuffer;
     ComputeBuffer rayBuffer;
@@ -44,7 +45,7 @@ public class Raytracing : MonoBehaviour
     ComputeBuffer BVHBuffer;
     ComputeBuffer intersectBuffer;
     ComputeBuffer lightBuffer;
-    ComputeBuffer transformBuffer;
+    //ComputeBuffer transformBuffer;
 
     RenderTexture outputTexture;
 
@@ -81,6 +82,8 @@ public class Raytracing : MonoBehaviour
 
         float rasterWidth = Screen.width;
         float rasterHeight = Screen.height;
+        if (generateRay != null)
+            generateRay.SetFloat("_time", Time.time);
 
         for (int i = 0; i < MAX_PATH; ++i)
         {
@@ -119,14 +122,14 @@ public class Raytracing : MonoBehaviour
     void InitScene()
     {
         Shape[] shapes = GameObject.FindObjectsOfType<Shape>();
-        worldMatrices = new Matrix4x4[shapes.Length];
+        //worldMatrices = new Matrix4x4[shapes.Length];
 
         int vertexOffset = 0;
-        int triangleOffset = 0;
+        //int triangleOffset = 0;
         for (int i = 0; i < shapes.Length; ++i)
         {
-            worldMatrices[i] = shapes[i].transform.localToWorldMatrix;
-            if (shapes[i].shapeType == Shape.ShapeType.triangleMesh)
+            //worldMatrices[i] = shapes[i].transform.localToWorldMatrix;
+            if (shapes[i].shapeType == Shape.ShapeType.triangleMesh && shapes[i].GetComponent<BSDFMaterial>() != null)
             {
                 MeshFilter meshRenderer = shapes[i].GetComponent<MeshFilter>();
                 Mesh mesh = meshRenderer.sharedMesh;
@@ -135,40 +138,7 @@ public class Raytracing : MonoBehaviour
                 {
                     int primitiveTriangleOffset = positions.Count;
                     int primitiveVertexOffset = vertexOffset;
-                    /*
-                    if (!sharedMeshes.Contains(mesh))
-                    {
-                        sharedMeshes.Add(mesh);
-                        RTMesh rtMesh = new RTMesh();
-                        rtMesh.vertexStart = positions.Count;
-                        rtMesh.triangleStart = triangles.Count;
-                        sharedRTMeshes.Add(rtMesh);
 
-                        vertexOffset = positions.Count;
-                        triangleOffset = triangles.Count;
-
-                        for (int j = 0; j < mesh.subMeshCount; ++j)
-                        {
-                            SubMeshDescriptor subMesh = mesh.GetSubMesh(j);
-                            int vertexStart = subMesh.firstVertex;
-                            int triangleStart = subMesh.indexStart;
-
-                            positions.AddRange(mesh.vertices);
-                            triangles.AddRange(mesh.triangles);
-
-                            int faceNum = subMesh.indexCount / 3;
-
-                            for (int f = 0; f < faceNum; ++f)
-                            {
-                                primitives.Add(new Primitive(vertexOffset, primitiveVertexOffset + triangleStart + f * 3, i, f, shapes[i].transform, mesh));
-                            }
-                        }
-                    }
-                    else
-                    {
-
-                    }
-                    */
 
                     for (int j = 0; j < mesh.vertices.Length; ++j)
                     {
@@ -195,29 +165,6 @@ public class Raytracing : MonoBehaviour
                     int primitiveTriangleOffset = positions.Count;
                     int primitiveVertexOffset = triangles.Count;
                     
-                    /*
-                    if (!sharedMeshes.Contains(mesh))
-                    {
-                        sharedMeshes.Add(mesh);
-
-                        RTMesh rtMesh = new RTMesh();
-                        rtMesh.vertexStart = positions.Count;
-                        rtMesh.triangleStart = triangles.Count;
-                        sharedRTMeshes.Add(rtMesh);
-
-                        vertexOffset = positions.Count;
-                        triangleOffset = triangles.Count;
-                        meshId = sharedMeshes.Count - 1;
-                        positions.AddRange(mesh.vertices);
-                        triangles.AddRange(mesh.triangles);
-                    }
-                    else
-                    {
-                        meshId = sharedMeshes.FindIndex(a => a == mesh);
-                        primitiveTriangleOffset = sharedRTMeshes[meshId].triangleStart;
-                        primitiveVertexOffset = sharedRTMeshes[meshId].vertexStart;
-                    }
-                    */
                     for (int j = 0; j < mesh.vertices.Length; ++j)
                     {
                         positions.Add(shapes[i].transform.localToWorldMatrix.MultiplyPoint(mesh.vertices[j]));
@@ -320,11 +267,17 @@ public class Raytracing : MonoBehaviour
         generateRay.SetBuffer(kGeneratePath, "Rays", rayBuffer);
 
         //extend inialization
+        if (woodTriBuffer == null)
+        {
+            woodTriBuffer = new ComputeBuffer(bvhAccel.m_woodTriangleVertices.Count, 16, ComputeBufferType.Structured);
+        }
+        woodTriBuffer.SetData(bvhAccel.m_woodTriangleVertices.ToArray());
+
         if (positionBuffer == null)
         {
-            positionBuffer = new ComputeBuffer(bvhAccel.m_woodTriangleVertices.Count, 16, ComputeBufferType.Structured);
+            positionBuffer = new ComputeBuffer(bvhAccel.m_worldPositions.Count, 16, ComputeBufferType.Structured);
         }
-        positionBuffer.SetData(bvhAccel.m_woodTriangleVertices.ToArray());
+        positionBuffer.SetData(bvhAccel.m_worldPositions.ToArray());
 
         if (triangleBuffer == null)
         {
@@ -348,20 +301,20 @@ public class Raytracing : MonoBehaviour
         }
         intersectBuffer.SetData(gpuInteractions);
 
-        if (transformBuffer == null)
-        {
-            transformBuffer = new ComputeBuffer(worldMatrices.Length, System.Runtime.InteropServices.Marshal.SizeOf(typeof(Matrix4x4)), ComputeBufferType.Structured);
-        }
-        transformBuffer.SetData(worldMatrices);
+        //if (transformBuffer == null)
+        //{
+        //    transformBuffer = new ComputeBuffer(worldMatrices.Length, System.Runtime.InteropServices.Marshal.SizeOf(typeof(Matrix4x4)), ComputeBufferType.Structured);
+        //}
+        //transformBuffer.SetData(worldMatrices);
 
         kRayTraversal = extend.FindKernel("RayTraversal");
         extend.SetBuffer(kRayTraversal, "Rays", rayBuffer);
-        extend.SetBuffer(kRayTraversal, "Positions", positionBuffer);
-        //extend.SetBuffer(kRayTraversal, "Triangles", triangleBuffer);
+        extend.SetBuffer(kRayTraversal, "WoodTriangles", woodTriBuffer);
+        extend.SetBuffer(kRayTraversal, "WPositions", positionBuffer);
         //extend.SetBuffer(kRayTraversal, "Primitives", primtiveBuffer);
         extend.SetBuffer(kRayTraversal, "BVHTree", BVHBuffer);
         extend.SetBuffer(kRayTraversal, "Intersects", intersectBuffer);
-        extend.SetBuffer(kRayTraversal, "WorldMatrices", transformBuffer);
+        //extend.SetBuffer(kRayTraversal, "WorldMatrices", transformBuffer);
         extend.SetTexture(kRayTraversal, "outputTexture", outputTexture);
         extend.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
 
@@ -377,12 +330,11 @@ public class Raytracing : MonoBehaviour
     {
         primitives.Clear();
         sharedMeshes.Clear();
-        worldMatrices = null;
         gpuPrimitives = null;
         gpuLights = null;
         gpuRays = null;
         gpuInteractions = null;
-        worldMatrices = null;
+        //worldMatrices = null;
         positions.Clear();
         triangles.Clear();
         bvhAccel.Clear();
@@ -403,6 +355,12 @@ public class Raytracing : MonoBehaviour
         {
             BVHBuffer.Release();
             BVHBuffer = null;
+        }
+
+        if (woodTriBuffer != null)
+        {
+            woodTriBuffer.Release();
+            woodTriBuffer = null;
         }
 
         if (positionBuffer != null)
@@ -436,11 +394,11 @@ public class Raytracing : MonoBehaviour
             intersectBuffer = null;
         }
 
-        if (transformBuffer != null)
-        {
-            transformBuffer.Release();
-            transformBuffer = null;
-        }
+        //if (transformBuffer != null)
+        //{
+        //    transformBuffer.Release();
+        //    transformBuffer = null;
+        //}
 
         cameraComponent = null;
     }
@@ -531,8 +489,13 @@ public class Raytracing : MonoBehaviour
 
         //test for correction
         GPURay ray = gpuRays[(int)rasterHeight * (int)rasterWidth - 1];
-        bool bIntersectTest = IntersectRay(bvhAccel.linearNodes[0].bounds, ray);
-        //Debug.DrawRay(ray.orig, ray.direction * 20.0f, Color.red, duration);
+        bool bIntersectTest = bvhAccel.IntersectTest(ray);//IntersectRay(bvhAccel.linearNodes[0].bounds, ray);
+        if (bIntersectTest)
+        {
+            Debug.DrawRay(ray.orig, ray.direction * 20.0f, Color.blue, duration);
+        }
+        else
+            Debug.DrawRay(ray.orig, ray.direction * 20.0f, Color.red, duration);
 
         int x = (int)rasterWidth / 2 + 60;
         int y = (int)rasterHeight / 2;

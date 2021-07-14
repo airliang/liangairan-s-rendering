@@ -4,7 +4,7 @@
 #define BVHACCEL_HLSL
 
 #define STACK_SIZE 64
-const int EntrypointSentinel = 0x76543210;
+#define EntrypointSentinel 0x76543210
 
 int min_min(int a, int b, int c)
 {
@@ -33,12 +33,45 @@ float fmax_fmax(float a, float b, float c) { return asfloat(max_max(asint(a), as
 float spanBeginKepler(float a0, float a1, float b0, float b1, float c0, float c1, float d) { return fmax_fmax(min(a0, a1), min(b0, b1), fmin_fmax(c0, c1, d)); }
 float spanEndKepler(float a0, float a1, float b0, float b1, float c0, float c1, float d) { return fmin_fmin(max(a0, a1), max(b0, b1), fmax_fmin(c0, c1, d)); }
 
+float origin() { return 1.0f / 32.0f; }
+float float_scale() { return 1.0f / 65536.0f; }
+float int_scale() { return 256.0f; }
+
+// Normal points outward for rays exiting the surface, else is flipped.
+float3 offset_ray(const float3 p, const float3 n)
+{
+	int3 of_i(int_scale() * n.x, int_scale() * n.y, int_scale() * n.z);
+	
+	float3 p_i(
+		asfloat(asint(p.x) + ((p.x < 0) ? -of_i.x : of_i.x)),
+		asfloat(asint(p.y) + ((p.y < 0) ? -of_i.y : of_i.y)),
+		asfloat(asint(p.z) + ((p.z < 0) ? -of_i.z : of_i.z)));
+
+	return float3(fabsf(p.x) < origin() ? p.x + float_scale() * n.x : p_i.x,
+			16 fabsf(p.y) < origin() ? p.y + float_scale() * n.y : p_i.y,
+			17 fabsf(p.z) < origin() ? p.z + float_scale() * n.z : p_i.z);
+}
+
 bool SceneIntersectTest(Ray ray)
 {
-	float3 invDir = 1.0 / ray.direction.xyz;
-	int dirIsNeg[3] = { invDir.x < 0, invDir.y < 0, invDir.z < 0 };
+	float4 rayDir = ray.direction;
+	//float3 invDir = 1.0 / ray.direction.xyz;
+	float ooeps = pow(2, -80.0f);//exp2f(-80.0f); // Avoid div by zero, returns 1/2^80, an extremely small number
+	//float idirx = 1.0f / (abs(rayDir.x) > ooeps ? rayDir.x : sign(rayDir.x) * ooeps); // inverse ray direction
+	//float idiry = 1.0f / (abs(rayDir.y) > ooeps ? rayDir.y : sign(rayDir.y) * ooeps); // inverse ray direction
+	//float idirz = 1.0f / (abs(rayDir.z) > ooeps ? rayDir.z : sign(rayDir.z) * ooeps); // inverse ray direction
+	float3 invDir = float3(1.0f / (abs(rayDir.x) > ooeps ? rayDir.x : sign(rayDir.x) * ooeps),
+		1.0f / (abs(rayDir.y) > ooeps ? rayDir.y : sign(rayDir.y) * ooeps),
+		1.0f / (abs(rayDir.z) > ooeps ? rayDir.z : sign(rayDir.z) * ooeps)
+		);
+	//int dirIsNeg[3] = { invDir.x < 0, invDir.y < 0, invDir.z < 0 };
 	int currentNodeIndex = 0; //当前正在访问的node
-
+	int signX = sign(invDir.x);
+	int signY = sign(invDir.y);
+	int signZ = sign(invDir.z);
+	signX = signX < 0 ? 1 : 0;
+	signY = signY < 0 ? 1 : 0;
+	signZ = signZ < 0 ? 1 : 0;
 
 	BVHNode node = BVHTree[currentNodeIndex];
 	Bounds bounds;
@@ -46,7 +79,11 @@ bool SceneIntersectTest(Ray ray)
 	bounds.max = float3(node.b0xy.y, node.b0xy.w, node.b01z.y);
 	//bounds.min = testBoundMin;
 	//bounds.max = testBoundMax;
-	if (BoundIntersectP(ray, bounds, invDir, dirIsNeg))
+	//if (BoundIntersectP(ray, bounds, invDir, dirIsNeg))
+	float tMin = 0;
+	if (BoundRayIntersect(ray, node.b0xy, node.b01z.xy, invDir, int3(signX, signY, signZ), tMin))
+		return true;
+	if (BoundRayIntersect(ray, node.b1xy, node.b01z.zw, invDir, int3(signX, signY, signZ), tMin))
 		return true;
 
 	return false;
@@ -69,18 +106,29 @@ bool SceneIntersectTest2(Ray ray)
 	float origy = rayOrig.y;
 	float origz = rayOrig.z;            // Ray origin.
 	float ooeps = pow(2, -80.0f);//exp2f(-80.0f); // Avoid div by zero, returns 1/2^80, an extremely small number
-	float idirx = 1.0f / (abs(rayDir.x) > ooeps ? rayDir.x : sign(rayDir.x) * ooeps); // inverse ray direction
-	float idiry = 1.0f / (abs(rayDir.y) > ooeps ? rayDir.y : sign(rayDir.y) * ooeps); // inverse ray direction
-	float idirz = 1.0f / (abs(rayDir.z) > ooeps ? rayDir.z : sign(rayDir.z) * ooeps); // inverse ray direction
+	//float idirx = 1.0f / (abs(rayDir.x) > ooeps ? rayDir.x : sign(rayDir.x) * ooeps); // inverse ray direction
+	//float idiry = 1.0f / (abs(rayDir.y) > ooeps ? rayDir.y : sign(rayDir.y) * ooeps); // inverse ray direction
+	//float idirz = 1.0f / (abs(rayDir.z) > ooeps ? rayDir.z : sign(rayDir.z) * ooeps); // inverse ray direction
+	float3 invDir = float3(1.0f / (abs(rayDir.x) > ooeps ? rayDir.x : sign(rayDir.x) * ooeps),
+		1.0f / (abs(rayDir.y) > ooeps ? rayDir.y : sign(rayDir.y) * ooeps),
+		1.0f / (abs(rayDir.z) > ooeps ? rayDir.z : sign(rayDir.z) * ooeps)
+		);
 	float dirx = rayDir.x;
 	float diry = rayDir.y;
 	float dirz = rayDir.z;
-	float oodx = rayOrig.x * idirx;  // ray origin / ray direction
-	float oody = rayOrig.y * idiry;  // ray origin / ray direction
-	float oodz = rayOrig.z * idirz;  // ray origin / ray direction
+	//float oodx = rayOrig.x * idirx;  // ray origin / ray direction
+	//float oody = rayOrig.y * idiry;  // ray origin / ray direction
+	//float oodz = rayOrig.z * idirz;  // ray origin / ray direction
 	int   stackIndex = 0;   //当前traversalStack的索引号
 	int   hitIndex = -1;
-
+	int signX = sign(invDir.x);
+	int signY = sign(invDir.y);
+	int signZ = sign(invDir.z);
+	signX = signX < 0 ? 1 : 0;
+	signY = signY < 0 ? 1 : 0;
+	signZ = signZ < 0 ? 1 : 0;
+	int3 signs = int3(signX, signY, signZ);
+	
 	//这个nodeAddr从哪里来？
 	while (nodeAddr != EntrypointSentinel)
 	{
@@ -89,6 +137,7 @@ bool SceneIntersectTest2(Ray ray)
 			BVHNode curNode = BVHTree[nodeAddr];
 			int4 cnodes = asint(curNode.cids);
 
+			/*
 			const float c0lox = curNode.b0xy.x * idirx - oodx;
 			const float c0hix = curNode.b0xy.y * idirx - oodx;
 			const float c0loy = curNode.b0xy.z * idiry - oody;
@@ -110,12 +159,20 @@ bool SceneIntersectTest2(Ray ray)
 
 			bool traverseChild0 = (c0max >= c0min);
 			bool traverseChild1 = (c1max >= c1min);
+			*/
+			float tMin = 0;
+			bool traverseChild0 = BoundRayIntersect(ray, curNode.b0xy, curNode.b01z.xy, invDir, signs, tMin);
+			float tMin1 = 0;
+			bool traverseChild1 = BoundRayIntersect(ray, curNode.b1xy, curNode.b01z.zw, invDir, signs, tMin1);
+			tmin = min(tMin1, tMin);
+
+			bool swp = (tMin1 < tMin);
 
 			if (!traverseChild0 && !traverseChild1)
 			{
 				nodeAddr = traversalStack[stackIndex];
 				stackIndex--;
-				return false;
+				//return false;
 			}
 			// Otherwise => fetch child pointers.
 			else
@@ -161,9 +218,9 @@ bool SceneIntersectTest2(Ray ray)
 		{
 			for (int triAddr = ~leafAddr; triAddr < ~leafAddr + primitivesNum * 3; triAddr += 3)
 			{
-				const float4 m0 = Positions[triAddr];     //matrix row 0 
-				const float4 m1 = Positions[triAddr + 1]; //matrix row 1 
-				const float4 m2 = Positions[triAddr + 2]; //matrix row 2
+				const float4 m0 = WoodTriangles[triAddr];     //matrix row 0 
+				const float4 m1 = WoodTriangles[triAddr + 1]; //matrix row 1 
+				const float4 m2 = WoodTriangles[triAddr + 2]; //matrix row 2
 
 				//Oz is a point, must plus w
 				float Oz = m2.w + origx * m2.x + origy * m2.y + origz * m2.z;
@@ -192,12 +249,13 @@ bool SceneIntersectTest2(Ray ray)
 							// Closest intersection not required => terminate.
 							hitT = t;
 							hitIndex = triAddr;
-							return true;
+							//return true;
 							//if (anyHit)
 							//{
 							//	nodeAddr = EntrypointSentinel;
 							//	break;
 							//}
+							//计算法线
 						}
 					}
 				}
@@ -279,8 +337,11 @@ bool SceneIntersect(Ray ray, out Interaction interaction)
 }
 */
 
-bool intersectBVHandTriangles(float4 rayOrig, float4 rayDir, out Interaction interaction)
+bool IntersectBVHandTriangles(Ray ray, out Interaction interaction)
 {
+	interaction = (Interaction)0;
+	float4 rayOrig = ray.orig;
+	float4 rayDir = ray.direction;
 	int traversalStack[STACK_SIZE];
 	traversalStack[0] = EntrypointSentinel;
 	int leafAddr = 0;               // If negative, then first postponed leaf, non-negative if no leaf (innernode).
@@ -294,17 +355,28 @@ bool intersectBVHandTriangles(float4 rayOrig, float4 rayDir, out Interaction int
 	float origy = rayOrig.y;
 	float origz = rayOrig.z;            // Ray origin.
 	float ooeps = pow(2, -80.0f);//exp2f(-80.0f); // Avoid div by zero, returns 1/2^80, an extremely small number
-	float idirx = 1.0f / (abs(rayDir.x) > ooeps ? rayDir.x : sign(rayDir.x) * ooeps); // inverse ray direction
-	float idiry = 1.0f / (abs(rayDir.y) > ooeps ? rayDir.y : sign(rayDir.y) * ooeps); // inverse ray direction
-	float idirz = 1.0f / (abs(rayDir.z) > ooeps ? rayDir.z : sign(rayDir.z) * ooeps); // inverse ray direction
+	//float idirx = 1.0f / (abs(rayDir.x) > ooeps ? rayDir.x : sign(rayDir.x) * ooeps); // inverse ray direction
+	//float idiry = 1.0f / (abs(rayDir.y) > ooeps ? rayDir.y : sign(rayDir.y) * ooeps); // inverse ray direction
+	//float idirz = 1.0f / (abs(rayDir.z) > ooeps ? rayDir.z : sign(rayDir.z) * ooeps); // inverse ray direction
+	float3 invDir = float3(1.0f / (abs(rayDir.x) > ooeps ? rayDir.x : sign(rayDir.x) * ooeps),
+		1.0f / (abs(rayDir.y) > ooeps ? rayDir.y : sign(rayDir.y) * ooeps),
+		1.0f / (abs(rayDir.z) > ooeps ? rayDir.z : sign(rayDir.z) * ooeps)
+		);
 	float dirx = rayDir.x;
 	float diry = rayDir.y;
 	float dirz = rayDir.z;
-	float oodx = rayOrig.x * idirx;  // ray origin / ray direction
-	float oody = rayOrig.y * idiry;  // ray origin / ray direction
-	float oodz = rayOrig.z * idirz;  // ray origin / ray direction
+	//float oodx = rayOrig.x * idirx;  // ray origin / ray direction
+	//float oody = rayOrig.y * idiry;  // ray origin / ray direction
+	//float oodz = rayOrig.z * idirz;  // ray origin / ray direction
 	int   stackIndex = 0;   //当前traversalStack的索引号
 	int   hitIndex = -1;
+	int signX = sign(invDir.x);
+	int signY = sign(invDir.y);
+	int signZ = sign(invDir.z);
+	signX = signX < 0 ? 1 : 0;
+	signY = signY < 0 ? 1 : 0;
+	signZ = signZ < 0 ? 1 : 0;
+	int3 signs = int3(signX, signY, signZ);
 
 	//这个nodeAddr从哪里来？
 	while (nodeAddr != EntrypointSentinel)
@@ -314,6 +386,7 @@ bool intersectBVHandTriangles(float4 rayOrig, float4 rayDir, out Interaction int
 			BVHNode curNode = BVHTree[nodeAddr];
 			int4 cnodes = asint(curNode.cids);
 
+			/*
 			const float c0lox = curNode.b0xy.x * idirx - oodx;
 			const float c0hix = curNode.b0xy.y * idirx - oodx;
 			const float c0loy = curNode.b0xy.z * idiry - oody;
@@ -335,11 +408,19 @@ bool intersectBVHandTriangles(float4 rayOrig, float4 rayDir, out Interaction int
 
 			bool traverseChild0 = (c0max >= c0min);
 			bool traverseChild1 = (c1max >= c1min);
+			*/
+			float tMin = 0;
+			bool traverseChild0 = BoundRayIntersect(ray, curNode.b0xy, curNode.b01z.xy, invDir, signs, tMin);
+			float tMin1 = 0;
+			bool traverseChild1 = BoundRayIntersect(ray, curNode.b1xy, curNode.b01z.zw, invDir, signs, tMin1);
+
+			bool swp = (tMin1 < tMin);
 
 			if (!traverseChild0 && !traverseChild1)
 			{
 				nodeAddr = traversalStack[stackIndex];
 				stackIndex--;
+				//return false;
 			}
 			// Otherwise => fetch child pointers.
 			else
@@ -377,7 +458,9 @@ bool intersectBVHandTriangles(float4 rayOrig, float4 rayDir, out Interaction int
 			}
 
 			if (!(leafAddr >= 0))   //leaf node小于0，需要处理叶子节点，退出循环
+			{
 				break;
+			}
 		}
 
 		//遍历叶子
@@ -385,14 +468,25 @@ bool intersectBVHandTriangles(float4 rayOrig, float4 rayDir, out Interaction int
 		{
 			for (int triAddr = ~leafAddr; triAddr < ~leafAddr + primitivesNum * 3; triAddr += 3)
 			{
-				const float4 m0 = Positions[triAddr];     //matrix row 0 
-				const float4 m1 = Positions[triAddr + 1]; //matrix row 1 
-				const float4 m2 = Positions[triAddr + 2]; //matrix row 2
+				const float4 m0 = WoodTriangles[triAddr];     //matrix row 0 
+				const float4 m1 = WoodTriangles[triAddr + 1]; //matrix row 1 
+				const float4 m2 = WoodTriangles[triAddr + 2]; //matrix row 2
+
+				const float4 v0 = WPositions[triAddr];
+				const float4 v1 = WPositions[triAddr + 1];
+				const float4 v2 = WPositions[triAddr + 2];
+
+				float3 normal = normalize(cross(m0, m1));
+				if (dot(normal, rayDir.xyz) >= 0)
+				{
+					//三角形背面
+					continue;
+				}
 
 				//Oz is a point, must plus w
-				float Oz = m2.w + origx * m2.x + origy * m2.y + origz * m2.z;   
+				float Oz = m2.w + origx * m2.x + origy * m2.y + origz * m2.z;
 				//Dz is a vector
-				float invDz = 1.0f / (dirx * m2.x + diry * m2.y + dirz * m2.z);  
+				float invDz = 1.0f / (dirx * m2.x + diry * m2.y + dirz * m2.z);
 				float t = -Oz * invDz;
 
 				//if t is in bounding and less than the ray.tMax
@@ -416,15 +510,19 @@ bool intersectBVHandTriangles(float4 rayOrig, float4 rayDir, out Interaction int
 							// Closest intersection not required => terminate.
 							hitT = t;
 							hitIndex = triAddr;
+							//return true;
 							//if (anyHit)
 							//{
 							//	nodeAddr = EntrypointSentinel;
 							//	break;
 							//}
+							//计算法线
+							interaction.normal.xyz = normalize(normal);
+							
 						}
 					}
 				}
-				
+
 			} // triangle
 
 			// Another leaf was postponed => process it as well.
@@ -434,9 +532,19 @@ bool intersectBVHandTriangles(float4 rayOrig, float4 rayDir, out Interaction int
 				nodeAddr = traversalStack[stackIndex--];
 				primitivesNum = primitivesNum2;
 			}
-			
 		} // leaf
 	}
+
+	//if (hitIndex == -1) 
+	//{ 
+	//	STORE_RESULT(rayidx, -1, hitT); 
+	//}
+	//else 
+	//{ 
+	//	STORE_RESULT(rayidx, FETCH_TEXTURE(triIndices, hitIndex, int), hitT); 
+	//}
+	interaction.primitive.x = asfloat(hitIndex);
+	return hitIndex != -1;
 }
 
 #endif

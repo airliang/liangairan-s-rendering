@@ -22,10 +22,13 @@ void RayTraversal(uint3 id : SV_DispatchThreadID)
         return;
 
     Ray ray = Rays[id.x + id.y * rasterSize.x];
-    Interaction isect;
-    if (SceneIntersectTest2(ray))
+    Interaction isect = (Interaction)0;
+    if (IntersectBVHandTriangles(ray, isect))
     {
-        outputTexture[id.xy] = half4(0, 0, 1, 1);//abs(ray.direction);
+        int triIndex = asint(isect.primitive.x);
+        //float3 color = (float)(triIndex / 3) / 50.0;
+        float3 color = isect.normal.xyz * 0.5 + 0.5f;
+        outputTexture[id.xy] = half4(color, 1);//abs(ray.direction);
     }
     else
         outputTexture[id.xy] = half4(1, 0, 0, 1);

@@ -67,7 +67,7 @@ class RandomSampler
     CameraSample GetCameraSample(float2 pRaster, float t)
     {
         CameraSample camSample;
-        camSample.pFilm = pRaster + Get2D(pRaster, t);
+        camSample.pFilm = pRaster + Get2D(pRaster, t) * 0.5 - float2(0.5, 0.5);
         return camSample;
     }
 };

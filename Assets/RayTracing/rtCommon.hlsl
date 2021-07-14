@@ -4,7 +4,8 @@
 
 //buffers
 StructuredBuffer<BVHNode> BVHTree;
-StructuredBuffer<float4>   Positions;
+StructuredBuffer<float4>   WoodTriangles;
+StructuredBuffer<float4>   WPositions;
 StructuredBuffer<int>      Triangles;
 StructuredBuffer<Primitive> Primitives;
 StructuredBuffer<float4x4> WorldMatrices;

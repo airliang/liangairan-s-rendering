@@ -116,6 +116,7 @@ public class BVHAccel
 	//Texture2D bvhNodeTexture;
 	public GPUBVHNode[] m_nodes;
 	public List<Vector4> m_woodTriangleVertices = new List<Vector4>();
+	public List<Vector4> m_worldPositions = new List<Vector4>();
 
 	//woop's triangle transform
 	Vector4[] m_woop = new Vector4[3];
@@ -242,20 +243,20 @@ public class BVHAccel
 		}
 		*/
 		
-		for (int i = 0; i < m_nodes.Length; ++i)
+		for (int i = 0; i < 1; ++i)
         {
 			if (SingleToInt32Bits(m_nodes[i].cids.z) > 0)
             {
-				//RenderDebug.DrawDebugBound(m_nodes[i].b0xy.x, m_nodes[i].b0xy.y, m_nodes[i].b0xy.z, m_nodes[i].b0xy.w, m_nodes[i].b01z.x, m_nodes[i].b01z.y, Color.white);
+				RenderDebug.DrawDebugBound(m_nodes[i].b0xy.x, m_nodes[i].b0xy.y, m_nodes[i].b0xy.z, m_nodes[i].b0xy.w, m_nodes[i].b01z.x, m_nodes[i].b01z.y, Color.white);
 			}
 			else
             {
-				RenderDebug.DrawDebugBound(m_nodes[i].b0xy.x, m_nodes[i].b0xy.y, m_nodes[i].b0xy.z, m_nodes[i].b0xy.w, m_nodes[i].b01z.x, m_nodes[i].b01z.y, Color.red);
+				RenderDebug.DrawDebugBound(m_nodes[i].b0xy.x, m_nodes[i].b0xy.y, m_nodes[i].b0xy.z, m_nodes[i].b0xy.w, m_nodes[i].b01z.x, m_nodes[i].b01z.y, Color.white);
 			}
 
 			if (SingleToInt32Bits(m_nodes[i].cids.w) > 0)
 			{
-				//RenderDebug.DrawDebugBound(m_nodes[i].b1xy.x, m_nodes[i].b1xy.y, m_nodes[i].b1xy.z, m_nodes[i].b1xy.w, m_nodes[i].b01z.z, m_nodes[i].b01z.w, Color.white);
+				RenderDebug.DrawDebugBound(m_nodes[i].b1xy.x, m_nodes[i].b1xy.y, m_nodes[i].b1xy.z, m_nodes[i].b1xy.w, m_nodes[i].b01z.z, m_nodes[i].b01z.w, Color.white);
 			}
 			else
             {
@@ -363,11 +364,12 @@ public class BVHAccel
 			//left child
 			if (!e.node.childrenLeft.IsLeaf())
             {
-				c0 = nextNodeIdx;
-				stack.Add(new StackEntry(e.node.childrenLeft, nextNodeIdx++));
+				c0 = ++nextNodeIdx;
+				stack.Add(new StackEntry(e.node.childrenLeft, nextNodeIdx));
             }
-			else
-            {
+
+			if (e.node.childrenLeft.IsLeaf())
+			{
 				c0 = ~m_woodTriangleVertices.Count;
 				BVHBuildNode child = e.node.childrenLeft;
 				//处理三角形
@@ -375,9 +377,11 @@ public class BVHAccel
                 {
 					//把三角形每个顶点按顺序写入buffer里，保证了每个三角形的索引是连续的
 					UnitTriangle(i, positions);
+					Primitive primitive = primitives[i];
 					for (int v = 0; v < 3; ++v)
 					{
 						m_woodTriangleVertices.Add(m_woop[v]);
+						m_worldPositions.Add(positions[primitive.triIndices[v]]);
 					}
                 }
 				c2 = child.nPrimitives;
@@ -387,10 +391,11 @@ public class BVHAccel
 			//right child
 			if (!e.node.childrenRight.IsLeaf())
 			{
-				c1 = nextNodeIdx;
-				stack.Add(new StackEntry(e.node.childrenRight, nextNodeIdx++));
+				c1 = ++nextNodeIdx;
+				stack.Add(new StackEntry(e.node.childrenRight, nextNodeIdx));
 			}
-			else
+			
+			if (e.node.childrenRight.IsLeaf())
 			{
 				c1 = ~m_woodTriangleVertices.Count;
 				BVHBuildNode child = e.node.childrenRight;
@@ -399,11 +404,13 @@ public class BVHAccel
 				{
 					//把三角形写入buffer里
 					UnitTriangle(i, positions);
-
+					Primitive primitive = primitives[i];
 					for (int v = 0; v < 3; ++v)
 					{
 						m_woodTriangleVertices.Add(m_woop[v]);
+						m_worldPositions.Add(positions[primitive.triIndices[v]]);
 					}
+					
 				}
 				c3 = child.nPrimitives;
 			}
@@ -448,8 +455,44 @@ public class BVHAccel
 		m_woop[0] = matrix.GetRow(0);
 		m_woop[1] = matrix.GetRow(1);
 		m_woop[2] = matrix.GetRow(2);
+
+		Vector3 normal = Vector3.Cross(m_woop[0], m_woop[1]);
+		Vector3 normal2 = Vector3.Cross(col0, col1);
+		normal.Normalize();
+		normal2.Normalize();
 	}
 
+	Vector3 MinOrMax(GPUBVHNode box, int n)
+	{
+		return n == 0 ? new Vector3(box.b0xy.x, box.b0xy.z, box.b01z.x) : new Vector3(box.b0xy.y, box.b0xy.y, box.b01z.y);
+	}
+	bool RayBoundIntersect(Vector4 rayOrig, Vector4 rayDirection, GPUBVHNode curNode, float idirx, float idiry, float idirz)
+    {
+		int signX = (int)Mathf.Sign(idirx);
+		int signY = (int)Mathf.Sign(idiry);
+		int signZ = (int)Mathf.Sign(idirz);
+		float tMin = (curNode.b0xy[signX] - rayOrig.x) * idirx;
+		float tMax = (curNode.b0xy[1 - signX] - rayOrig.x) * idirx;
+		float tyMin = (curNode.b0xy[signY + 2] - rayOrig.y) * idiry;
+		float tyMax = (curNode.b0xy[1- signY + 2] - rayOrig.y) * idiry;
+
+		if (tMin > tyMax || tyMin > tMax)
+			return false;
+
+		tMin = Mathf.Max(tMin, tyMin);
+
+		tMax = Mathf.Min(tMax, tyMax);
+
+		float tzMin = (curNode.b01z[signZ] - rayOrig.z) * idirz;
+		float tzMax = (curNode.b01z[1 - signZ] - rayOrig.z) * idirz;
+
+		if ((tMin > tzMax) || (tzMin > tMax))
+			return false;
+		tMin = Mathf.Max(tMin, tzMin);
+		tMax = Mathf.Min(tMax, tzMax);
+
+		return true;
+	}
 	public bool IntersectTest(GPURay ray)
     {
 		const int EntrypointSentinel = 0x76543210;
@@ -471,6 +514,13 @@ public class BVHAccel
 		float idirx = 1.0f / (Mathf.Abs(rayDir.x) > ooeps ? rayDir.x : Mathf.Sign(rayDir.x) * ooeps); // inverse ray direction
 		float idiry = 1.0f / (Mathf.Abs(rayDir.y) > ooeps ? rayDir.y : Mathf.Sign(rayDir.y) * ooeps); // inverse ray direction
 		float idirz = 1.0f / (Mathf.Abs(rayDir.z) > ooeps ? rayDir.z : Mathf.Sign(rayDir.z) * ooeps); // inverse ray direction
+		int signX = (int)Mathf.Sign(idirx);
+		int signY = (int)Mathf.Sign(idiry);
+		int signZ = (int)Mathf.Sign(idirz);
+		signX = signX < 0 ? 1 : 0;
+		signY = signY < 0 ? 1 : 0;
+		signZ = signZ < 0 ? 1 : 0;
+
 		float dirx = rayDir.x;
 		float diry = rayDir.y;
 		float dirz = rayDir.z;
@@ -488,33 +538,61 @@ public class BVHAccel
 				GPUBVHNode curNode = m_nodes[nodeAddr];
 				Vector4Int cnodes = SingleToInt32Bits(curNode.cids);
 
-				float c0lox = curNode.b0xy.x * idirx - oodx;
-				float c0hix = curNode.b0xy.y * idirx - oodx;
-				float c0loy = curNode.b0xy.z * idiry - oody;
-				float c0hiy = curNode.b0xy.w * idiry - oody;
-				float c0loz = curNode.b01z.x * idirz - oodz;
-				float c0hiz = curNode.b01z.y * idirz - oodz;
-				float c1loz = curNode.b01z.z * idirz - oodz;
-				float c1hiz = curNode.b01z.w * idirz - oodz;
-				float c0min = spanBeginKepler(c0lox, c0hix, c0loy, c0hiy, c0loz, c0hiz, tmin);
-				float c0max = spanEndKepler(c0lox, c0hix, c0loy, c0hiy, c0loz, c0hiz, hitT);
-				float c1lox = curNode.b1xy.x * idirx - oodx;
-				float c1hix = curNode.b1xy.y * idirx - oodx;
-				float c1loy = curNode.b1xy.z * idiry - oody;
-				float c1hiy = curNode.b1xy.w * idiry - oody;
-				float c1min = spanBeginKepler(c1lox, c1hix, c1loy, c1hiy, c1loz, c1hiz, tmin);
-				float c1max = spanEndKepler(c1lox, c1hix, c1loy, c1hiy, c1loz, c1hiz, hitT);
+				//left child ray-bound intersection test
+				float tMin = (curNode.b0xy[signX] - rayOrig.x) * idirx;
+				float tMax = (curNode.b0xy[1 - signX] - rayOrig.x) * idirx;
+				float tyMin = (curNode.b0xy[signY + 2] - rayOrig.y) * idiry;
+				float tyMax = (curNode.b0xy[1 - signY + 2] - rayOrig.y) * idiry;
 
-				bool swp = (c1min < c0min);
+				bool traverseChild0 = true;
+				if (tMin > tyMax || tyMin > tMax)
+					traverseChild0 = false;
 
-				bool traverseChild0 = (c0max >= c0min);
-				bool traverseChild1 = (c1max >= c1min);
+				tMin = Mathf.Max(tMin, tyMin);
+				tMax = Mathf.Min(tMax, tyMax);
+
+				float tzMin = (curNode.b01z[signZ] - rayOrig.z) * idirz;
+				float tzMax = (curNode.b01z[1 - signZ] - rayOrig.z) * idirz;
+
+				if ((tMin > tzMax) || (tzMin > tMax))
+					traverseChild0 = false;
+				tMin = Mathf.Max(tMin, tzMin);
+				tMax = Mathf.Min(tMax, tzMax);
+
+				if (hitT < tMin)
+					traverseChild0 = false;
+				//right child ray-bound intersection test
+				float tMin1 = (curNode.b1xy[signX] - rayOrig.x) * idirx;
+				float tMax1 = (curNode.b1xy[1 - signX] - rayOrig.x) * idirx;
+				float tyMin1 = (curNode.b1xy[signY + 2] - rayOrig.y) * idiry;
+				float tyMax1 = (curNode.b1xy[1 - signY + 2] - rayOrig.y) * idiry;
+
+				bool traverseChild1 = true;
+				if (tMin1 > tyMax1 || tyMin1 > tMax1)
+					traverseChild1 = false;
+
+				tMin1 = Mathf.Max(tMin1, tyMin1);
+
+				tMax1 = Mathf.Min(tMax1, tyMax1);
+
+				float tzMin1 = (curNode.b01z[signZ + 2] - rayOrig.z) * idirz;
+				float tzMax1 = (curNode.b01z[1 - signZ + 2] - rayOrig.z) * idirz;
+
+				if ((tMin1 > tzMax1) || (tzMin1 > tMax1))
+					traverseChild1 = false;
+				tMin1 = Mathf.Max(tMin1, tzMin1);
+				tMax1 = Mathf.Min(tMax1, tzMax1);
+				if (hitT < tMin1)
+					traverseChild1 = false;
+
+				bool swp = (tMin1 < tMin);
+
+				tmin = Mathf.Min(tMin1, tMin);
 
 				if (!traverseChild0 && !traverseChild1)
 				{
 					nodeAddr = traversalStack[stackIndex];
 					stackIndex--;
-					return false;
 				}
 				// Otherwise => fetch child pointers.
 				else
@@ -570,6 +648,13 @@ public class BVHAccel
 					float invDz = 1.0f / (dirx * m2.x + diry * m2.y + dirz * m2.z);
 					float t = -Oz * invDz;
 
+					Vector3 normal = Vector3.Cross(m0, m1).normalized;
+					if (Vector3.Dot(normal, rayDir) >= 0)
+                    {
+						RenderDebug.DrawNormal(m_worldPositions[triAddr], m_worldPositions[triAddr + 1], m_worldPositions[triAddr + 2], 0.3f, 0.35f);
+						continue;
+                    }
+
 					//if t is in bounding and less than the ray.tMax
 					if (t > tmin && t < hitT)
 					{
@@ -591,12 +676,7 @@ public class BVHAccel
 								// Closest intersection not required => terminate.
 								hitT = t;
 								hitIndex = triAddr;
-								return true;
-								//if (anyHit)
-								//{
-								//	nodeAddr = EntrypointSentinel;
-								//	break;
-								//}
+								//return true;
 							}
 						}
 					}
@@ -612,6 +692,7 @@ public class BVHAccel
 				}
 			} // leaf
 		}
-		return false;
+		//return false;
+		return hitIndex != -1;
 	}
 }

@@ -22,12 +22,12 @@ struct Ray
 
 struct Interaction  //64byte
 {
-	float3 p;   //交点
-	float time;        //应该是相交的ray的参数t
+	float4 p;   //交点
+	//float time;        //应该是相交的ray的参数t
 	float4 wo;
 	float4 normal;
-	float3 pError;   //floating-point error
-	int   primitive; //intersect with primitives index, -1 represents no intersection
+	float4 primitive;   //0 is triangle index, yzw is floating point error
+	//int    primitive; //intersect with primitives index, -1 represents no intersection
 };
 
 struct Bounds
@@ -81,33 +81,7 @@ struct BVHNode
 	float4 cids;   //x leftchild node index, y rightchild node index, if the node is leaf, nodeindex is negative
 };
 
-/*
-float max(float3 v) { return max(max(v.x, v.y), v.z); }
-// box.rotation = object-to-world, invRayDir unused if oriented
-bool OurIntersectBox(Bounds box, Ray ray, out float distance, out float3 normal,
-	const bool canStartInBox, in float3 _invRayDir) 
-{
-	ray.orig.xyz = ray.orig.xyz - box.center();
-	
-	float boxInvRadius = 1.0 / box.radius();
-	float winding = canStartInBox && (max(abs(ray.orig.xyz) * boxInvRadius)
-		< 1.0) ? -1 : 1;
-	float3 sgn = -sign(ray.dir);
-	// Distance to plane
-	float3 d = box.radius() * winding * sgn - ray.orig.xyz;
-	
-	d *= _invRayDir;
-# define TEST(U, VW) (d.U >= 0.0) && \
-all(lessThan(abs(ray.origin.VW + ray.dir.VW * d.U), box.radius.VW))
-	bvec3 test = bvec3(TEST(x, yz), TEST(y, zx), TEST(z, xy));
-	sgn = test.x ? vec3(sgn.x, 0, 0) : (test.y ? vec3(0, sgn.y, 0) :
-		vec3(0, 0, test.z ? sgn.z : 0));
-# undef TEST
-	distance = (sgn.x != 0) ? d.x : ((sgn.y != 0) ? d.y : d.z);
-	normal = oriented ? (box.rot * sgn) : sgn;
-	return (sgn.x != 0) || (sgn.y != 0) || (sgn.z != 0);
-}
-*/
+
 
 bool BoundIntersectP(Ray ray, Bounds bounds, float3 invDir, int dirIsNeg[3])
 {
@@ -137,6 +111,44 @@ bool BoundIntersectP(Ray ray, Bounds bounds, float3 invDir, int dirIsNeg[3])
 		return false;
 	if (tzMin > tMin) tMin = tzMin;
 	if (tzMax < tMax) tMax = tzMax;
+	return (tMin < ray.tMax()) && (tMax > 0);
+}
+
+bool BoundRayIntersect(Ray ray, float4 bxy, float2 bz, float3 invDir, int3 signs, out float hitT)
+{
+	float4 rayOrig = ray.orig;
+	
+	// Check for ray intersection against $x$ and $y$ slabs
+	float tMin = (bxy[signs.x] - rayOrig.x) * invDir.x;
+	float tMax = (bxy[1 - signs.x] - rayOrig.x) * invDir.x;
+	float tyMin = (bxy[signs.y + 2] - rayOrig.y) * invDir.y;
+	float tyMax = (bxy[1 - signs.y + 2] - rayOrig.y) * invDir.y;
+
+	// Update _tMax_ and _tyMax_ to ensure robust bounds intersection
+	//tMax *= 1 + 2 * gamma(3);
+	//tyMax *= 1 + 2 * gamma(3);
+	if (tMin > tyMax || tyMin > tMax)
+		return false;
+	//if (tyMin > tMin)
+	//	tMin = tyMin;
+	//if (tyMax < tMax)
+	//	tMax = tyMax;
+	tMin = max(tMin, tyMin);
+	tMax = min(tMax, tyMax);
+
+	// Check for ray intersection against $z$ slab
+	float tzMin = (bz[signs.z] - rayOrig.z) * invDir.z;
+	float tzMax = (bz[1 - signs.z] - rayOrig.z) * invDir.z;
+
+	// Update _tzMax_ to ensure robust bounds intersection
+	//tzMax *= 1 + 2 * gamma(3);
+	if (tMin > tzMax || tzMin > tMax)
+		return false;
+	//if (tzMin > tMin) tMin = tzMin;
+	//if (tzMax < tMax) tMax = tzMax;
+	tMin = max(tMin, tzMin);
+	tMax = min(tMax, tzMax);
+	hitT = tMin;
 	return (tMin < ray.tMax()) && (tMax > 0);
 }
 
@@ -207,6 +219,7 @@ void CoordinateSystem(float3 v1, out float3 v2,
 	v3 = cross(v1, v2);
 }
 
+/*
 bool TriangleIntersect(Ray ray, float3 p0, float3 p1, float3 p2, int primitive, out Interaction intersect)
 {
 	// Translate vertices based on ray origin
@@ -240,22 +253,6 @@ bool TriangleIntersect(Ray ray, float3 p0, float3 p1, float3 p2, int primitive, 
 	float e0 = p1t.x * p2t.y - p1t.y * p2t.x;
 	float e1 = p2t.x * p0t.y - p2t.y * p0t.x;
 	float e2 = p0t.x * p1t.y - p0t.y * p1t.x;
-
-	// Fall back to double precision test at triangle edges
-	/*
-	if ((e0 == 0.0f || e1 == 0.0f || e2 == 0.0f))
-	{
-		double p2txp1ty = (double)p2t.x * (double)p1t.y;
-		double p2typ1tx = (double)p2t.y * (double)p1t.x;
-		e0 = (float)(p2typ1tx - p2txp1ty);
-		double p0txp2ty = (double)p0t.x * (double)p2t.y;
-		double p0typ2tx = (double)p0t.y * (double)p2t.x;
-		e1 = (float)(p0typ2tx - p0txp2ty);
-		double p1txp0ty = (double)p1t.x * (double)p0t.y;
-		double p1typ0tx = (double)p1t.y * (double)p0t.x;
-		e2 = (float)(p1typ0tx - p1txp0ty);
-	}
-	*/
 
 	// Perform triangle edge and determinant tests
 	if ((e0 < 0 || e1 < 0 || e2 < 0) && (e0 > 0 || e1 > 0 || e2 > 0))
@@ -375,5 +372,6 @@ bool TriangleIntersect(Ray ray, float3 p0, float3 p1, float3 p2, int primitive, 
 	return true;
 
 }
+*/
 
 #endif

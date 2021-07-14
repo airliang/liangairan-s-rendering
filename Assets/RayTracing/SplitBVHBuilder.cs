@@ -75,6 +75,7 @@ class SpatialBin
     }
 };
 
+/*
 public class ReferenceCompair : IComparer<Reference>
 {
     int sortDim;
@@ -123,6 +124,8 @@ public class ReferenceCompair : IComparer<Reference>
         }
     }
 }
+*/
+
 public class SplitBVHBuilder : BVHBuilder
 {
     //private readonly int maxLevel = 64;
@@ -170,6 +173,21 @@ public class SplitBVHBuilder : BVHBuilder
         return new Vector3Int(Mathf.Clamp(v.x, min.x, max.x), Mathf.Clamp(v.y, min.y, max.y), Mathf.Clamp(v.z, min.z, max.z));
     }
 
+    bool ReferenceCompare(List<Reference> references, int a, int b)
+    {
+        Reference ra = references[a];
+        Reference rb = references[b];
+        float ca = ra.bounds.min[m_sortDim] + ra.bounds.max[m_sortDim];
+        float cb = rb.bounds.min[m_sortDim] + rb.bounds.max[m_sortDim];
+        return (ca < cb || (ca == cb && ra.triIdx < rb.triIdx));
+    }
+
+    void SortSwap(List<Reference> references, int a, int b)
+    {
+        Reference tmp = references[a];
+        references[a] = references[b];
+        references[b] = tmp;
+    }
     public override BVHBuildNode Build(List<Primitive> prims, List<Primitive> orderedPrims, List<Vector3> positions, List<int> triangles)
     {
         _triangles = triangles;
@@ -287,9 +305,9 @@ public class SplitBVHBuilder : BVHBuilder
         for (m_sortDim = 0; m_sortDim < 3; m_sortDim++)
         {
             //sort(this, m_refStack.getSize() - spec.numRef, m_refStack.getSize(), sortCompare, sortSwap);
-            
-            m_refStack.Sort(m_refStack.Count - spec.numRef, count, new ReferenceCompair(m_sortDim));
 
+            //m_refStack.Sort(m_refStack.Count - spec.numRef, count, new ReferenceCompair(m_sortDim));
+            BVHSort.Sort<Reference>(m_refStack.Count - spec.numRef, count, m_refStack, ReferenceCompare, SortSwap);
             // Sweep right to left and determine bounds.
 
             GPUBounds rightBounds = GPUBounds.DefaultBounds();
@@ -320,7 +338,6 @@ public class SplitBVHBuilder : BVHBuilder
         }
         return split;
     }
-
     SpatialSplit FindSpatialSplit(NodeSpec spec, float nodeSAH)
     {
         // Initialize bins.
@@ -351,19 +368,20 @@ public class SplitBVHBuilder : BVHBuilder
             Vector3 minMinusOrig = reference.bounds.min - origin;
             Vector3 maxMinusOrig = reference.bounds.max - origin;
             
-            Vector3Int firstBin = ClampVector3Int(Vector3Int.CeilToInt(new Vector3(minMinusOrig.x * invBinSize.x, minMinusOrig.y * invBinSize.y, minMinusOrig.z * invBinSize.z)),
+            Vector3Int firstBin = ClampVector3Int(Vector3Int.FloorToInt(new Vector3(minMinusOrig.x * invBinSize.x, minMinusOrig.y * invBinSize.y, minMinusOrig.z * invBinSize.z)),
                 0, NumSpatialBins - 1);
-            Vector3Int lastBin = ClampVector3Int(Vector3Int.CeilToInt(new Vector3(maxMinusOrig.x * invBinSize.x, maxMinusOrig.y * invBinSize.y, maxMinusOrig.z * invBinSize.z)), 
+            Vector3Int lastBin = ClampVector3Int(Vector3Int.FloorToInt(new Vector3(maxMinusOrig.x * invBinSize.x, maxMinusOrig.y * invBinSize.y, maxMinusOrig.z * invBinSize.z)), 
                 firstBin, new Vector3Int(NumSpatialBins - 1, NumSpatialBins - 1, NumSpatialBins - 1));
 
             for (int dim = 0; dim< 3; dim++)
-            {
+             {
                 Reference currRef = reference;
                 for (int i = firstBin[dim]; i<lastBin[dim]; i++)
                 {
                     Reference leftRef = new Reference();
                     Reference rightRef = new Reference();
-                    SplitReference(leftRef, rightRef, currRef, dim, origin[dim] + binSize[dim] * (float)(i + 1));
+                    float splitPos = origin[dim] + binSize[dim] * (float)(i + 1);
+                    SplitReference(leftRef, rightRef, currRef, dim, splitPos);
                     m_bins[dim, i].bounds = GPUBounds.Union(m_bins[dim, i].bounds, leftRef.bounds);
                     currRef = rightRef;
                 }
@@ -499,7 +517,8 @@ public class SplitBVHBuilder : BVHBuilder
         m_sortDim = split.sortDim;
         int count = spec.numRef;
         //sort(this, m_refStack.getSize() - spec.numRef, m_refStack.getSize(), sortCompare, sortSwap);
-        m_refStack.Sort(m_refStack.Count - spec.numRef, count, new ReferenceCompair(m_sortDim));
+        //m_refStack.Sort(m_refStack.Count - spec.numRef, count, new ReferenceCompair(m_sortDim));
+        BVHSort.Sort(m_refStack.Count - spec.numRef, count, m_refStack, ReferenceCompare, SortSwap);
 
         left.numRef = split.numLeft;
         left.bounds = split.leftBounds;
