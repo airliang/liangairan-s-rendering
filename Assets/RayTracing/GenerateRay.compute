@@ -1,6 +1,6 @@
 #include "sampler.hlsl"
-#include "geometry.hlsl"
 #include "rtCommon.hlsl"
+#include "bxdf.hlsl"
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel GeneratePrimary
 #pragma kernel GeneratePath
@@ -13,7 +13,7 @@
 matrix RasterToCamera;
 matrix CameraToWorld;
 
-RandomSampler rs;
+
 
 [numthreads(8,8,1)]
 void GeneratePrimary(uint3 id : SV_DispatchThreadID)
@@ -21,9 +21,10 @@ void GeneratePrimary(uint3 id : SV_DispatchThreadID)
     // TODO: insert actual code here!
     if (id.x >= rasterSize.x || id.y >= rasterSize.y)
         return;
+    uint threadId = id.x + id.y * rasterSize.x;
 
     //Result[id.xy] = float4(id.x & id.y, (id.x & 15)/15.0, (id.y & 15)/15.0, 0.0);
-    CameraSample cSample = rs.GetCameraSample(float2(id.x, id.y), _time);
+    CameraSample cSample = rs.GetCameraSample(float2(id.x, id.y), threadId); //rs.GetCameraSample(float2(id.x, id.y), _time);
     float3 pFilm = float3(cSample.pFilm, 0);
     float4 nearplanePoint = mul(RasterToCamera, float4(pFilm, 1));
     nearplanePoint /= nearplanePoint.w;
@@ -32,7 +33,7 @@ void GeneratePrimary(uint3 id : SV_DispatchThreadID)
     ray.orig = mul(CameraToWorld, float4(0, 0, 0, 1));
     ray.direction = mul(CameraToWorld, float4(normalize(nearplanePoint.xyz), 0));
     ray.orig.w = FLT_MAX;
-    Rays[id.x + id.y * rasterSize.x] = ray;
+    Rays[threadId] = ray;
 }
 
 [numthreads(8, 8, 1)]
@@ -41,4 +42,24 @@ void GeneratePath(uint3 id : SV_DispatchThreadID)
     // TODO: insert actual code here!
     if (id.x >= rasterSize.x || id.y >= rasterSize.y)
         return;
+
+    int threadId = id.x + id.y * rasterSize.x;
+    Interaction isect = Intersections[threadId];
+    if (isect.p.w >= 0)
+    {
+        //get the primitive's material
+        //BXDF material = Materials[asint(isect.primitive.y)];
+        //sampling the in direction as the output ray and compute the spectum
+        float3 wi;
+        float pdf = 0;
+        float4 f = sampleBSDF(wi, pdf, Get2D(threadId), isect);
+
+        Ray ray;
+        ray.orig = isect.p;
+        ray.direction = float4(wi, 0);
+        ray.orig.w = FLT_MAX;
+        Rays[id.x + id.y * rasterSize.x] = ray;
+    }
+
+    
 }

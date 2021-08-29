@@ -40,16 +40,16 @@ float int_scale() { return 256.0f; }
 // Normal points outward for rays exiting the surface, else is flipped.
 float3 offset_ray(const float3 p, const float3 n)
 {
-	int3 of_i(int_scale() * n.x, int_scale() * n.y, int_scale() * n.z);
+	int3 of_i = int3(int_scale() * n.x, int_scale() * n.y, int_scale() * n.z);
 	
-	float3 p_i(
+	float3 p_i = float3(
 		asfloat(asint(p.x) + ((p.x < 0) ? -of_i.x : of_i.x)),
 		asfloat(asint(p.y) + ((p.y < 0) ? -of_i.y : of_i.y)),
 		asfloat(asint(p.z) + ((p.z < 0) ? -of_i.z : of_i.z)));
 
-	return float3(fabsf(p.x) < origin() ? p.x + float_scale() * n.x : p_i.x,
-			16 fabsf(p.y) < origin() ? p.y + float_scale() * n.y : p_i.y,
-			17 fabsf(p.z) < origin() ? p.z + float_scale() * n.z : p_i.z);
+	return float3(abs(p.x) < origin() ? p.x + float_scale() * n.x : p_i.x,
+			      abs(p.y) < origin() ? p.y + float_scale() * n.y : p_i.y,
+			      abs(p.z) < origin() ? p.z + float_scale() * n.z : p_i.z);
 }
 
 bool SceneIntersectTest(Ray ray)
@@ -377,6 +377,7 @@ bool IntersectBVHandTriangles(Ray ray, out Interaction interaction)
 	signY = signY < 0 ? 1 : 0;
 	signZ = signZ < 0 ? 1 : 0;
 	int3 signs = int3(signX, signY, signZ);
+	float materialIndex = 0;
 
 	//这个nodeAddr从哪里来？
 	while (nodeAddr != EntrypointSentinel)
@@ -472,10 +473,6 @@ bool IntersectBVHandTriangles(Ray ray, out Interaction interaction)
 				const float4 m1 = WoodTriangles[triAddr + 1]; //matrix row 1 
 				const float4 m2 = WoodTriangles[triAddr + 2]; //matrix row 2
 
-				const float4 v0 = WPositions[triAddr];
-				const float4 v1 = WPositions[triAddr + 1];
-				const float4 v2 = WPositions[triAddr + 2];
-
 				float3 normal = normalize(cross(m0, m1));
 				if (dot(normal, rayDir.xyz) >= 0)
 				{
@@ -510,6 +507,20 @@ bool IntersectBVHandTriangles(Ray ray, out Interaction interaction)
 							// Closest intersection not required => terminate.
 							hitT = t;
 							hitIndex = triAddr;
+							const float4 v0 = WVertices[triAddr].position;
+							const float4 v1 = WVertices[triAddr + 1].position;
+							const float4 v2 = WVertices[triAddr + 2].position;
+							float4 hitPos = v0 * u + v1 * v + v2 * (1.0 - u - v);
+
+							hitPos.xyz = offset_ray(hitPos.xyz, normal);
+							hitPos.w = hitT;
+							materialIndex = v0.w;
+
+							const float4 uv0 = WVertices[triAddr].uv;
+							const float4 uv1 = WVertices[triAddr + 1].uv;
+							const float4 uv2 = WVertices[triAddr + 2].uv;
+
+							
 							//return true;
 							//if (anyHit)
 							//{
@@ -517,12 +528,33 @@ bool IntersectBVHandTriangles(Ray ray, out Interaction interaction)
 							//	break;
 							//}
 							//计算法线
-							interaction.normal.xyz = normalize(normal);
+							interaction.normal.xyz = normal;
+							interaction.p = hitPos;
+							interaction.uv = uv0 * u + uv1 * v + uv2 * (1.0 - u - v);
+
+							//计算切线
+							float3 dp02 = v0.xyz - v2.xyz;
+							float3 dp12 = v1.xyz - v2.xyz;
+							float2 duv02 = uv0.xy - uv2.xy;
+							float2 duv12 = uv1.xy - uv2.xy;
+							float determinant = duv02[0] * duv12[1] - duv02[1] * duv12[0];
+							bool degenerateUV = abs(determinant) < 1e-8;
+							if (!degenerateUV)
+							{
+								float invdet = 1.0 / determinant;
+								interaction.dpdu.xyz = (duv12[1] * dp02 - duv02[1] * dp12) * invdet;
+								interaction.dpdv.xyz = (-duv12[0] * dp02 + duv02[0] * dp12) * invdet;
+							}
+							else
+							{
+								CoordinateSystem(normal, interaction.dpdu.xyz, interaction.dpdv.xyz);
+							}
 							
+							interaction.tangent.xyz = normalize(interaction.dpdu.xyz);
+							interaction.bitangent.xyz = normalize(cross(interaction.tangent.xyz, normal));
 						}
 					}
 				}
-
 			} // triangle
 
 			// Another leaf was postponed => process it as well.
@@ -544,6 +576,7 @@ bool IntersectBVHandTriangles(Ray ray, out Interaction interaction)
 	//	STORE_RESULT(rayidx, FETCH_TEXTURE(triIndices, hitIndex, int), hitT); 
 	//}
 	interaction.primitive.x = asfloat(hitIndex);
+	interaction.primitive.y = materialIndex;
 	return hitIndex != -1;
 }
 

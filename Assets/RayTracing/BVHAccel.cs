@@ -116,7 +116,7 @@ public class BVHAccel
 	//Texture2D bvhNodeTexture;
 	public GPUBVHNode[] m_nodes;
 	public List<Vector4> m_woodTriangleVertices = new List<Vector4>();
-	public List<Vector4> m_worldPositions = new List<Vector4>();
+	public List<Vector4> m_worldVertices = new List<Vector4>();
 
 	//woop's triangle transform
 	Vector4[] m_woop = new Vector4[3];
@@ -174,7 +174,7 @@ public class BVHAccel
 		return fmin_fmin(Mathf.Max(a0, a1), Mathf.Max(b0, b1), fmax_fmin(c0, c1, d)); 
 	}
 
-	public void Build(List<Primitive> prims, List<Primitive> orderedPrims, List<Vector3> positions, List<int> triangles)
+	public void Build(List<Primitive> prims, List<Primitive> orderedPrims, List<Vector3> positions, List<Vector2> uvs, List<int> triangles)
     {
 		/*
 		primitives = prims;
@@ -191,7 +191,7 @@ public class BVHAccel
 		int offset = 0;
 		linearNodes = new LinearBVHNode[builder.TotalNodes];
 		FlattenBVHTree(root, ref offset);
-		CreateCompact(root, positions);
+		CreateCompact(root, positions, uvs);
 		//bvhNodeTexture = new Texture2D(builder.TotalNodes, 1, TextureFormat.RGBAFloat, false);
 	}
 
@@ -342,7 +342,7 @@ public class BVHAccel
 		}
 	}
 
-	void CreateCompact(BVHBuildNode root, List<Vector3> positions)
+	void CreateCompact(BVHBuildNode root, List<Vector3> positions, List<Vector2> uvs)
 	{
 		m_nodes = new GPUBVHNode[builder.TotalNodes];
 
@@ -378,10 +378,14 @@ public class BVHAccel
 					//把三角形每个顶点按顺序写入buffer里，保证了每个三角形的索引是连续的
 					UnitTriangle(i, positions);
 					Primitive primitive = primitives[i];
+
 					for (int v = 0; v < 3; ++v)
 					{
 						m_woodTriangleVertices.Add(m_woop[v]);
-						m_worldPositions.Add(positions[primitive.triIndices[v]]);
+						Vector4 worldPos = positions[primitive.triIndices[v]];
+						if (v == 0)
+							worldPos.w = Int32BitsToSingle(primitive.materialIndex);
+						m_worldVertices.Add(worldPos);
 					}
                 }
 				c2 = child.nPrimitives;
@@ -408,7 +412,7 @@ public class BVHAccel
 					for (int v = 0; v < 3; ++v)
 					{
 						m_woodTriangleVertices.Add(m_woop[v]);
-						m_worldPositions.Add(positions[primitive.triIndices[v]]);
+						m_worldVertices.Add(positions[primitive.triIndices[v]]);
 					}
 					
 				}
@@ -456,10 +460,10 @@ public class BVHAccel
 		m_woop[1] = matrix.GetRow(1);
 		m_woop[2] = matrix.GetRow(2);
 
-		Vector3 normal = Vector3.Cross(m_woop[0], m_woop[1]);
-		Vector3 normal2 = Vector3.Cross(col0, col1);
-		normal.Normalize();
-		normal2.Normalize();
+		//Vector3 normal = Vector3.Cross(m_woop[0], m_woop[1]);
+		//Vector3 normal2 = Vector3.Cross(col0, col1);
+		//normal.Normalize();
+		//normal2.Normalize();
 	}
 
 	Vector3 MinOrMax(GPUBVHNode box, int n)
@@ -651,7 +655,7 @@ public class BVHAccel
 					Vector3 normal = Vector3.Cross(m0, m1).normalized;
 					if (Vector3.Dot(normal, rayDir) >= 0)
                     {
-						RenderDebug.DrawNormal(m_worldPositions[triAddr], m_worldPositions[triAddr + 1], m_worldPositions[triAddr + 2], 0.3f, 0.35f);
+						RenderDebug.DrawNormal(m_worldVertices[triAddr], m_worldVertices[triAddr + 1], m_worldVertices[triAddr + 2], 0.3f, 0.35f);
 						continue;
                     }
 

@@ -2017,6 +2017,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   generateRay: {fileID: 7200000, guid: 89a21110d834b3a45a61b50ba8e85ddf, type: 3}
   extend: {fileID: 7200000, guid: 8c98bbc01ef926a4991c6ab29793b90a, type: 3}
+  initRandom: {fileID: 7200000, guid: f09f3de862413a74781d4d49b8cbd9ee, type: 3}
 --- !u!1 &25648568
 GameObject:
   m_ObjectHideFlags: 0

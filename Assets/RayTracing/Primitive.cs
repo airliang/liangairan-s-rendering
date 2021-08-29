@@ -11,6 +11,7 @@ public class Primitive
     //public int transformId; //the primitive belong to the transform
     //public int faceIndex;   //mesh triangle indice start
     public Bounds worldBound = new Bounds();
+    public int materialIndex = -1;
 
     Bounds BuildBounds(Vector3 p0, Vector3 p1, Vector3 p2)
     {
@@ -24,7 +25,7 @@ public class Primitive
 
         return bounds;
     }
-    public Primitive(int tri0, int tri1, int tri2, Vector3 p0, Vector3 p1, Vector3 p2)
+    public Primitive(int tri0, int tri1, int tri2, Vector3 p0, Vector3 p1, Vector3 p2, int mtlIndex)
     {
         //vertexOffset = vOffset;
         //triangleOffset = tOffset;
@@ -39,6 +40,7 @@ public class Primitive
         //Vector3 p2 = transform.TransformPoint(mesh.vertices[mesh.triangles[fId * 3 + 2]]);
 
         worldBound = BuildBounds(p0, p1, p2);
+        materialIndex = mtlIndex;
     }
 }
 

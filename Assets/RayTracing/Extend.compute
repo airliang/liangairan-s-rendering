@@ -1,6 +1,7 @@
 #include "sampler.hlsl"
 #include "bvhaccel.hlsl"
 
+
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel RayTraversal
 
@@ -21,15 +22,22 @@ void RayTraversal(uint3 id : SV_DispatchThreadID)
     if (id.x >= rasterSize.x || id.y >= rasterSize.y)
         return;
 
-    Ray ray = Rays[id.x + id.y * rasterSize.x];
-    Interaction isect = (Interaction)0;
+    int threadId = id.x + id.y * rasterSize.x;
+    Ray ray = Rays[threadId];
+    Interaction isect = Intersections[threadId];
     if (IntersectBVHandTriangles(ray, isect))
     {
         int triIndex = asint(isect.primitive.x);
         //float3 color = (float)(triIndex / 3) / 50.0;
         float3 color = isect.normal.xyz * 0.5 + 0.5f;
+        //RNG rng = RNGs[threadId];
+        //color.xy = Get2D(rng);
+        //RNGs[threadId] = rng;
         outputTexture[id.xy] = half4(color, 1);//abs(ray.direction);
     }
     else
+    {
+        isect.p.w = -1;
         outputTexture[id.xy] = half4(1, 0, 0, 1);
+    }
 }

@@ -24,13 +24,26 @@ public struct GPURay
     public Vector4 direction; //w is t
 }
 
+public struct GPURandomSampler
+{
+    uint state;
+    uint s1;
+}
+
 public struct GPUInteraction
 {
-    Vector3 intinteractPoint;
-    float time;
-    Vector4 pError; //floating point error
+    Vector4 intinteractPoint;   //w is hitT
+    //float time;
+    //Vector4 pError; //floating point error
     Vector4 wo;   //output direction
-    Vector4 normal;
+    Vector4 normal; //geometry normal
+    Vector4 primitive;
+    Vector4 uv;
+    Vector4 ns;  //shading normal
+    Vector4 dpdu;
+    Vector4 dpdv;
+    Vector4 tangent;
+    Vector4 bitangent;
 }
 
 public struct GPUBounds
@@ -152,6 +165,12 @@ public struct Vector4Int
     public int z;
     public int w;
 }
+
+public struct GPUVertex
+{
+    public Vector4 position;
+    public Vector4 uv;
+}
 public struct GPUBVHNode
 {
     //public GPUBounds b1;
@@ -160,9 +179,39 @@ public struct GPUBVHNode
     //public int idx2;
     //int c0;    //extend to 64bytes
     //int c1;
-    public Vector4 b0xy;
-    public Vector4 b1xy;
-    public Vector4 b01z;
-    public Vector4 cids;
+    public Vector4 b0xy;  //bounding box b0 min.x, max.x min.y max.y
+    public Vector4 b1xy;  //bounding box b1 min.x, max.x min.y max.y
+    public Vector4 b01z;  //bounding box b0.min.z, b0.max.z b1.min.z b1.max.z
+    //x left node array index, y right node array index, z left node primitive's num if it is leaf, w right node primitive's num if leaf
+    //if z and w < 0, is a meshinstance node, zw is the meshinstance id.
+    public Vector4 cids;  
+}
+
+//do not support textures
+public struct GPUMaterial
+{
+    //public BSDFMaterial.BSDFType materialType;
+    public Vector4 materialParams;  //x-materialtype, y-sigma, z-roughness
+    public Color kd;
+    public Color ks;
+    public Color kr;
+
+    public GPUMaterial(int type, float sigma, float roughness, Color kd, Color ks, Color kr)
+    {
+        this.kd = kd.linear;
+        this.ks = ks.linear;
+        this.kr = kr.linear;
+        materialParams.x = type;
+        materialParams.y = sigma;
+        materialParams.z = roughness;
+        materialParams.w = 0;
+    }
+}
+
+public struct GPUMesh
+{
+    public int triIndex;   //三角形的起始位置
+    public int triCounts;  //三角形数量
+    public int materialIdx; //对应材质的id
 }
 
