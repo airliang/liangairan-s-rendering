@@ -25,7 +25,7 @@ void RayTraversal(uint3 id : SV_DispatchThreadID)
     int threadId = id.x + id.y * rasterSize.x;
     Ray ray = Rays[threadId];
     Interaction isect = Intersections[threadId];
-    if (IntersectBVHandTriangles(ray, isect))
+    if (IntersectBVHandTriangles(ray, 0, isect))
     {
         int triIndex = asint(isect.primitive.x);
         //float3 color = (float)(triIndex / 3) / 50.0;

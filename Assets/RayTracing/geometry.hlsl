@@ -130,7 +130,7 @@ bool BoundIntersectP(Ray ray, Bounds bounds, float3 invDir, int dirIsNeg[3])
 	return (tMin < ray.tMax()) && (tMax > 0);
 }
 
-bool BoundRayIntersect(Ray ray, float4 bxy, float2 bz, float3 invDir, int3 signs, out float hitT)
+bool BoundRayIntersect(Ray ray, float4 bxy, float2 bz, float3 invDir, int3 signs, out float hitTMin)
 {
 	float4 rayOrig = ray.orig;
 	
@@ -164,7 +164,7 @@ bool BoundRayIntersect(Ray ray, float4 bxy, float2 bz, float3 invDir, int3 signs
 	//if (tzMax < tMax) tMax = tzMax;
 	tMin = max(tMin, tzMin);
 	tMax = min(tMax, tzMax);
-	hitT = tMin;
+	hitTMin = tMin;
 	return (tMin < ray.tMax()) && (tMax > 0);
 }
 

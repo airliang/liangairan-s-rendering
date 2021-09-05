@@ -208,10 +208,4 @@ public struct GPUMaterial
     }
 }
 
-public struct GPUMesh
-{
-    public int triIndex;   //三角形的起始位置
-    public int triCounts;  //三角形数量
-    public int materialIdx; //对应材质的id
-}
 

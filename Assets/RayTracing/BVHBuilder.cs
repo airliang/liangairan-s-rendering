@@ -55,10 +55,11 @@ public class BVHBuilder
 		return o;
 	}
 
-	virtual public BVHBuildNode Build(List<Primitive> prims, List<Primitive> orderedPrims, List<Vector3> positions, List<int> triangles)
+	virtual public BVHBuildNode Build(List<Primitive> prims, List<Primitive> orderedPrims, List<GPUVertex> vertices, List<int> triangles, int _maxPrimsInNode = 4)
     {
 		totalNodes = 0;
 		primitives = prims;
+		maxPrimsInNode = _maxPrimsInNode;
 		List<BVHPrimitiveInfo> primitiveInfos = new List<BVHPrimitiveInfo>();
 		for (int i = 0; i < prims.Count; ++i)
 			primitiveInfos.Add(new BVHPrimitiveInfo(i, GPUBounds.ConvertUnityBounds(prims[i].worldBound)));

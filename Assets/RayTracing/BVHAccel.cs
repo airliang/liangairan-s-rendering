@@ -62,8 +62,10 @@ public class BVHBuildNode
 	public BVHBuildNode childrenRight;
 	public int splitAxis;
 	
+	//leaf node才用到的数据
 	public int firstPrimOffset;
 	//the number of primtives in leaf. 0 is a interior node
+	//if is toplevel build node is the bottom bvh offset
 	public int nPrimitives;
 
 	public bool IsLeaf()
@@ -122,6 +124,11 @@ public class BVHAccel
 	Vector4[] m_woop = new Vector4[3];
 	//public List<GPUTriangleIndex> triDatas;
 
+	//模型空间里的split bvh
+	public List<GPUBVHNode> meshBVHNodes;
+	//按bounding box 划分的bvh
+	public GPUBVHNode[] m_meshInstanceBVHNodes;
+
 	public static unsafe int SingleToInt32Bits(float value)
 	{
 		return *(int*)(&value);
@@ -174,7 +181,7 @@ public class BVHAccel
 		return fmin_fmin(Mathf.Max(a0, a1), Mathf.Max(b0, b1), fmax_fmin(c0, c1, d)); 
 	}
 
-	public void Build(List<Primitive> prims, List<Primitive> orderedPrims, List<Vector3> positions, List<Vector2> uvs, List<int> triangles)
+	public void Build(List<Primitive> prims, List<Primitive> orderedPrims, List<GPUVertex> vertices, List<int> triangles)
     {
 		/*
 		primitives = prims;
@@ -186,12 +193,12 @@ public class BVHAccel
 		root = RecursiveBuild(ref primitiveInfos, 0, prims.Count, ref orderedPrims);
 		primitives = orderedPrims;
 		*/
-		root = builder.Build(prims, orderedPrims, positions, triangles);
+		root = builder.Build(prims, orderedPrims, vertices, triangles);
 		primitives = orderedPrims;
-		int offset = 0;
-		linearNodes = new LinearBVHNode[builder.TotalNodes];
-		FlattenBVHTree(root, ref offset);
-		CreateCompact(root, positions, uvs);
+		//int offset = 0;
+		//linearNodes = new LinearBVHNode[builder.TotalNodes];
+		//FlattenBVHTree(root, ref offset);
+		CreateCompact(root, vertices, builder.TotalNodes);
 		//bvhNodeTexture = new Texture2D(builder.TotalNodes, 1, TextureFormat.RGBAFloat, false);
 	}
 
@@ -342,9 +349,12 @@ public class BVHAccel
 		}
 	}
 
-	void CreateCompact(BVHBuildNode root, List<Vector3> positions, List<Vector2> uvs)
+	//create the gpu bvh nodes
+	//param meshNode代表是否一个mesh下的bvh划分
+	void CreateCompact(BVHBuildNode root, List<GPUVertex> gpuVertices, int nodesNum, bool bottomLevel = true, List<int> botomLevelOffset = null)
 	{
-		m_nodes = new GPUBVHNode[builder.TotalNodes];
+		GPUBVHNode[] nodes = new GPUBVHNode[nodesNum];
+		
 
 		int nextNodeIdx = 0;
 		List<StackEntry> stack = new List<StackEntry>();
@@ -354,10 +364,10 @@ public class BVHAccel
 		
 		while (stack.Count > 0)
 		{
-			int c0 = 0;
-			int c1 = 0;
-			int c2 = 0;  //left child primtives num;
-			int c3 = 0;  //right child primitves num
+			int c0 = 0;  //bottomlevel bvh: left child vertices offset; toplevel bvh: 
+			int c1 = 0;  //bottomlevel bvh: right child vertices offset; toplevel bvh: 
+			int c2 = 0;  //bottomlevel bvh: left child primtives num; toplevel bvh: left child bottomlevel bvh offset
+			int c3 = 0;  //bottomlevel bvh: right child primitves num
 			StackEntry e = stack[stack.Count - 1];
 			stack.RemoveAt(stack.Count - 1);
 
@@ -370,25 +380,38 @@ public class BVHAccel
 
 			if (e.node.childrenLeft.IsLeaf())
 			{
-				c0 = ~m_woodTriangleVertices.Count;
-				BVHBuildNode child = e.node.childrenLeft;
-				//处理三角形
-				for (int i = child.firstPrimOffset; i < child.firstPrimOffset + child.nPrimitives; ++i)
+				if (bottomLevel)
                 {
-					//把三角形每个顶点按顺序写入buffer里，保证了每个三角形的索引是连续的
-					UnitTriangle(i, positions);
-					Primitive primitive = primitives[i];
-
-					for (int v = 0; v < 3; ++v)
+					c0 = ~m_woodTriangleVertices.Count;
+					BVHBuildNode child = e.node.childrenLeft;
+					//处理三角形
+					for (int i = child.firstPrimOffset; i < child.firstPrimOffset + child.nPrimitives; ++i)
 					{
-						m_woodTriangleVertices.Add(m_woop[v]);
-						Vector4 worldPos = positions[primitive.triIndices[v]];
-						if (v == 0)
-							worldPos.w = Int32BitsToSingle(primitive.materialIndex);
-						m_worldVertices.Add(worldPos);
+						//把三角形每个顶点按顺序写入buffer里，保证了每个三角形的索引是连续的
+						UnitTriangle(i, gpuVertices);
+						Primitive primitive = primitives[i];
+
+						for (int v = 0; v < 3; ++v)
+						{
+							m_woodTriangleVertices.Add(m_woop[v]);
+							Vector4 worldPos = gpuVertices[primitive.triIndices[v]].position;
+							//if (v == 0)
+							//	worldPos.w = Int32BitsToSingle(primitive.materialIndex);
+							m_worldVertices.Add(worldPos);
+						}
 					}
-                }
-				c2 = child.nPrimitives;
+					c2 = child.nPrimitives;
+				}
+				else
+                {
+					BVHBuildNode child = e.node.childrenLeft;
+					//处理meshInst
+					
+					Primitive primitive = primitives[child.firstPrimOffset];
+					
+					c0 = ~botomLevelOffset[primitive.meshIndex];
+					c2 = 1;
+				}
 
 			}
 
@@ -401,22 +424,35 @@ public class BVHAccel
 			
 			if (e.node.childrenRight.IsLeaf())
 			{
-				c1 = ~m_woodTriangleVertices.Count;
-				BVHBuildNode child = e.node.childrenRight;
-				//处理三角形
-				for (int i = child.firstPrimOffset; i < child.firstPrimOffset + child.nPrimitives; ++i)
+				if (bottomLevel)
 				{
-					//把三角形写入buffer里
-					UnitTriangle(i, positions);
-					Primitive primitive = primitives[i];
-					for (int v = 0; v < 3; ++v)
+					c1 = ~m_woodTriangleVertices.Count;
+					BVHBuildNode child = e.node.childrenRight;
+					//处理三角形
+					for (int i = child.firstPrimOffset; i < child.firstPrimOffset + child.nPrimitives; ++i)
 					{
-						m_woodTriangleVertices.Add(m_woop[v]);
-						m_worldVertices.Add(positions[primitive.triIndices[v]]);
+						//把三角形写入buffer里
+						UnitTriangle(i, gpuVertices);
+						Primitive primitive = primitives[i];
+						for (int v = 0; v < 3; ++v)
+						{
+							m_woodTriangleVertices.Add(m_woop[v]);
+							m_worldVertices.Add(gpuVertices[primitive.triIndices[v]].position);
+						}
+
 					}
-					
+					c3 = child.nPrimitives;
 				}
-				c3 = child.nPrimitives;
+				else
+                {
+					BVHBuildNode child = e.node.childrenLeft;
+					//处理meshInst
+
+					Primitive primitive = primitives[child.firstPrimOffset];
+
+					c1 = ~botomLevelOffset[primitive.meshIndex];
+					c3 = 1;
+				}
 			}
 
 			//添加结束
@@ -429,17 +465,22 @@ public class BVHAccel
 			gpuBVH.b01z = new Vector4(b0.min.z, b0.max.z, b1.min.z, b1.max.z);
 			gpuBVH.cids = new Vector4(Int32BitsToSingle(c0), Int32BitsToSingle(c1), Int32BitsToSingle(c2), Int32BitsToSingle(c3));
 
-			m_nodes[e.idx] = gpuBVH;
+			nodes[e.idx] = gpuBVH;
 		}
+
+		if (bottomLevel)
+			m_nodes = nodes;
+		else
+			m_meshInstanceBVHNodes = nodes;
 	}
 
-	void UnitTriangle(int triIndex, List<Vector3> positions)
+	void UnitTriangle(int triIndex, List<GPUVertex> vertices)
     {
 		Primitive primitive = primitives[triIndex];
 		//primitive.triangleOffset 
-		Vector3 v0 = positions[primitive.triIndices.x];
-		Vector3 v1 = positions[primitive.triIndices.y];
-		Vector3 v2 = positions[primitive.triIndices.z];
+		Vector3 v0 = vertices[primitive.triIndices.x].position;
+		Vector3 v1 = vertices[primitive.triIndices.y].position;
+		Vector3 v2 = vertices[primitive.triIndices.z].position;
 
 		Matrix4x4 matrix = new Matrix4x4();
 		Vector4 col0 = v0 - v2;
@@ -698,5 +739,65 @@ public class BVHAccel
 		}
 		//return false;
 		return hitIndex != -1;
+	}
+
+	//build 2 types bvh
+	//meshinstance bvh and mesh primitive bvh
+	public void Build(List<Transform> meshTransforms, List<MeshInstance> meshInstances, List<MeshHandle> meshHandles, List<GPUVertex> vertices, List<int> triangles)
+    {
+		List<int> instBVHOffset = new List<int>();
+
+		//首先创建每个meshHandle的localspace的bvh
+		int lastNodesNum = 0;
+		for (int i = 0; i < meshHandles.Count; ++i)
+		{
+			int nodesNum = BuildMeshBVH(meshHandles[i], vertices, triangles);
+			if (i == 0)
+				instBVHOffset.Add(0);
+			else
+            {
+				int lastOffset = instBVHOffset[i - 1];
+				instBVHOffset.Add(lastOffset + lastNodesNum * System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUBVHNode)));
+
+			}
+			lastNodesNum = nodesNum;
+		}
+		// build the instance bounding box bvh
+		//生成bvh需要的数据
+		//List<Primitive> primitives = new List<Primitive>();
+		primitives.Clear();
+		for (int i = 0; i < meshTransforms.Count; ++i)
+		{
+			Renderer renderer = meshTransforms[i].GetComponent<Renderer>();
+			Primitive meshInst = new Primitive(renderer.bounds, meshInstances[i].meshHandleIndex);
+			primitives.Add(meshInst);
+		}
+		List<Primitive> orderedPrims = new List<Primitive>();
+		BVHBuilder instBuilder = new BVHBuilder();
+		//保证一个leaf一个inst，所以maxPrimsInNode参数是1
+		BVHBuildNode instRoot = instBuilder.Build(primitives, orderedPrims, null, null, 1);
+		primitives = orderedPrims;
+
+		CreateCompact(instRoot, vertices, instBuilder.TotalNodes, false, instBVHOffset);
+
+		
+	}
+
+	//返回node的数量
+	public int BuildMeshBVH(MeshHandle meshHandle, List<GPUVertex> vertices, List<int> triangles)
+    {
+		//生成MeshHandle的primitives
+		List<Primitive> primitives = new List<Primitive>();
+		int faceNum = meshHandle.triangleCount / 3;
+		for (int f = 0; f < faceNum; ++f)
+		{
+			int tri0 = triangles[f * 3 + meshHandle.triangleOffset];
+			int tri1 = triangles[f * 3 + 1 + meshHandle.triangleOffset];
+			int tri2 = triangles[f * 3 + 2 + meshHandle.triangleOffset];
+			primitives.Add(new Primitive(tri0, tri1, tri2, vertices[tri0].position, vertices[tri1].position, vertices[tri2].position, 0));
+		}
+		BVHBuildNode meshRoot = builder.Build(primitives, null, vertices, triangles);
+		CreateCompact(meshRoot, vertices, builder.TotalNodes, false);
+		return builder.TotalNodes;
 	}
 }

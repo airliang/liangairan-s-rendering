@@ -145,7 +145,7 @@ public class SplitBVHBuilder : BVHBuilder
 
     //这个是整个场景的顶点和索引的引用List，不能释放掉
     List<int> _triangles;
-    List<Vector3> _positions;
+    List<GPUVertex> _vertices;
     List<Primitive> _primitives;
     List<Primitive> _orderedPrimitives;
     Vector3 ClampVector3(float x, float y, float z, float min, float max)
@@ -188,10 +188,10 @@ public class SplitBVHBuilder : BVHBuilder
         references[a] = references[b];
         references[b] = tmp;
     }
-    public override BVHBuildNode Build(List<Primitive> prims, List<Primitive> orderedPrims, List<Vector3> positions, List<int> triangles)
+    public override BVHBuildNode Build(List<Primitive> prims, List<Primitive> orderedPrims, List<GPUVertex> vertices, List<int> triangles, int _maxPrimsInNode = 4)
     {
         _triangles = triangles;
-        _positions = positions;
+        _vertices = vertices;
         _primitives = prims;
         _orderedPrimitives = orderedPrims;
         NodeSpec root = new NodeSpec();
@@ -374,7 +374,7 @@ public class SplitBVHBuilder : BVHBuilder
                 firstBin, new Vector3Int(NumSpatialBins - 1, NumSpatialBins - 1, NumSpatialBins - 1));
 
             for (int dim = 0; dim< 3; dim++)
-             {
+            {
                 Reference currRef = reference;
                 for (int i = firstBin[dim]; i<lastBin[dim]; i++)
                 {
@@ -477,13 +477,13 @@ public class SplitBVHBuilder : BVHBuilder
         //    Debug.LogError("Triangle Out of range");
         //}
         //int triIndex = _triangles[triangle.triangleOffset + 2];
-        Vector3 v1 = _positions[triangle.triIndices.z];
+        Vector3 v1 = _vertices[triangle.triIndices.z].position;
 
         for (int i = 0; i < 3; i++)
         {
             Vector3 v0 = v1;
             //v1 = _positions[_triangles[triangle.triangleOffset + i]];
-            v1 = _positions[triangle.triIndices[i]];
+            v1 = _vertices[triangle.triIndices[i]].position;
             float v0p = v0[dim];
             float v1p = v1[dim];
 
