@@ -11,6 +11,19 @@ struct BXDF
 	float4 kr;
 };
 
+//struct MeshHandle
+//{
+//	int4 offsets;
+//	Bounds bounds;
+//};
+
+struct MeshInstance
+{
+	float4x4 localToWorld;
+	float4x4 worldToLocal;
+	int4     indices;
+};
+
 //buffers
 StructuredBuffer<BVHNode> BVHTree;
 StructuredBuffer<BXDF>    Materials;
@@ -22,6 +35,8 @@ StructuredBuffer<int>      Triangles;
 RWStructuredBuffer<Ray>    Rays;
 RWStructuredBuffer<Interaction>       Intersections;
 RWStructuredBuffer<float4> PathRadiances;  //x L, y-beta, z- nee pdf
+//StructuredBuffer<MeshHandle> MeshHandles;
+StructuredBuffer<MeshInstance> MeshInstances;
 
 uniform float _time;
 uniform float2 rasterSize;

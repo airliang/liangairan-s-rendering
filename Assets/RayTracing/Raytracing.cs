@@ -55,7 +55,7 @@ public class Raytracing : MonoBehaviour
     ComputeBuffer lightBuffer;
     ComputeBuffer materialBuffer;
     ComputeBuffer pathRadianceBuffer;
-    ComputeBuffer meshHandleBuffer;
+    //ComputeBuffer meshHandleBuffer;
     ComputeBuffer meshInstanceBuffer;
     //ComputeBuffer transformBuffer;
 
@@ -157,266 +157,299 @@ public class Raytracing : MonoBehaviour
         int renderObjectsNum = 0;
         int lightObjectsNum = 0;
 
-        //Dictionary<Mesh, int> sharedMeshes = new Dictionary<Mesh, int>();
-        List<Mesh> sharedMeshes = new List<Mesh>();
-        sharedMeshes.Find(s => s == this);
-        List<Vector2> uvs = new List<Vector2>();
-        //int triangleOffset = 0;
-        //先生成MeshHandle
-        for (int i = 0; i < shapes.Length; ++i)
+        if (useInstanceBVH)
         {
-            //worldMatrices[i] = shapes[i].transform.localToWorldMatrix;
-            BSDFMaterial bsdfMaterial = shapes[i].GetComponent<BSDFMaterial>();
-            if (shapes[i].shapeType == Shape.ShapeType.triangleMesh && bsdfMaterial != null)
+            //Dictionary<Mesh, int> sharedMeshes = new Dictionary<Mesh, int>();
+            List<Mesh> sharedMeshes = new List<Mesh>();
+            sharedMeshes.Find(s => s == this);
+            //List<Vector2> uvs = new List<Vector2>();
+            //int triangleOffset = 0;
+            //先生成MeshHandle
+            for (int i = 0; i < shapes.Length; ++i)
             {
-                if (bsdfMaterial.materialType == BSDFMaterial.BSDFType.Matte)
-                {
-                    gpuMaterials[renderObjectsNum] = new GPUMaterial((int)bsdfMaterial.materialType, bsdfMaterial.matte.sigma.constantValue, 0, Color.white, Color.white, Color.white);
-                }
-                else if (bsdfMaterial.materialType == BSDFMaterial.BSDFType.Plastic)
-                {
-                    gpuMaterials[renderObjectsNum] = new GPUMaterial((int)bsdfMaterial.materialType, 0, bsdfMaterial.plastic.roughnessTexture.constantValue,
-                        bsdfMaterial.plastic.kd.spectrum, bsdfMaterial.plastic.ks.spectrum, Color.white);
-                }
-                else if (bsdfMaterial.materialType == BSDFMaterial.BSDFType.Mirror)
-                {
-                    gpuMaterials[renderObjectsNum] = new GPUMaterial((int)bsdfMaterial.materialType, 0, 0,
-                        Color.white, Color.white, bsdfMaterial.mirror.kr.spectrum);
-                }
-                else if (bsdfMaterial.materialType == BSDFMaterial.BSDFType.Glass)
-                {
-                    gpuMaterials[renderObjectsNum] = new GPUMaterial((int)bsdfMaterial.materialType, 0, bsdfMaterial.glass.uRougness.constantValue,
-                        Color.white, bsdfMaterial.glass.ks.spectrum, bsdfMaterial.glass.kr.spectrum);
-                }
+                //worldMatrices[i] = shapes[i].transform.localToWorldMatrix;
 
-                if (shapes[i].isAreaLight)
+                BSDFMaterial bsdfMaterial = shapes[i].GetComponent<BSDFMaterial>();
+                if (shapes[i].shapeType == Shape.ShapeType.triangleMesh && bsdfMaterial != null)
                 {
-                    GPULight gpuLight = new GPULight();
-                    gpuLight.color = shapes[i].lightSpectrum;
-                    gpuLight.intensity = shapes[i].lightIntensity;
-                    gpuLight.pointRadius = 0;
-                    gpuLights.Add(gpuLight);
-                }
-
-                MeshFilter meshRenderer = shapes[i].GetComponent<MeshFilter>();
-                Mesh mesh = meshRenderer.sharedMesh;
-
-                if (sharedMeshes.Contains(mesh))
-                {
-                    continue;
-                }
-
-                sharedMeshes.Add(mesh);
-
-                int meshId = i;
-                int vertexOffset = gpuVertices.Count;
-                int triangleOffset = triangles.Count;
-                int primitiveTriangleOffset = gpuVertices.Count;
-                int primitiveVertexOffset = triangles.Count;
-
-                MeshHandle meshHandle = new MeshHandle(vertexOffset, triangleOffset, mesh.vertexCount, mesh.triangles.Length, mesh.bounds);
-                meshHandles.Add(meshHandle);
-                //创建该meshHandle的bvh
-
-                for (int j = 0; j < mesh.vertices.Length; ++j)
-                {
-                    GPUVertex vertex = new GPUVertex();
-                    vertex.position = mesh.vertices[j];
-                    vertex.uv = mesh.uv[j];
-                    gpuVertices.Add(vertex);
-                }
-                for (int j = 0; j < mesh.triangles.Length; ++j)
-                {
-                    triangles.Add(mesh.triangles[j] + vertexOffset);
-                }
-            }
-        }
-
-        int lightIndex = -1;
-        List<Transform> meshTransforms = new List<Transform>();
-        //生成meshinstance和对应的material
-        for (int i = 0; i < shapes.Length; ++i)
-        {
-            BSDFMaterial bsdfMaterial = shapes[i].GetComponent<BSDFMaterial>();
-            Transform transform = shapes[i].transform;
-            if (shapes[i].shapeType == Shape.ShapeType.triangleMesh && bsdfMaterial != null)
-            {
-                MeshFilter meshRenderer = shapes[i].GetComponent<MeshFilter>();
-                Mesh mesh = meshRenderer.sharedMesh;
-                int meshIndex = sharedMeshes.FindIndex(s => s == mesh);
-                if (shapes[i].isAreaLight)
-                {
-                    lightIndex = lightObjectsNum++;
-                }
-                else
-                    lightIndex = -1;
-                int materialIndex = i;
-
-                if (mesh.subMeshCount > 1)
-                {
-                    for (int k = 0; k < mesh.subMeshCount; ++k)
+                    //material这部分暂时先不处理，写死成lambert diffuse
+                    /*
+                    if (bsdfMaterial.materialType == BSDFMaterial.BSDFType.Matte)
                     {
-                        SubMeshDescriptor smd = mesh.GetSubMesh(k);
-                        //smd.ma
+                        gpuMaterials[renderObjectsNum] = new GPUMaterial((int)bsdfMaterial.materialType, bsdfMaterial.matte.sigma.constantValue, 0, Color.white, Color.white, Color.white);
+                    }
+                    else if (bsdfMaterial.materialType == BSDFMaterial.BSDFType.Plastic)
+                    {
+                        gpuMaterials[renderObjectsNum] = new GPUMaterial((int)bsdfMaterial.materialType, 0, bsdfMaterial.plastic.roughnessTexture.constantValue,
+                            bsdfMaterial.plastic.kd.spectrum, bsdfMaterial.plastic.ks.spectrum, Color.white);
+                    }
+                    else if (bsdfMaterial.materialType == BSDFMaterial.BSDFType.Mirror)
+                    {
+                        gpuMaterials[renderObjectsNum] = new GPUMaterial((int)bsdfMaterial.materialType, 0, 0,
+                            Color.white, Color.white, bsdfMaterial.mirror.kr.spectrum);
+                    }
+                    else if (bsdfMaterial.materialType == BSDFMaterial.BSDFType.Glass)
+                    {
+                        gpuMaterials[renderObjectsNum] = new GPUMaterial((int)bsdfMaterial.materialType, 0, bsdfMaterial.glass.uRougness.constantValue,
+                            Color.white, bsdfMaterial.glass.ks.spectrum, bsdfMaterial.glass.kr.spectrum);
+                    }
+                    */
+
+                    if (shapes[i].isAreaLight)
+                    {
+                        GPULight gpuLight = new GPULight();
+                        gpuLight.color = shapes[i].lightSpectrum;
+                        gpuLight.intensity = shapes[i].lightIntensity;
+                        gpuLight.pointRadius = 0;
+                        gpuLights.Add(gpuLight);
+                    }
+
+                    MeshFilter meshRenderer = shapes[i].GetComponent<MeshFilter>();
+                    Mesh mesh = meshRenderer.sharedMesh;
+
+                    if (sharedMeshes.Contains(mesh))
+                    {
+                        continue;
+                    }
+
+                    sharedMeshes.Add(mesh);
+
+                    int meshId = i;
+                    int vertexOffset = gpuVertices.Count;
+                    int triangleOffset = triangles.Count;
+                    int primitiveTriangleOffset = gpuVertices.Count;
+                    int primitiveVertexOffset = triangles.Count;
+
+
+                    MeshHandle meshHandle = new MeshHandle(vertexOffset, triangleOffset, mesh.vertexCount, mesh.triangles.Length, mesh.bounds);
+                    meshHandles.Add(meshHandle);
+                    //创建该meshHandle的bvh
+
+                    for (int j = 0; j < mesh.vertices.Length; ++j)
+                    {
+                        GPUVertex vertex = new GPUVertex();
+                        vertex.position = mesh.vertices[j];
+                        vertex.uv = mesh.uv[j];
+                        gpuVertices.Add(vertex);
+                    }
+                    for (int j = 0; j < mesh.triangles.Length; ++j)
+                    {
+                        triangles.Add(mesh.triangles[j] + vertexOffset);
                     }
                 }
-                else
-                {
-                    MeshInstance meshInstance = new MeshInstance(transform.localToWorldMatrix, transform.worldToLocalMatrix, meshIndex, materialIndex, lightIndex);
-                    meshInstances.Add(meshInstance);
-                }
-
-                meshTransforms.Add(transform);
             }
+
+            int lightIndex = -1;
+            List<Transform> meshTransforms = new List<Transform>();
+            //生成meshinstance和对应的material
+            for (int i = 0; i < shapes.Length; ++i)
+            {
+                BSDFMaterial bsdfMaterial = shapes[i].GetComponent<BSDFMaterial>();
+                Transform transform = shapes[i].transform;
+                if (shapes[i].shapeType == Shape.ShapeType.triangleMesh && bsdfMaterial != null)
+                {
+                    MeshFilter meshRenderer = shapes[i].GetComponent<MeshFilter>();
+                    Mesh mesh = meshRenderer.sharedMesh;
+                    int meshIndex = sharedMeshes.FindIndex(s => s == mesh);
+                    if (shapes[i].isAreaLight)
+                    {
+                        lightIndex = lightObjectsNum++;
+                    }
+                    else
+                        lightIndex = -1;
+                    int materialIndex = i;
+
+                    if (mesh.subMeshCount > 1)
+                    {
+                        for (int k = 0; k < mesh.subMeshCount; ++k)
+                        {
+                            SubMeshDescriptor smd = mesh.GetSubMesh(k);
+                            //smd.ma
+                        }
+                    }
+                    else
+                    {
+                        MeshInstance meshInstance = new MeshInstance(transform.localToWorldMatrix, transform.worldToLocalMatrix, meshIndex, materialIndex, lightIndex);
+                        meshInstances.Add(meshInstance);
+                    }
+
+                    meshTransforms.Add(transform);
+                }
+            }
+
+            //创建bvh
+
+            bvhAccel.Build(meshTransforms, meshInstances, meshHandles, gpuVertices, triangles);
+
+
+            //创建对应的computebuffer
+            //meshHandleBuffer = new ComputeBuffer(meshHandles.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(MeshHandle)), ComputeBufferType.Structured);
+            //meshHandleBuffer.SetData(meshHandles.ToArray());
+
+            meshInstanceBuffer = new ComputeBuffer(meshInstances.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(MeshInstance)), ComputeBufferType.Structured);
+            meshInstanceBuffer.SetData(meshInstances.ToArray());
         }
+        else
+        {
+            for (int i = 0; i < shapes.Length; ++i)
+            {
+                //worldMatrices[i] = shapes[i].transform.localToWorldMatrix;
+                BSDFMaterial bsdfMaterial = shapes[i].GetComponent<BSDFMaterial>();
+                if (shapes[i].shapeType == Shape.ShapeType.triangleMesh && bsdfMaterial != null)
+                {
+                    MeshFilter meshRenderer = shapes[i].GetComponent<MeshFilter>();
+                    Mesh mesh = meshRenderer.sharedMesh;
 
-        //创建bvh
-        
-        bvhAccel.Build(meshTransforms, meshInstances, meshHandles, gpuVertices, triangles);
+                    if (mesh.subMeshCount > 1)
+                    {
+                        int primitiveTriangleOffset = gpuVertices.Count;
+                        int primitiveVertexOffset = triangles.Count;
 
+                        for (int j = 0; j < mesh.vertices.Length; ++j)
+                        {
+                            //positions.Add(shapes[i].transform.localToWorldMatrix.MultiplyPoint(mesh.vertices[j]));
+                            //uvs.Add(mesh.uv[j]);
+                            GPUVertex vertex = new GPUVertex();
+                            vertex.position = shapes[i].transform.localToWorldMatrix.MultiplyPoint(mesh.vertices[j]);
+                            vertex.uv = mesh.uv[j];
+                            gpuVertices.Add(vertex);
+                        }
+                        for (int j = 0; j < mesh.triangles.Length; ++j)
+                        {
+                            triangles.Add(mesh.triangles[j] + primitiveVertexOffset);
+                        }
 
-        //创建对应的computebuffer
-        meshHandleBuffer = new ComputeBuffer(meshHandles.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(MeshHandle)), ComputeBufferType.Structured);
-        meshHandleBuffer.SetData(meshHandles.ToArray());
+                        int faceNum = mesh.triangles.Length / 3;
 
-        meshInstanceBuffer = new ComputeBuffer(meshInstances.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(MeshInstance)), ComputeBufferType.Structured);
-        meshInstanceBuffer.SetData(meshInstances.ToArray());
+                        for (int f = 0; f < faceNum; ++f)
+                        {
+                            int tri0 = triangles[f * 3 + primitiveTriangleOffset];
+                            int tri1 = triangles[f * 3 + 1 + primitiveTriangleOffset];
+                            int tri2 = triangles[f * 3 + 2 + primitiveTriangleOffset];
+                            primitives.Add(new Primitive(tri0, tri1, tri2, gpuVertices[tri0].position, gpuVertices[tri1].position, gpuVertices[tri2].position, renderObjectsNum, -1));
+                        }
+                    }
+                    else
+                    {
+                        int primitiveTriangleOffset = gpuVertices.Count;
+                        int primitiveVertexOffset = triangles.Count;
+
+                        for (int j = 0; j < mesh.vertices.Length; ++j)
+                        {
+                            //positions.Add(shapes[i].transform.localToWorldMatrix.MultiplyPoint(mesh.vertices[j]));
+                            //uvs.Add(mesh.uv[j]);
+                            GPUVertex vertex = new GPUVertex();
+                            vertex.position = shapes[i].transform.localToWorldMatrix.MultiplyPoint(mesh.vertices[j]);
+                            vertex.uv = mesh.uv[j];
+                            gpuVertices.Add(vertex);
+                        }
+                        for (int j = 0; j < mesh.triangles.Length; ++j)
+                        {
+                            triangles.Add(mesh.triangles[j] + primitiveTriangleOffset);
+                        }
+
+                        int faceNum = mesh.triangles.Length / 3;
+
+                        for (int f = 0; f < faceNum; ++f)
+                        {
+                            int tri0 = triangles[f * 3 + primitiveVertexOffset];
+                            int tri1 = triangles[f * 3 + 1 + primitiveVertexOffset];
+                            int tri2 = triangles[f * 3 + 2 + primitiveVertexOffset];
+                            primitives.Add(new Primitive(tri0, tri1, tri2, gpuVertices[tri0].position, gpuVertices[tri1].position, gpuVertices[tri2].position, renderObjectsNum, -1));
+                        }
+                    }
+
+                    /*
+                    if (bsdfMaterial.materialType == BSDFMaterial.BSDFType.Matte)
+                    {
+                        gpuMaterials[renderObjectsNum] = new GPUMaterial((int)bsdfMaterial.materialType, bsdfMaterial.matte.sigma.constantValue, 0, Color.white, Color.white, Color.white);
+                    }
+                    else if (bsdfMaterial.materialType == BSDFMaterial.BSDFType.Plastic)
+                    {
+                        gpuMaterials[renderObjectsNum] = new GPUMaterial((int)bsdfMaterial.materialType, 0, bsdfMaterial.plastic.roughnessTexture.constantValue,
+                            bsdfMaterial.plastic.kd.spectrum, bsdfMaterial.plastic.ks.spectrum, Color.white);
+                    }
+                    else if (bsdfMaterial.materialType == BSDFMaterial.BSDFType.Mirror)
+                    {
+                        gpuMaterials[renderObjectsNum] = new GPUMaterial((int)bsdfMaterial.materialType, 0, 0,
+                            Color.white, Color.white, bsdfMaterial.mirror.kr.spectrum);
+                    }
+                    else if (bsdfMaterial.materialType == BSDFMaterial.BSDFType.Glass)
+                    {
+                        gpuMaterials[renderObjectsNum] = new GPUMaterial((int)bsdfMaterial.materialType, 0, bsdfMaterial.glass.uRougness.constantValue,
+                            Color.white, bsdfMaterial.glass.ks.spectrum, bsdfMaterial.glass.kr.spectrum);
+                    }
+                    */
+
+                    renderObjectsNum++;
+                }
+            }
+
+            //for (int j = 0; j < positions.Count; ++j)
+            //{
+            //    GPUVertex vertex = new GPUVertex();
+            //    vertex.position = positions[j];
+            //    vertex.uv = uvs[j];
+            //    gpuVertices.Add(vertex);
+            //}
+
+            //List<Primitive> orderedPrims = new List<Primitive>();
+            bvhAccel.Build(primitives, gpuVertices, triangles);
+
+            int BVHNodeSize = System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUBVHNode));
+            if (BVHBuffer == null)
+            {
+                BVHBuffer = new ComputeBuffer(bvhAccel.m_nodes.Count, BVHNodeSize, ComputeBufferType.Structured);
+                BVHBuffer.SetData(bvhAccel.m_nodes.ToArray());
+            }
+
+            if (woodTriBuffer == null)
+            {
+                woodTriBuffer = new ComputeBuffer(bvhAccel.m_woodTriangleVertices.Count, 16, ComputeBufferType.Structured);
+            }
+            woodTriBuffer.SetData(bvhAccel.m_woodTriangleVertices.ToArray());
+
+            if (verticesBuffer == null)
+            {
+                verticesBuffer = new ComputeBuffer(bvhAccel.m_worldVertices.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUVertex)), ComputeBufferType.Structured);
+            }
+            verticesBuffer.SetData(bvhAccel.m_worldVertices.ToArray());
+
+            if (triangleBuffer == null)
+            {
+                triangleBuffer = new ComputeBuffer(triangles.Count, 4, ComputeBufferType.Default);
+            }
+            triangleBuffer.SetData(triangles.ToArray());
+        }
     }
 
     void InitScene()
     {
-        Shape[] shapes = GameObject.FindObjectsOfType<Shape>();
-        //worldMatrices = new Matrix4x4[shapes.Length];
-        if (shapes.Length == 0)
-            return;
-        gpuMaterials = new GPUMaterial[shapes.Length];
-        int vertexOffset = 0;
-        int renderObjectsNum = 0;
-
-        //List<Vector2> uvs = new List<Vector2>();
-        //int triangleOffset = 0;
-        for (int i = 0; i < shapes.Length; ++i)
+        if (outputTexture == null)
         {
-            //worldMatrices[i] = shapes[i].transform.localToWorldMatrix;
-            BSDFMaterial bsdfMaterial = shapes[i].GetComponent<BSDFMaterial>();
-            if (shapes[i].shapeType == Shape.ShapeType.triangleMesh && bsdfMaterial != null)
-            {
-                MeshFilter meshRenderer = shapes[i].GetComponent<MeshFilter>();
-                Mesh mesh = meshRenderer.sharedMesh;
-                
-                if (mesh.subMeshCount > 1)
-                {
-                    int primitiveTriangleOffset = gpuVertices.Count;
-                    int primitiveVertexOffset = triangles.Count;
-
-                    for (int j = 0; j < mesh.vertices.Length; ++j)
-                    {
-                        //positions.Add(shapes[i].transform.localToWorldMatrix.MultiplyPoint(mesh.vertices[j]));
-                        //uvs.Add(mesh.uv[j]);
-                        GPUVertex vertex = new GPUVertex();
-                        vertex.position = shapes[i].transform.localToWorldMatrix.MultiplyPoint(mesh.vertices[j]);
-                        vertex.uv = mesh.uv[j];
-                        gpuVertices.Add(vertex);
-                    }
-                    for (int j = 0; j < mesh.triangles.Length; ++j)
-                    {
-                        triangles.Add(mesh.triangles[j] + primitiveVertexOffset);
-                    }
-
-                    int faceNum = mesh.triangles.Length / 3;
-
-                    for (int f = 0; f < faceNum; ++f)
-                    {
-                        int tri0 = triangles[f * 3 + primitiveTriangleOffset];
-                        int tri1 = triangles[f * 3 + 1 + primitiveTriangleOffset];
-                        int tri2 = triangles[f * 3 + 2 + primitiveTriangleOffset];
-                        primitives.Add(new Primitive(tri0, tri1, tri2, gpuVertices[tri0].position, gpuVertices[tri1].position, gpuVertices[tri2].position, renderObjectsNum));
-                    }
-                }
-                else
-                {
-                    int meshId = 0;
-                    int primitiveTriangleOffset = gpuVertices.Count;
-                    int primitiveVertexOffset = triangles.Count;
-                    
-                    for (int j = 0; j < mesh.vertices.Length; ++j)
-                    {
-                        //positions.Add(shapes[i].transform.localToWorldMatrix.MultiplyPoint(mesh.vertices[j]));
-                        //uvs.Add(mesh.uv[j]);
-                        GPUVertex vertex = new GPUVertex();
-                        vertex.position = shapes[i].transform.localToWorldMatrix.MultiplyPoint(mesh.vertices[j]);
-                        vertex.uv = mesh.uv[j];
-                        gpuVertices.Add(vertex);
-                    }
-                    for (int j = 0; j < mesh.triangles.Length; ++j)
-                    {
-                        triangles.Add(mesh.triangles[j] + primitiveTriangleOffset);
-                    }
-
-                    int faceNum = mesh.triangles.Length / 3;
-
-                    for (int f = 0; f < faceNum; ++f)
-                    {
-                        int tri0 = triangles[f * 3 + primitiveVertexOffset];
-                        int tri1 = triangles[f * 3 + 1 + primitiveVertexOffset];
-                        int tri2 = triangles[f * 3 + 2 + primitiveVertexOffset];
-                        primitives.Add(new Primitive(tri0, tri1, tri2, gpuVertices[tri0].position, gpuVertices[tri1].position, gpuVertices[tri2].position, renderObjectsNum));
-                    }
-                }
-
-                if (bsdfMaterial.materialType == BSDFMaterial.BSDFType.Matte)
-                {
-                    gpuMaterials[renderObjectsNum] = new GPUMaterial((int)bsdfMaterial.materialType, bsdfMaterial.matte.sigma.constantValue, 0, Color.white, Color.white, Color.white);
-                }
-                else if (bsdfMaterial.materialType == BSDFMaterial.BSDFType.Plastic)
-                {
-                    gpuMaterials[renderObjectsNum] = new GPUMaterial((int)bsdfMaterial.materialType, 0, bsdfMaterial.plastic.roughnessTexture.constantValue, 
-                        bsdfMaterial.plastic.kd.spectrum, bsdfMaterial.plastic.ks.spectrum, Color.white);
-                }
-                else if (bsdfMaterial.materialType == BSDFMaterial.BSDFType.Mirror)
-                {
-                    gpuMaterials[renderObjectsNum] = new GPUMaterial((int)bsdfMaterial.materialType, 0, 0,
-                        Color.white, Color.white, bsdfMaterial.mirror.kr.spectrum);
-                }
-                else if (bsdfMaterial.materialType == BSDFMaterial.BSDFType.Glass)
-                {
-                    gpuMaterials[renderObjectsNum] = new GPUMaterial((int)bsdfMaterial.materialType, 0, bsdfMaterial.glass.uRougness.constantValue,
-                        Color.white, bsdfMaterial.glass.ks.spectrum, bsdfMaterial.glass.kr.spectrum);
-                }
-
-                renderObjectsNum++;
-            }
+            outputTexture = new RenderTexture(Screen.width, Screen.height, 0);
+            outputTexture.enableRandomWrite = true;
         }
+        SetupSceneData();
 
-        //for (int j = 0; j < positions.Count; ++j)
-        //{
-        //    GPUVertex vertex = new GPUVertex();
-        //    vertex.position = positions[j];
-        //    vertex.uv = uvs[j];
-        //    gpuVertices.Add(vertex);
-        //}
+        SetupSamplers();
 
-        List<Primitive> orderedPrims = new List<Primitive>();
-        bvhAccel.Build(primitives, orderedPrims, gpuVertices, triangles);
+        //generate ray
+        //init the camera parameters
+        SetupGenerateRay();
 
-        //
-        //int BoundsSize = System.Runtime.InteropServices.Marshal.SizeOf(typeof(Bounds));
-        int BVHNodeSize = System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUBVHNode));
-        BVHBuffer = new ComputeBuffer(bvhAccel.m_nodes.Length, BVHNodeSize, ComputeBufferType.Structured);
-        BVHBuffer.SetData(bvhAccel.m_nodes);
+        SetupRayTraversal();
+        //generateRay.Dispatch(kGeneratePrimaryRay, (int)rasterWidth / 8 + 1, (int)rasterHeight / 8 + 1, 1);
+        //TestRay(camera, 0);
 
-        if (rayBuffer == null)
-        {
-            rayBuffer = new ComputeBuffer(Screen.width * Screen.height, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPURay)), ComputeBufferType.Structured);
-        }
-        float rasterWidth = Screen.width;
-        float rasterHeight = Screen.height;
-        if (gpuRays == null)
-        {
-            gpuRays = new GPURay[Screen.width * Screen.height];
-            rayBuffer.SetData(gpuRays);
-        }
+        SetupGeneratePath();
 
+
+        
+    }
+
+    void SetupSamplers()
+    {
         if (samplerBuffer == null)
         {
             samplerBuffer = new ComputeBuffer(Screen.width * Screen.height, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPURandomSampler)), ComputeBufferType.Structured);
@@ -427,124 +460,6 @@ public class Raytracing : MonoBehaviour
             samplerBuffer.SetData(gpuRandomSamplers);
         }
 
-        if (pathRadianceBuffer == null)
-        {
-            pathRadianceBuffer = new ComputeBuffer(Screen.width * Screen.height, System.Runtime.InteropServices.Marshal.SizeOf(typeof(Vector4)), ComputeBufferType.Structured);
-        }
-
-
-        //generate ray
-        //init the camera parameters
-        Camera camera = GetComponent<Camera>();
-        Matrix4x4 screenToRaster = new Matrix4x4();
-        
-        screenToRaster = Matrix4x4.Scale(new Vector3(rasterWidth, rasterHeight, 1)) *
-            Matrix4x4.Scale(new Vector3(0.5f, 0.5f, 0.5f)) *
-            Matrix4x4.Translate(new Vector3(1, 1, 1));
-
-        RasterToScreen = screenToRaster.inverse;
-        
-        float aspect = rasterWidth / rasterHeight;
-
-        Matrix4x4 cameraToScreen = camera.orthographic ? Matrix4x4.Ortho(-camera.orthographicSize * aspect, camera.orthographicSize * aspect,
-            -camera.orthographicSize, camera.orthographicSize, camera.nearClipPlane, camera.farClipPlane)
-            : Matrix4x4.Perspective(camera.fieldOfView, aspect, camera.nearClipPlane, camera.farClipPlane);
-        
-
-        RasterToCamera = cameraToScreen.inverse * RasterToScreen;
-        
-
-        kGeneratePrimaryRay = generateRay.FindKernel("GeneratePrimary");
-        
-        generateRay.SetBuffer(kGeneratePrimaryRay, "Rays", rayBuffer);
-        generateRay.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
-        generateRay.SetMatrix("RasterToCamera", RasterToCamera);
-        generateRay.SetMatrix("CameraToWorld", camera.cameraToWorldMatrix);
-        generateRay.SetFloat("_time", Time.time);
-        generateRay.SetBuffer(kGeneratePrimaryRay, "RNGs", samplerBuffer);
-        
-
-        //generateRay.Dispatch(kGeneratePrimaryRay, (int)rasterWidth / 8 + 1, (int)rasterHeight / 8 + 1, 1);
-        //TestRay(camera, 0);
-        kGeneratePath = generateRay.FindKernel("GeneratePath");
-        generateRay.SetBuffer(kGeneratePath, "Rays", rayBuffer);
-
-        kInitRandom = initRandom.FindKernel("CSInitSampler");
-        initRandom.SetBuffer(kInitRandom, "RNGs", samplerBuffer);
-        initRandom.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
-        initRandom.Dispatch(kInitRandom, (int)rasterWidth / 8 + 1, (int)rasterHeight / 8 + 1, 1);
-        //for test
-        samplerBuffer.GetData(gpuRandomSamplers);
-
-        kTestSampler = initRandom.FindKernel("CSTestSampler");
-        initRandom.SetBuffer(kTestSampler, "RNGs", samplerBuffer);
-        initRandom.Dispatch(kTestSampler, (int)rasterWidth / 8 + 1, (int)rasterHeight / 8 + 1, 1);
-        samplerBuffer.GetData(gpuRandomSamplers);
-
-
-        //extend inialization
-        if (woodTriBuffer == null)
-        {
-            woodTriBuffer = new ComputeBuffer(bvhAccel.m_woodTriangleVertices.Count, 16, ComputeBufferType.Structured);
-        }
-        woodTriBuffer.SetData(bvhAccel.m_woodTriangleVertices.ToArray());
-
-        if (verticesBuffer == null)
-        {
-            verticesBuffer = new ComputeBuffer(bvhAccel.m_worldVertices.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUVertex)), ComputeBufferType.Structured);
-        }
-        verticesBuffer.SetData(bvhAccel.m_worldVertices.ToArray());
-
-        if (triangleBuffer == null)
-        {
-            triangleBuffer = new ComputeBuffer(triangles.Count, 4, ComputeBufferType.Default);
-        }
-        triangleBuffer.SetData(triangles.ToArray());
-
-        if (outputTexture == null)
-        {
-            outputTexture = new RenderTexture(Screen.width, Screen.height, 0);
-            outputTexture.enableRandomWrite = true;
-        }
-
-        if (intersectBuffer == null)
-        {
-            intersectBuffer = new ComputeBuffer(Screen.width * Screen.height, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUInteraction)), ComputeBufferType.Structured);
-        }
-        if (gpuInteractions == null)
-        {
-            gpuInteractions = new GPUInteraction[Screen.width * Screen.height];
-        }
-        intersectBuffer.SetData(gpuInteractions);
-
-        if (materialBuffer == null)
-        {
-            materialBuffer = new ComputeBuffer(gpuMaterials.Length, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUMaterial)), ComputeBufferType.Structured);
-        }
-        materialBuffer.SetData(gpuMaterials);
-
-        generateRay.SetBuffer(kGeneratePath, "Materials", materialBuffer);
-        generateRay.SetBuffer(kGeneratePath, "RNGs", samplerBuffer);
-        generateRay.SetBuffer(kGeneratePath, "Intersections", intersectBuffer);
-        generateRay.SetBuffer(kGeneratePath, "PathRadiances", pathRadianceBuffer);
-
-        kRayTraversal = extend.FindKernel("RayTraversal");
-        extend.SetBuffer(kRayTraversal, "Rays", rayBuffer);
-        extend.SetBuffer(kRayTraversal, "WoodTriangles", woodTriBuffer);
-        extend.SetBuffer(kRayTraversal, "WVertices", verticesBuffer);
-        //extend.SetBuffer(kRayTraversal, "Primitives", primtiveBuffer);
-        extend.SetBuffer(kRayTraversal, "BVHTree", BVHBuffer);
-        extend.SetBuffer(kRayTraversal, "Intersections", intersectBuffer);
-        //extend.SetBuffer(kRayTraversal, "WorldMatrices", transformBuffer);
-        extend.SetTexture(kRayTraversal, "outputTexture", outputTexture);
-        extend.SetBuffer(kRayTraversal, "RNGs", samplerBuffer);
-        extend.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
-
-        cameraComponent = camera;
-    }
-
-    void SetupSamplers()
-    {
         float rasterWidth = Screen.width;
         float rasterHeight = Screen.height;
         kInitRandom = initRandom.FindKernel("CSInitSampler");
@@ -604,9 +519,33 @@ public class Raytracing : MonoBehaviour
         generateRay.SetMatrix("CameraToWorld", camera.cameraToWorldMatrix);
         generateRay.SetFloat("_time", Time.time);
         generateRay.SetBuffer(kGeneratePrimaryRay, "RNGs", samplerBuffer);
+
+        cameraComponent = camera;
     }
 
     void SetupGeneratePath()
+    {
+        
+        if (pathRadianceBuffer == null)
+        {
+            pathRadianceBuffer = new ComputeBuffer(Screen.width * Screen.height, System.Runtime.InteropServices.Marshal.SizeOf(typeof(Vector4)), ComputeBufferType.Structured);
+        }
+
+        if (materialBuffer == null)
+        {
+            materialBuffer = new ComputeBuffer(gpuMaterials.Length, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUMaterial)), ComputeBufferType.Structured);
+        }
+        materialBuffer.SetData(gpuMaterials);
+
+        kGeneratePath = generateRay.FindKernel("GeneratePath");
+        generateRay.SetBuffer(kGeneratePath, "Rays", rayBuffer);
+        generateRay.SetBuffer(kGeneratePath, "Materials", materialBuffer);
+        generateRay.SetBuffer(kGeneratePath, "RNGs", samplerBuffer);
+        generateRay.SetBuffer(kGeneratePath, "Intersections", intersectBuffer);
+        generateRay.SetBuffer(kGeneratePath, "PathRadiances", pathRadianceBuffer);
+    }
+
+    void SetupRayTraversal()
     {
         if (intersectBuffer == null)
         {
@@ -617,42 +556,6 @@ public class Raytracing : MonoBehaviour
             gpuInteractions = new GPUInteraction[Screen.width * Screen.height];
         }
         intersectBuffer.SetData(gpuInteractions);
-
-        if (materialBuffer == null)
-        {
-            materialBuffer = new ComputeBuffer(gpuMaterials.Length, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUMaterial)), ComputeBufferType.Structured);
-        }
-        materialBuffer.SetData(gpuMaterials);
-
-        generateRay.SetBuffer(kGeneratePath, "Materials", materialBuffer);
-        generateRay.SetBuffer(kGeneratePath, "RNGs", samplerBuffer);
-        generateRay.SetBuffer(kGeneratePath, "Intersections", intersectBuffer);
-        generateRay.SetBuffer(kGeneratePath, "PathRadiances", pathRadianceBuffer);
-    }
-
-    void SetupBVHData()
-    {
-        if (woodTriBuffer == null)
-        {
-            woodTriBuffer = new ComputeBuffer(bvhAccel.m_woodTriangleVertices.Count, 16, ComputeBufferType.Structured);
-        }
-        woodTriBuffer.SetData(bvhAccel.m_woodTriangleVertices.ToArray());
-
-        if (verticesBuffer == null)
-        {
-            verticesBuffer = new ComputeBuffer(bvhAccel.m_worldVertices.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUVertex)), ComputeBufferType.Structured);
-        }
-        verticesBuffer.SetData(bvhAccel.m_worldVertices.ToArray());
-
-        if (triangleBuffer == null)
-        {
-            triangleBuffer = new ComputeBuffer(triangles.Count, 4, ComputeBufferType.Default);
-        }
-        triangleBuffer.SetData(triangles.ToArray());
-    }
-
-    void SetupRayTraversal()
-    {
         float rasterWidth = Screen.width;
         float rasterHeight = Screen.height;
         kRayTraversal = extend.FindKernel("RayTraversal");
@@ -684,6 +587,8 @@ public class Raytracing : MonoBehaviour
         gpuVertices.Clear();
         triangles.Clear();
         bvhAccel.Clear();
+        meshHandles.Clear();
+        meshInstances.Clear();
 
         if (primtiveBuffer != null)
         {
@@ -758,11 +663,11 @@ public class Raytracing : MonoBehaviour
             pathRadianceBuffer = null;
         }
 
-        if (meshHandleBuffer != null)
-        {
-            meshHandleBuffer.Release();
-            meshHandleBuffer = null;
-        }
+        //if (meshHandleBuffer != null)
+        //{
+        //    meshHandleBuffer.Release();
+        //    meshHandleBuffer = null;
+        //}
 
         if (meshInstanceBuffer != null)
         {

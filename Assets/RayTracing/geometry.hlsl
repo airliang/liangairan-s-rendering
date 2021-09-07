@@ -258,4 +258,11 @@ bool SameHemisphere(float3 w, float3 wp)
 	return w.z * wp.z > 0;
 }
 
+Ray TransformRay(float4x4 mat, Ray ray)
+{
+	Ray output;
+	output.orig = mul(mat, float4(ray.orig.xyz, 1));
+	output.direction = mul(mat, float4(ray.direction.xyz, 0));
+}
+
 #endif
