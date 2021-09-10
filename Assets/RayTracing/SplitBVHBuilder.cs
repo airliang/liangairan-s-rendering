@@ -194,6 +194,7 @@ public class SplitBVHBuilder : BVHBuilder
         _vertices = vertices;
         _primitives = prims;
         _orderedPrimitives = orderedPrims;
+        maxPrimsInNode = _maxPrimsInNode;
         NodeSpec root = new NodeSpec();
 
         for (int i = 0; i < prims.Count; ++i)
@@ -240,7 +241,7 @@ public class SplitBVHBuilder : BVHBuilder
             spec.numRef = m_refStack.Count - firstRef;
         }
 
-        if (spec.numRef <= BVHAccel.maxLeafSize || level >= MaxDepth)
+        if (spec.numRef <= maxPrimsInNode || level >= MaxDepth)
             return CreateLeaf(spec);
 
         //find the split candidate
@@ -263,7 +264,7 @@ public class SplitBVHBuilder : BVHBuilder
 
         BVHBuildNode node = new BVHBuildNode();
         float minSAH = Mathf.Min(Mathf.Min(leafSAH, objectSplit.sah), spatial.sah);
-        if (minSAH == leafSAH && spec.numRef <= 4)
+        if (minSAH == leafSAH && spec.numRef <= maxPrimsInNode)
         {
             //for (int i = 0; i < spec.numRef; i++)
             //{

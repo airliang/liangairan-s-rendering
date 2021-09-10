@@ -111,8 +111,8 @@ public class BVHAccel
 	
 	BVHBuildNode root;
 	//List<Primitive> primitives;
-	public LinearBVHNode[] linearNodes;
-	BVHBuilder builder = new SplitBVHBuilder();
+	//public LinearBVHNode[] linearNodes;
+	//BVHBuilder builder = new SplitBVHBuilder();
 	public static int maxLeafSize = 4;  //a node can contain leaves
 										//scene informations
 										//Texture2D bvhNodeTexture;
@@ -194,12 +194,13 @@ public class BVHAccel
 		root = RecursiveBuild(ref primitiveInfos, 0, prims.Count, ref orderedPrims);
 		primitives = orderedPrims;
 		*/
+		BVHBuilder builder = new SplitBVHBuilder();
 		List<Primitive> orderedPrims = new List<Primitive>();
 		root = builder.Build(primitives, orderedPrims, vertices, triangles);
 		primitives = orderedPrims;
 		//int offset = 0;
 		//linearNodes = new LinearBVHNode[builder.TotalNodes];
-		//FlattenBVHTree(root, ref offset);
+		//FlattenBVHTree(root, ref offset, linearNodes);
 		CreateCompact(root, primitives, vertices, builder.TotalNodes);
 		//bvhNodeTexture = new Texture2D(builder.TotalNodes, 1, TextureFormat.RGBAFloat, false);
 	}
@@ -207,9 +208,9 @@ public class BVHAccel
 	public void Clear()
     {
 		root = null;
-		linearNodes = null;
+		//linearNodes = null;
 	}
-	int FlattenBVHTree(BVHBuildNode node, ref int offset)
+	int FlattenBVHTree(BVHBuildNode node, ref int offset, LinearBVHNode[] linearNodes)
 	{
 		//LinearBVHNode linearNode = linearNodes[offset];
 		int curOffset = offset;
@@ -227,8 +228,8 @@ public class BVHAccel
 			linearNodes[curOffset].axis = (ushort)node.splitAxis;
 			linearNodes[curOffset].nPrimitives = 0;
 			//这里返回了offset
-			FlattenBVHTree(node.childrenLeft, ref offset);
-			linearNodes[curOffset].secondChildOffset = FlattenBVHTree(node.childrenRight, ref offset);
+			FlattenBVHTree(node.childrenLeft, ref offset, linearNodes);
+			linearNodes[curOffset].secondChildOffset = FlattenBVHTree(node.childrenRight, ref offset, linearNodes);
 		}
 
 		return myOffset;
@@ -289,10 +290,10 @@ public class BVHAccel
 		Debug.Log(numbers);
 	}
 
-	void CreateBasic(BVHBuildNode root, List<Vector3> positions)
+	void CreateBasic(BVHBuildNode root, List<Vector3> positions, int totalNodes)
     {
 		//m_nodes.resizeDiscard((root->getSubtreeSize(BVH_STAT_NODE_COUNT) * 64 + Align - 1) & -Align);
-		GPUBVHNode[] nodes = new GPUBVHNode[builder.TotalNodes];
+		GPUBVHNode[] nodes = new GPUBVHNode[totalNodes];
 
 		int nextNodeIdx = 0;
 		List<StackEntry> stack = new List<StackEntry>();
@@ -746,7 +747,8 @@ public class BVHAccel
 
 	//build 2 types bvh
 	//meshinstance bvh and mesh primitive bvh
-	public void Build(List<Transform> meshTransforms, List<MeshInstance> meshInstances, List<MeshHandle> meshHandles, List<GPUVertex> vertices, List<int> triangles)
+	//return toplevel bvh在bvhbuffer中的位置
+	public int Build(List<Transform> meshTransforms, List<MeshInstance> meshInstances, List<MeshHandle> meshHandles, List<GPUVertex> vertices, List<int> triangles)
     {
 		List<int> instBVHOffset = new List<int>();
 
@@ -757,11 +759,13 @@ public class BVHAccel
 		{
 			instBVHOffset.Add(instBVHNodeAddr);
 			int nodesNum = BuildMeshBVH(meshHandles[i], vertices, triangles);
-			instBVHNodeAddr += nodesNum * System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUBVHNode));
+			instBVHNodeAddr += nodesNum;
 
 		}
 		// build the instance bounding box bvh
 		BuildInstBVH(meshTransforms, meshInstances, vertices, triangles, instBVHOffset);
+
+		return instBVHNodeAddr;
 	}
 
 	public void BuildInstBVH(List<Transform> meshTransforms, List<MeshInstance> meshInstances, List<GPUVertex> vertices, List<int> triangles, List<int> instBVHOffset)
@@ -787,6 +791,7 @@ public class BVHAccel
 	//返回node的数量
 	public int BuildMeshBVH(MeshHandle meshHandle, List<GPUVertex> vertices, List<int> triangles)
     {
+		
 		//生成MeshHandle的primitives
 		List<Primitive> primitives = new List<Primitive>();
 		int faceNum = meshHandle.triangleCount / 3;
@@ -797,8 +802,10 @@ public class BVHAccel
 			int tri2 = triangles[f * 3 + 2 + meshHandle.triangleOffset];
 			primitives.Add(new Primitive(tri0, tri1, tri2, vertices[tri0].position, vertices[tri1].position, vertices[tri2].position, 0, 0));
 		}
-		BVHBuildNode meshRoot = builder.Build(primitives, null, vertices, triangles);
-		CreateCompact(meshRoot, primitives, vertices, builder.TotalNodes, false);
+		List<Primitive> orderedPrims = new List<Primitive>();
+		BVHBuilder builder = new SplitBVHBuilder();
+		BVHBuildNode meshRoot = builder.Build(primitives, orderedPrims, vertices, triangles, primitives.Count < 3 ? 1 : maxLeafSize);
+		CreateCompact(meshRoot, primitives, vertices, builder.TotalNodes, true);
 		return builder.TotalNodes;
 	}
 }

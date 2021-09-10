@@ -44,4 +44,6 @@ uniform float2 rasterSize;
 uniform float3 testBoundMax;
 uniform float3 testBoundMin;
 
+uniform int instBVHAddr;
+
 #endif

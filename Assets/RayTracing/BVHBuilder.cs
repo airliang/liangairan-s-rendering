@@ -19,7 +19,7 @@ public class BVHBuilder
 {
 	//List<Primitive> primitives;
 	//public LinearBVHNode[] linearNodes;
-	int maxPrimsInNode = 4;
+	protected int maxPrimsInNode = 4;
 	protected int totalNodes = 0;
 	List<Primitive> primitives;
 	int MaximunExtent(Vector3 extent)

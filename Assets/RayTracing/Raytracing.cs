@@ -75,6 +75,8 @@ public class Raytracing : MonoBehaviour
     int kTestSampler;
 
     bool useInstanceBVH = false;
+    //toplevel bvh在bvh buffer中的位置
+    int instBVHNodeAddr = -1;
     void Start()
     {
         //this is a bvh
@@ -279,7 +281,7 @@ public class Raytracing : MonoBehaviour
 
             //创建bvh
 
-            bvhAccel.Build(meshTransforms, meshInstances, meshHandles, gpuVertices, triangles);
+            instBVHNodeAddr = bvhAccel.Build(meshTransforms, meshInstances, meshHandles, gpuVertices, triangles);
 
 
             //创建对应的computebuffer
@@ -395,32 +397,32 @@ public class Raytracing : MonoBehaviour
 
             //List<Primitive> orderedPrims = new List<Primitive>();
             bvhAccel.Build(primitives, gpuVertices, triangles);
-
-            int BVHNodeSize = System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUBVHNode));
-            if (BVHBuffer == null)
-            {
-                BVHBuffer = new ComputeBuffer(bvhAccel.m_nodes.Count, BVHNodeSize, ComputeBufferType.Structured);
-                BVHBuffer.SetData(bvhAccel.m_nodes.ToArray());
-            }
-
-            if (woodTriBuffer == null)
-            {
-                woodTriBuffer = new ComputeBuffer(bvhAccel.m_woodTriangleVertices.Count, 16, ComputeBufferType.Structured);
-            }
-            woodTriBuffer.SetData(bvhAccel.m_woodTriangleVertices.ToArray());
-
-            if (verticesBuffer == null)
-            {
-                verticesBuffer = new ComputeBuffer(bvhAccel.m_worldVertices.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUVertex)), ComputeBufferType.Structured);
-            }
-            verticesBuffer.SetData(bvhAccel.m_worldVertices.ToArray());
-
-            if (triangleBuffer == null)
-            {
-                triangleBuffer = new ComputeBuffer(triangles.Count, 4, ComputeBufferType.Default);
-            }
-            triangleBuffer.SetData(triangles.ToArray());
         }
+
+        int BVHNodeSize = System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUBVHNode));
+        if (BVHBuffer == null)
+        {
+            BVHBuffer = new ComputeBuffer(bvhAccel.m_nodes.Count, BVHNodeSize, ComputeBufferType.Structured);
+            BVHBuffer.SetData(bvhAccel.m_nodes.ToArray());
+        }
+
+        if (woodTriBuffer == null)
+        {
+            woodTriBuffer = new ComputeBuffer(bvhAccel.m_woodTriangleVertices.Count, 16, ComputeBufferType.Structured);
+        }
+        woodTriBuffer.SetData(bvhAccel.m_woodTriangleVertices.ToArray());
+
+        if (verticesBuffer == null)
+        {
+            verticesBuffer = new ComputeBuffer(bvhAccel.m_worldVertices.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUVertex)), ComputeBufferType.Structured);
+        }
+        verticesBuffer.SetData(bvhAccel.m_worldVertices.ToArray());
+
+        if (triangleBuffer == null)
+        {
+            triangleBuffer = new ComputeBuffer(triangles.Count, 4, ComputeBufferType.Default);
+        }
+        triangleBuffer.SetData(triangles.ToArray());
     }
 
     void InitScene()
@@ -569,6 +571,7 @@ public class Raytracing : MonoBehaviour
         extend.SetTexture(kRayTraversal, "outputTexture", outputTexture);
         extend.SetBuffer(kRayTraversal, "RNGs", samplerBuffer);
         extend.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
+        extend.SetInt("instBVHAddr", instBVHNodeAddr);
     }
     private void OnPostRender()
     {
@@ -734,22 +737,22 @@ public class Raytracing : MonoBehaviour
         unityRay.direction = ray.direction;
         return unityBounds.IntersectRay(unityRay);
     }
-    bool SceneIntersectTest(GPURay ray)
-    {
-        Vector3 invDir =  new Vector3(1.0f / ray.direction.x, 1.0f / ray.direction.y, 1.0f / ray.direction.z);
-        int[] dirIsNeg = new int[3];
-        dirIsNeg[0] = invDir.x < 0 ? 1 : 0;
-        dirIsNeg[1] = invDir.y < 0 ? 1 : 0;
-        dirIsNeg[2] = invDir.z < 0 ? 1 : 0;
-        int currentNodeIndex = 0; //当前正在访问的node
+    //bool SceneIntersectTest(GPURay ray)
+    //{
+    //    Vector3 invDir =  new Vector3(1.0f / ray.direction.x, 1.0f / ray.direction.y, 1.0f / ray.direction.z);
+    //    int[] dirIsNeg = new int[3];
+    //    dirIsNeg[0] = invDir.x < 0 ? 1 : 0;
+    //    dirIsNeg[1] = invDir.y < 0 ? 1 : 0;
+    //    dirIsNeg[2] = invDir.z < 0 ? 1 : 0;
+    //    int currentNodeIndex = 0; //当前正在访问的node
 
 
-        LinearBVHNode node = bvhAccel.linearNodes[currentNodeIndex];
-        if (BoundIntersectP(ray, node.bounds, invDir, dirIsNeg))
-            return true;
+    //    LinearBVHNode node = bvhAccel.linearNodes[currentNodeIndex];
+    //    if (BoundIntersectP(ray, node.bounds, invDir, dirIsNeg))
+    //        return true;
 
-        return false;
-    }
+    //    return false;
+    //}
     private void TestRay(Camera camera, float duration)
     {
         float rasterWidth = Screen.width;

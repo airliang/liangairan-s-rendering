@@ -408,10 +408,10 @@ bool IntersectBVH(Ray ray, out Interaction interaction)
 	int traversalStack[STACK_SIZE];
 	traversalStack[0] = EntrypointSentinel;
 	int leafAddr = 0;               // If negative, then first postponed leaf, non-negative if no leaf (innernode).
-	int nodeAddr = 0;
-	int primitivesNum = 0;   //当前节点的primitives数量
-	int primitivesNum2 = 0;
-	int triIdx = 0;
+	int nodeAddr = instBVHAddr;
+	//int primitivesNum = 0;   //当前节点的primitives数量
+	//int primitivesNum2 = 0;
+	//int triIdx = 0;
 	float tmin = rayDir.w;
 	float hitT = rayOrig.w;  //tmax
 	float origx = rayOrig.x;
@@ -478,7 +478,7 @@ bool IntersectBVH(Ray ray, out Interaction interaction)
 						int tmp = nodeAddr;
 						nodeAddr = cnodes.y;
 						cnodes.y = tmp;
-						tmp = primitivesNum;
+						tmp = meshInstanceIndex;
 						meshInstanceIndex = meshInstanceIndex2;
 						meshInstanceIndex2 = tmp;
 					}
