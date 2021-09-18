@@ -165,8 +165,8 @@ bool IntersectBVHandTriangles(Ray ray, int bvhOffset, out Interaction interactio
 	traversalStack[0] = EntrypointSentinel;
 	int leafAddr = 0;               // If negative, then first postponed leaf, non-negative if no leaf (innernode).
 	int nodeAddr = bvhOffset;
-	int primitivesNum = 0;   //当前节点的primitives数量
-	int primitivesNum2 = 0;
+	//int primitivesNum = 0;   //当前节点的primitives数量
+	//int primitivesNum2 = 0;
 	int triIdx = 0;
 	float tmin = rayDir.w;
 	float hitT = rayOrig.w;  //tmax
@@ -246,8 +246,8 @@ bool IntersectBVHandTriangles(Ray ray, int bvhOffset, out Interaction interactio
 			else
 			{
 				nodeAddr = (traverseChild0) ? cnodes.x : cnodes.y;
-				primitivesNum = (traverseChild0) ? cnodes.z : cnodes.w;
-				primitivesNum2 = (traverseChild0) ? cnodes.w : cnodes.z;
+				//primitivesNum = (traverseChild0) ? cnodes.z : cnodes.w;
+				//primitivesNum2 = (traverseChild0) ? cnodes.w : cnodes.z;
 				// Both children were intersected => push the farther one.
 				if (traverseChild0 && traverseChild1)
 				{
@@ -257,9 +257,9 @@ bool IntersectBVHandTriangles(Ray ray, int bvhOffset, out Interaction interactio
 						int tmp = nodeAddr;
 						nodeAddr = cnodes.y;
 						cnodes.y = tmp;
-						tmp = primitivesNum;
-						primitivesNum = primitivesNum2;
-						primitivesNum2 = tmp;
+						//tmp = primitivesNum;
+						//primitivesNum = primitivesNum2;
+						//primitivesNum2 = tmp;
 					}
 					//stackPtr += 4;
 					//stackIndex++;
@@ -286,9 +286,13 @@ bool IntersectBVHandTriangles(Ray ray, int bvhOffset, out Interaction interactio
 		//遍历叶子
 		while (leafAddr < 0)
 		{
-			for (int triAddr = ~leafAddr; triAddr < ~leafAddr + primitivesNum * 3; triAddr += 3)
+			for (int triAddr = ~leafAddr; /*triAddr < ~leafAddr + primitivesNum * 3*/; triAddr += 3)
 			{
 				const float4 m0 = WoodTriangles[triAddr];     //matrix row 0 
+
+				if (asint(m0.x) == 0x7FFFFFFF)
+					break;
+
 				const float4 m1 = WoodTriangles[triAddr + 1]; //matrix row 1 
 				const float4 m2 = WoodTriangles[triAddr + 2]; //matrix row 2
 
@@ -381,7 +385,7 @@ bool IntersectBVHandTriangles(Ray ray, int bvhOffset, out Interaction interactio
 			if (nodeAddr < 0)
 			{
 				nodeAddr = traversalStack[stackIndex--];
-				primitivesNum = primitivesNum2;
+				//primitivesNum = primitivesNum2;
 			}
 		} // leaf
 	}

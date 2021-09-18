@@ -766,24 +766,24 @@ public class Raytracing : MonoBehaviour
         rayBuffer.GetData(gpuRays);
 
         //test for correction
-        GPURay ray = gpuRays[(int)rasterHeight * (int)rasterWidth - 1];
-        bool bIntersectTest = bvhAccel.IntersectTest(ray);//IntersectRay(bvhAccel.linearNodes[0].bounds, ray);
-        if (bIntersectTest)
-        {
-            Debug.DrawRay(ray.orig, ray.direction * 20.0f, Color.blue, duration);
-        }
-        else
-            Debug.DrawRay(ray.orig, ray.direction * 20.0f, Color.red, duration);
+        //GPURay ray = gpuRays[(int)rasterHeight * (int)rasterWidth - 1];
+        //bool bIntersectTest = bvhAccel.IntersectTest(ray);//IntersectRay(bvhAccel.linearNodes[0].bounds, ray);
+        //if (bIntersectTest)
+        //{
+        //    Debug.DrawRay(ray.orig, ray.direction * 20.0f, Color.blue, duration);
+        //}
+        //else
+        //    Debug.DrawRay(ray.orig, ray.direction * 20.0f, Color.red, duration);
 
-        int x = (int)rasterWidth / 2 + 60;
-        int y = (int)rasterHeight / 2;
+        int x = 577;//(int)rasterWidth / 2 + 60;
+        int y = 101;//(int)rasterHeight / 2;
         int index = x + y * (int)rasterWidth;
         //index = 700 + 360 * (int)rasterWidth;
         GPURay gpuRay = gpuRays[index];
 
         //bIntersectTest = IntersectRay(bvhAccel.linearNodes[0].bounds, gpuRay);
-        
-        bIntersectTest = bvhAccel.IntersectTest(gpuRay);//SceneIntersectTest(gpuRay);
+
+        bool bIntersectTest = bvhAccel.IntersectTest(gpuRay);//SceneIntersectTest(gpuRay);
         if (bIntersectTest)
         {
             Debug.DrawRay(gpuRay.orig, gpuRay.direction * 20.0f, Color.blue, duration);

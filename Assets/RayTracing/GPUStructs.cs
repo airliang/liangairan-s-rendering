@@ -90,12 +90,23 @@ public struct GPUBounds
     public Vector3 Offset(Vector3 p)
 	{
         Vector3 o = p - min;
-		if (max.x > min.x) o.x /= max.x - min.x;
-		if (max.y > min.y) o.y /= max.y - min.y;
-		if (max.z > min.z) o.z /= max.z - min.z;
+        Vector3 extend = Extend;
+		if (max.x > min.x) 
+            o.x /= extend.x;
+		if (max.y > min.y) 
+            o.y /= extend.y;
+		if (max.z > min.z) 
+            o.z /= extend.z;
 		return o;
 	}
 
+    public Vector3 Extend
+    {
+        get
+        {
+            return max - min;
+        }
+    }
     public Vector3 centroid
     {
         get
@@ -108,6 +119,14 @@ public struct GPUBounds
     {
         max = Vector3.Min(max, b.max);
         min = Vector3.Max(min, b.min);
+    }
+
+    public static GPUBounds Intersection(GPUBounds a, GPUBounds b)
+    {
+        GPUBounds bounds;
+        bounds.max = Vector3.Min(a.max, b.max);
+        bounds.min = Vector3.Max(a.min, b.min);
+        return bounds;
     }
     public static GPUBounds Union(GPUBounds a, GPUBounds b)
     {

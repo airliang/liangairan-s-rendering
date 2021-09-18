@@ -28,15 +28,15 @@ struct BVHPrimitiveInfo
 public class BVHBuildNode
 {
 	// BVHBuildNode Public Methods
-	public static BVHBuildNode CreateInnerNode(GPUBounds bounds, BVHBuildNode left, BVHBuildNode right)
-    {
-		BVHBuildNode node = new BVHBuildNode();
-		node.bounds = bounds;
-		node.childrenLeft = left;
-		node.childrenRight = right;
-		node.nPrimitives = 0;
-		return node;
-    }
+	//public static BVHBuildNode CreateInnerNode(GPUBounds bounds, BVHBuildNode left, BVHBuildNode right)
+ //   {
+	//	BVHBuildNode node = new BVHBuildNode();
+	//	node.bounds = bounds;
+	//	node.childrenLeft = left;
+	//	node.childrenRight = right;
+	//	node.nPrimitives = 0;
+	//	return node;
+ //   }
 	public void InitLeaf(int first, int n, GPUBounds b) 
 	{
 		firstPrimOffset = first;
@@ -61,6 +61,7 @@ public class BVHBuildNode
 	public BVHBuildNode childrenLeft;
 	public BVHBuildNode childrenRight;
 	public int splitAxis;
+	public string name;
 	
 	//leaf node才用到的数据
 	public int firstPrimOffset;
@@ -198,9 +199,14 @@ public class BVHAccel
 		List<Primitive> orderedPrims = new List<Primitive>();
 		root = builder.Build(primitives, orderedPrims, vertices, triangles);
 		primitives = orderedPrims;
-		//int offset = 0;
-		//linearNodes = new LinearBVHNode[builder.TotalNodes];
-		//FlattenBVHTree(root, ref offset, linearNodes);
+		int offset = 0;
+		LinearBVHNode[] linearNodes = new LinearBVHNode[builder.TotalNodes];
+		FlattenBVHTree(root, ref offset, linearNodes);
+		int totalPrimitives = 0;
+		for (int i = 0; i < linearNodes.Length; ++i)
+        {
+			totalPrimitives += linearNodes[i].nPrimitives;
+		}
 		CreateCompact(root, primitives, vertices, builder.TotalNodes);
 		//bvhNodeTexture = new Texture2D(builder.TotalNodes, 1, TextureFormat.RGBAFloat, false);
 	}
@@ -251,25 +257,45 @@ public class BVHAccel
 			}
 		}
 		*/
-		
-		for (int i = 0; i < 1; ++i)
-        {
-			if (SingleToInt32Bits(m_nodes[i].cids.z) > 0)
+
+		//m_nodes全是inner node，找到对应的三角形画出来
+		//for (int i = 0; i < m_nodes.Count; ++i)
+		int i = 3;
+		{
+			if (SingleToInt32Bits(m_nodes[i].cids.x) >= 0)
             {
 				RenderDebug.DrawDebugBound(m_nodes[i].b0xy.x, m_nodes[i].b0xy.y, m_nodes[i].b0xy.z, m_nodes[i].b0xy.w, m_nodes[i].b01z.x, m_nodes[i].b01z.y, Color.white);
 			}
 			else
             {
-				RenderDebug.DrawDebugBound(m_nodes[i].b0xy.x, m_nodes[i].b0xy.y, m_nodes[i].b0xy.z, m_nodes[i].b0xy.w, m_nodes[i].b01z.x, m_nodes[i].b01z.y, Color.white);
+				//RenderDebug.DrawDebugBound(m_nodes[i].b0xy.x, m_nodes[i].b0xy.y, m_nodes[i].b0xy.z, m_nodes[i].b0xy.w, m_nodes[i].b01z.x, m_nodes[i].b01z.y, Color.white);
+
+				int triAddr = SingleToInt32Bits(m_nodes[i].cids.x);
+				int triNum = SingleToInt32Bits(m_nodes[i].cids.z);
+
+				for (int tri = ~triAddr; tri < ~triAddr + triNum * 3; tri += 3)
+                {
+					RenderDebug.DrawTriangle(m_worldVertices[tri], m_worldVertices[tri + 1], m_worldVertices[tri + 2], Color.red);
+                }
+				//RenderDebug.DrawDebugBound(m_nodes[i].b0xy.x, m_nodes[i].b0xy.y, m_nodes[i].b0xy.z, m_nodes[i].b0xy.w, m_nodes[i].b01z.x, m_nodes[i].b01z.y, Color.white);
 			}
 
-			if (SingleToInt32Bits(m_nodes[i].cids.w) > 0)
+			if (SingleToInt32Bits(m_nodes[i].cids.y) >= 0)
 			{
 				RenderDebug.DrawDebugBound(m_nodes[i].b1xy.x, m_nodes[i].b1xy.y, m_nodes[i].b1xy.z, m_nodes[i].b1xy.w, m_nodes[i].b01z.z, m_nodes[i].b01z.w, Color.white);
 			}
 			else
             {
-				RenderDebug.DrawDebugBound(m_nodes[i].b1xy.x, m_nodes[i].b1xy.y, m_nodes[i].b1xy.z, m_nodes[i].b1xy.w, m_nodes[i].b01z.z, m_nodes[i].b01z.w, Color.red);
+				//if (!drawBound)
+				RenderDebug.DrawDebugBound(m_nodes[i].b1xy.x, m_nodes[i].b1xy.y, m_nodes[i].b1xy.z, m_nodes[i].b1xy.w, m_nodes[i].b01z.z, m_nodes[i].b01z.w, Color.gray);
+				int triAddr = SingleToInt32Bits(m_nodes[i].cids.y);
+				int triNum = SingleToInt32Bits(m_nodes[i].cids.w);
+
+				for (int tri = ~triAddr; tri < ~triAddr + triNum * 3; tri += 3)
+				{
+					RenderDebug.DrawTriangle(m_worldVertices[tri], m_worldVertices[tri + 1], m_worldVertices[tri + 2], Color.yellow);
+				}
+				//RenderDebug.DrawDebugBound(m_nodes[i].b1xy.x, m_nodes[i].b1xy.y, m_nodes[i].b1xy.z, m_nodes[i].b1xy.w, m_nodes[i].b01z.z, m_nodes[i].b01z.w, Color.red);
 			}
 		}
     }
@@ -356,10 +382,10 @@ public class BVHAccel
 	//param meshNode代表是否一个mesh下的bvh划分
 	void CreateCompact(BVHBuildNode root, List<Primitive> primitives, List<GPUVertex> gpuVertices, int nodesNum, bool bottomLevel = true, List<int> botomLevelOffset = null)
 	{
-		GPUBVHNode[] nodes = new GPUBVHNode[nodesNum];
-		
-
-		int nextNodeIdx = 0;
+		//GPUBVHNode[] nodes = new GPUBVHNode[nodesNum];
+		List<GPUBVHNode> nodes = new List<GPUBVHNode>();
+		nodes.Add(new GPUBVHNode());
+		//int nextNodeIdx = 0;
 		List<StackEntry> stack = new List<StackEntry>();
 		stack.Add(new StackEntry(root, 0));
 		GPUBounds b0 = new GPUBounds();
@@ -377,9 +403,10 @@ public class BVHAccel
 			//left child
 			if (!e.node.childrenLeft.IsLeaf())
             {
-				c0 = ++nextNodeIdx;
-				stack.Add(new StackEntry(e.node.childrenLeft, nextNodeIdx));
-            }
+				c0 = nodes.Count;//++nextNodeIdx;
+				stack.Add(new StackEntry(e.node.childrenLeft, c0));
+				nodes.Add(new GPUBVHNode());
+			}
 
 			if (e.node.childrenLeft.IsLeaf())
 			{
@@ -403,6 +430,8 @@ public class BVHAccel
 							m_worldVertices.Add(worldPos);
 						}
 					}
+					m_woodTriangleVertices.Add(new Vector4(Int32BitsToSingle(int.MaxValue), 0, 0 , 0));
+					m_worldVertices.Add(new Vector4(Int32BitsToSingle(int.MaxValue), 0, 0, 0));
 					c2 = child.nPrimitives;
 				}
 				else
@@ -421,8 +450,9 @@ public class BVHAccel
 			//right child
 			if (!e.node.childrenRight.IsLeaf())
 			{
-				c1 = ++nextNodeIdx;
-				stack.Add(new StackEntry(e.node.childrenRight, nextNodeIdx));
+				c1 = nodes.Count;//++nextNodeIdx;
+				stack.Add(new StackEntry(e.node.childrenRight, c1));
+				nodes.Add(new GPUBVHNode());
 			}
 			
 			if (e.node.childrenRight.IsLeaf())
@@ -444,6 +474,8 @@ public class BVHAccel
 						}
 
 					}
+					m_woodTriangleVertices.Add(new Vector4(Int32BitsToSingle(int.MaxValue), 0, 0, 0));
+					m_worldVertices.Add(new Vector4(Int32BitsToSingle(int.MaxValue), 0, 0, 0));
 					c3 = child.nPrimitives;
 				}
 				else
@@ -551,8 +583,8 @@ public class BVHAccel
 		traversalStack[0] = EntrypointSentinel;
 		int leafAddr = 0;               // If negative, then first postponed leaf, non-negative if no leaf (innernode).
 		int nodeAddr = 0;
-		int primitivesNum = 0;   //当前节点的primitives数量
-		int primitivesNum2 = 0;
+		//int primitivesNum = 0;   //当前节点的primitives数量
+		//int primitivesNum2 = 0;
 		int triIdx = 0;
 		float tmin = rayDir.w;
 		float hitT = rayOrig.w;  //tmax
@@ -647,8 +679,10 @@ public class BVHAccel
 				else
 				{
 					nodeAddr = (traverseChild0) ? cnodes.x : cnodes.y;
-					primitivesNum = (traverseChild0) ? cnodes.z : cnodes.w;
-					primitivesNum2 = (traverseChild0) ? cnodes.w : cnodes.z;
+					//primitivesNum = (traverseChild0) ? cnodes.z : cnodes.w;
+					//primitivesNum2 = (traverseChild0) ? cnodes.w : cnodes.z;
+					//if (!swp)
+					//	swp = primitivesNum2 > 0 && primitivesNum == 0;
 					// Both children were intersected => push the farther one.
 					if (traverseChild0 && traverseChild1)
 					{
@@ -658,9 +692,9 @@ public class BVHAccel
 							int tmp = nodeAddr;
 							nodeAddr = cnodes.y;
 							cnodes.y = tmp;
-							tmp = primitivesNum;
-							primitivesNum = primitivesNum2;
-							primitivesNum2 = tmp;
+							//tmp = primitivesNum;
+							//primitivesNum = primitivesNum2;
+							//primitivesNum2 = tmp;
 						}
 						//stackPtr += 4;
 						//stackIndex++;
@@ -685,9 +719,13 @@ public class BVHAccel
 			//遍历叶子
 			while (leafAddr < 0)
 			{
-				for (int triAddr = ~leafAddr; triAddr < ~leafAddr + primitivesNum * 3; triAddr += 3)
+				for (int triAddr = ~leafAddr; /*triAddr < ~leafAddr + primitivesNum * 3*/; triAddr += 3)
 				{
 					Vector4 m0 = m_woodTriangleVertices[triAddr];     //matrix row 0 
+
+					if (SingleToInt32Bits(m0.x) == 0x7fffffff)
+						break;
+
 					Vector4 m1 = m_woodTriangleVertices[triAddr + 1]; //matrix row 1 
 					Vector4 m2 = m_woodTriangleVertices[triAddr + 2]; //matrix row 2
 
@@ -737,7 +775,7 @@ public class BVHAccel
 				if (nodeAddr < 0)
 				{
 					nodeAddr = traversalStack[stackIndex--];
-					primitivesNum = primitivesNum2;
+					//primitivesNum = primitivesNum2;
 				}
 			} // leaf
 		}
