@@ -263,6 +263,7 @@ Ray TransformRay(float4x4 mat, Ray ray)
 	Ray output;
 	output.orig = mul(mat, float4(ray.orig.xyz, 1));
 	output.direction = mul(mat, float4(ray.direction.xyz, 0));
+	return output;
 }
 
 #endif

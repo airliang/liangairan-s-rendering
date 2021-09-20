@@ -325,7 +325,7 @@ public class SplitBVHBuilder : BVHBuilder
         if (level < MaxSpatialDepth && objectSplit.overlap >= m_minOverlap)
         {
             //由于object划分会产生overlap的区域，当overlap的区域＞minOverlap的时候，需要划分spatial split
-            //spatialSplit = FindSpatialSplit(spec, nodeSAH);
+            spatialSplit = FindSpatialSplit(spec, nodeSAH);
         }
 
         BVHBuildNode node = new BVHBuildNode();

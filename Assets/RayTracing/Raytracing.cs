@@ -567,6 +567,8 @@ public class Raytracing : MonoBehaviour
         //extend.SetBuffer(kRayTraversal, "Primitives", primtiveBuffer);
         extend.SetBuffer(kRayTraversal, "BVHTree", BVHBuffer);
         extend.SetBuffer(kRayTraversal, "Intersections", intersectBuffer);
+        if (meshInstanceBuffer != null)
+            extend.SetBuffer(kRayTraversal, "MeshInstances", meshInstanceBuffer);
         //extend.SetBuffer(kRayTraversal, "WorldMatrices", transformBuffer);
         extend.SetTexture(kRayTraversal, "outputTexture", outputTexture);
         extend.SetBuffer(kRayTraversal, "RNGs", samplerBuffer);
@@ -783,7 +785,7 @@ public class Raytracing : MonoBehaviour
 
         //bIntersectTest = IntersectRay(bvhAccel.linearNodes[0].bounds, gpuRay);
 
-        bool bIntersectTest = bvhAccel.IntersectTest(gpuRay);//SceneIntersectTest(gpuRay);
+        bool bIntersectTest = useInstanceBVH ? bvhAccel.IntersectInstTest(gpuRay, meshInstances) : bvhAccel.IntersectTest(gpuRay, 0);//SceneIntersectTest(gpuRay);
         if (bIntersectTest)
         {
             Debug.DrawRay(gpuRay.orig, gpuRay.direction * 20.0f, Color.blue, duration);

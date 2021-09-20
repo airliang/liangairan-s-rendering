@@ -206,29 +206,7 @@ bool IntersectBVHandTriangles(Ray ray, int bvhOffset, out Interaction interactio
 			BVHNode curNode = BVHTree[nodeAddr];
 			int4 cnodes = asint(curNode.cids);
 
-			/*
-			const float c0lox = curNode.b0xy.x * idirx - oodx;
-			const float c0hix = curNode.b0xy.y * idirx - oodx;
-			const float c0loy = curNode.b0xy.z * idiry - oody;
-			const float c0hiy = curNode.b0xy.w * idiry - oody;
-			const float c0loz = curNode.b01z.x * idirz - oodz;
-			const float c0hiz = curNode.b01z.y * idirz - oodz;
-			const float c1loz = curNode.b01z.z * idirz - oodz;
-			const float c1hiz = curNode.b01z.w * idirz - oodz;
-			const float c0min = spanBeginKepler(c0lox, c0hix, c0loy, c0hiy, c0loz, c0hiz, tmin);
-			const float c0max = spanEndKepler(c0lox, c0hix, c0loy, c0hiy, c0loz, c0hiz, hitT);
-			const float c1lox = curNode.b1xy.x * idirx - oodx;
-			const float c1hix = curNode.b1xy.y * idirx - oodx;
-			const float c1loy = curNode.b1xy.z * idiry - oody;
-			const float c1hiy = curNode.b1xy.w * idiry - oody;
-			const float c1min = spanBeginKepler(c1lox, c1hix, c1loy, c1hiy, c1loz, c1hiz, tmin);
-			const float c1max = spanEndKepler(c1lox, c1hix, c1loy, c1hiy, c1loz, c1hiz, hitT);
-
-			bool swp = (c1min < c0min);
-
-			bool traverseChild0 = (c0max >= c0min);
-			bool traverseChild1 = (c1max >= c1min);
-			*/
+			
 			float tMin = 0;
 			bool traverseChild0 = BoundRayIntersect(ray, curNode.b0xy, curNode.b01z.xy, invDir, signs, tMin);
 			float tMin1 = 0;
@@ -410,7 +388,9 @@ bool IntersectBVH(Ray ray, out Interaction interaction)
 	float4 rayOrig = ray.orig;
 	float4 rayDir = ray.direction;
 	int traversalStack[STACK_SIZE];
+	int meshInstanceStack[STACK_SIZE];
 	traversalStack[0] = EntrypointSentinel;
+	meshInstanceStack[0] = -1;
 	int leafAddr = 0;               // If negative, then first postponed leaf, non-negative if no leaf (innernode).
 	int nodeAddr = instBVHAddr;
 	//int primitivesNum = 0;   //当前节点的primitives数量
@@ -471,23 +451,13 @@ bool IntersectBVH(Ray ray, out Interaction interaction)
 			{
 				nodeAddr = (traverseChild0) ? cnodes.x : cnodes.y;
 				meshInstanceIndex = (traverseChild0) ? cnodes.z : cnodes.w;
-				meshInstanceIndex2 = (traverseChild0) ? cnodes.w : cnodes.z;
+				//meshInstanceIndex2 = (traverseChild0) ? cnodes.w : cnodes.z;
 
 				// Both children were intersected => push the farther one.
 				if (traverseChild0 && traverseChild1)
 				{
-					if (swp)
-					{
-						//swap(nodeAddr, cnodes.y);
-						int tmp = nodeAddr;
-						nodeAddr = cnodes.y;
-						cnodes.y = tmp;
-						tmp = meshInstanceIndex;
-						meshInstanceIndex = meshInstanceIndex2;
-						meshInstanceIndex2 = tmp;
-					}
-
 					traversalStack[++stackIndex] = cnodes.y;
+					meshInstanceStack[stackIndex] = cnodes.w;
 				}
 			}
 
@@ -497,12 +467,12 @@ bool IntersectBVH(Ray ray, out Interaction interaction)
 				//leafAddr2= leafAddr;          // postpone 2
 				leafAddr = nodeAddr;            //leafAddr成了当前要处理的节点
 				nodeAddr = traversalStack[stackIndex];  //出栈，nodeAddr这个时候是下一个要访问的node
+				meshInstanceIndex = meshInstanceStack[stackIndex];
 				stackIndex--;
 			}
 
 			if (!(leafAddr >= 0))   //leaf node小于0，需要处理叶子节点，退出循环
 			{
-				
 				break;
 			}
 		}
@@ -528,8 +498,9 @@ bool IntersectBVH(Ray ray, out Interaction interaction)
 			leafAddr = nodeAddr;
 			if (nodeAddr < 0)
 			{
-				nodeAddr = traversalStack[stackIndex--];
-				meshInstanceIndex = meshInstanceIndex2;
+				nodeAddr = traversalStack[stackIndex];
+				meshInstanceIndex = meshInstanceStack[stackIndex];
+				stackIndex--;
 			}
 		}
 	}

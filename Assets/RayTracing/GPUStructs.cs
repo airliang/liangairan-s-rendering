@@ -22,6 +22,16 @@ public struct GPURay
 {
     public Vector4 orig;
     public Vector4 direction; //w is t
+
+    public static GPURay TransformRay(ref Matrix4x4 matrix, ref GPURay ray)
+    {
+        GPURay output = new GPURay();
+        output.orig = matrix.MultiplyPoint(new Vector3(ray.orig.x, ray.orig.y, ray.orig.z));
+        output.orig.w = ray.orig.w;
+        output.direction = matrix.MultiplyVector(ray.direction);
+        output.direction.w = 0;
+        return output;
+    }
 }
 
 public struct GPURandomSampler
