@@ -74,7 +74,7 @@ public class Raytracing : MonoBehaviour
     //IndepententSampler indepententSampler2 = new IndepententSampler();
     int kTestSampler;
 
-    bool useInstanceBVH = false;
+    public bool useInstanceBVH = true;
     //toplevel bvh在bvh buffer中的位置
     int instBVHNodeAddr = -1;
     void Start()
@@ -104,7 +104,7 @@ public class Raytracing : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        bvhAccel.DrawDebug();
+        //bvhAccel.DrawDebug();
 
         float rasterWidth = Screen.width;
         float rasterHeight = Screen.height;
@@ -414,7 +414,8 @@ public class Raytracing : MonoBehaviour
 
         if (verticesBuffer == null)
         {
-            verticesBuffer = new ComputeBuffer(bvhAccel.m_worldVertices.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUVertex)), ComputeBufferType.Structured);
+            int vertexSize = System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUVertex));
+            verticesBuffer = new ComputeBuffer(bvhAccel.m_worldVertices.Count, 16, ComputeBufferType.Structured);
         }
         verticesBuffer.SetData(bvhAccel.m_worldVertices.ToArray());
 
@@ -784,8 +785,8 @@ public class Raytracing : MonoBehaviour
         GPURay gpuRay = gpuRays[index];
 
         //bIntersectTest = IntersectRay(bvhAccel.linearNodes[0].bounds, gpuRay);
-
-        bool bIntersectTest = useInstanceBVH ? bvhAccel.IntersectInstTest(gpuRay, meshInstances) : bvhAccel.IntersectTest(gpuRay, 0);//SceneIntersectTest(gpuRay);
+        float hitT = float.MaxValue;
+        bool bIntersectTest = useInstanceBVH ? bvhAccel.IntersectInstTest(gpuRay, meshInstances, meshHandles, bvhAccel.instBVHNodeAddr) : bvhAccel.IntersectBVHTriangleTest(gpuRay, 0, out hitT);//SceneIntersectTest(gpuRay);
         if (bIntersectTest)
         {
             Debug.DrawRay(gpuRay.orig, gpuRay.direction * 20.0f, Color.blue, duration);

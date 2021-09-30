@@ -20,8 +20,8 @@ public struct GPULight
 
 public struct GPURay
 {
-    public Vector4 orig;
-    public Vector4 direction; //w is t
+    public Vector4 orig;      //w is tMax，代表ray能到达的最远距离
+    public Vector4 direction; //w is time, 代表当前位置
 
     public static GPURay TransformRay(ref Matrix4x4 matrix, ref GPURay ray)
     {
@@ -29,7 +29,7 @@ public struct GPURay
         output.orig = matrix.MultiplyPoint(new Vector3(ray.orig.x, ray.orig.y, ray.orig.z));
         output.orig.w = ray.orig.w;
         output.direction = matrix.MultiplyVector(ray.direction);
-        output.direction.w = 0;
+        output.direction.w = ray.direction.w;
         return output;
     }
 }
@@ -178,6 +178,47 @@ public struct GPUBounds
         max = Mathf.Max(size.y, max);
         max = Mathf.Max(size.z, max);
         return max;
+    }
+
+    public static GPUBounds TransformBounds(ref Matrix4x4 matrix, ref GPUBounds bounds)
+    {
+        GPUBounds result = new GPUBounds();
+        Vector3 xa = matrix.GetColumn(0) * bounds.min.x;
+        Vector3 xb = matrix.GetColumn(0) * bounds.max.x;
+
+        Vector3 ya = matrix.GetColumn(1) * bounds.min.y;
+        Vector3 yb = matrix.GetColumn(1) * bounds.max.y;
+
+        Vector3 za = matrix.GetColumn(2) * bounds.min.z;
+        Vector3 zb = matrix.GetColumn(2) * bounds.max.z;
+
+        Vector3 column3 = matrix.GetColumn(3);
+        result.min = Vector3.Min(xa, xb) + Vector3.Min(ya, yb) + Vector3.Min(za, zb) + column3;
+        result.max = Vector3.Max(xa, xb) + Vector3.Max(ya, yb) + Vector3.Max(za, zb) + column3;
+        return result;
+    }
+
+    public static void TransformBounds(ref Matrix4x4 matrix, Vector3 min, Vector3 max, out Vector3 minResult, out Vector3 maxResult)
+    {
+        Vector3 column0 = matrix.GetColumn(0);
+        Vector3 xa = column0 * min.x;
+        Vector3 xb = column0 * max.x;
+
+        Vector3 column1 = matrix.GetColumn(1);
+        Vector3 ya = column1 * min.y;
+        Vector3 yb = column1 * max.y;
+
+        Vector3 column2 = matrix.GetColumn(2);
+        Vector3 za = column2 * min.z;
+        Vector3 zb = column2 * max.z;
+
+        Vector3 column3 = matrix.GetColumn(3);
+        minResult = Vector3.Min(xa, xb) + Vector3.Min(ya, yb) + Vector3.Min(za, zb) + column3;
+        maxResult = Vector3.Max(xa, xb) + Vector3.Max(ya, yb) + Vector3.Max(za, zb) + column3;
+        //Vector3 minT = matrix.MultiplyPoint(min);
+        //Vector3 maxT = matrix.MultiplyPoint(max);
+        //minResult = Vector3.Min(minT, maxT);
+        //maxResult = Vector3.Max(minT, maxT);
     }
 }
 

@@ -56,6 +56,7 @@ void GeneratePath(uint3 id : SV_DispatchThreadID)
 
         Ray ray;
         ray.orig = isect.p;
+        ray.orig.w = 0;
         ray.direction = float4(wi, 0);
         ray.orig.w = FLT_MAX;
         Rays[id.x + id.y * rasterSize.x] = ray;

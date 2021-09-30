@@ -13,7 +13,7 @@ Shader "liangairan/enviroment/unlittexture_cutout"
 		_Transparency("Transparency", Range(0.0, 1.0)) = 1.0
 		
 	}
-
+		 
 	SubShader
 	{
         Tags { "RenderType" = "Opaque" "Shadow" = "Character"}
@@ -23,8 +23,8 @@ Shader "liangairan/enviroment/unlittexture_cutout"
 			Cull off
 			CGPROGRAM
             #include "UnityCG.cginc" 
-			#include "shadowmap.cginc"
-			#include "include/stipple.cginc"
+			//#include "shadowmap.cginc"
+			//#include "include/stipple.cginc"
 
 			#pragma vertex vert  
 			#pragma fragment frag
@@ -47,11 +47,11 @@ Shader "liangairan/enviroment/unlittexture_cutout"
 			{
 				float4 pos : SV_POSITION;
 				float2 uv : TEXCOORD0;
-				float4 uvProj : TEXCOORD1;
-				float3 depth : TEXCOORD2;        //z-length of receiver to light in worldspace
-				float3 normalWorld : TEXCOORD3;
-				float3 posWorld : TEXCOORD4;
-				float4 screenPos : TEXCOORD5;
+				//float4 uvProj : TEXCOORD1;
+				//float3 depth : TEXCOORD2;        //z-length of receiver to light in worldspace
+				float3 normalWorld : TEXCOORD2;
+				float3 posWorld : TEXCOORD3;
+				float4 screenPos : TEXCOORD4;
 				//SHADOW_COORDS(1);
 				//float2 depth : TEXCOORD0;
 			};
@@ -62,11 +62,11 @@ Shader "liangairan/enviroment/unlittexture_cutout"
 				v2f o = (v2f)0;
 				o.pos = UnityObjectToClipPos(v.vertex);
 				o.uv = v.uv;
-				float4x4 projMatrix = mul(LightProjectionMatrix, unity_ObjectToWorld);
-				o.uvProj = mul(projMatrix, v.vertex);
-				o.depth.xy = o.uvProj.zw;
+				//float4x4 projMatrix = mul(LightProjectionMatrix, unity_ObjectToWorld);
+				//o.uvProj = mul(projMatrix, v.vertex);
+				//o.depth.xy = o.uvProj.zw;
 				float4 posWorld = mul(unity_ObjectToWorld, v.vertex);
-				o.depth.z = length(lightPos - posWorld.xyz);
+				//o.depth.z = length(lightPos - posWorld.xyz);
 				o.normalWorld = UnityObjectToWorldNormal(v.normal);
 				o.posWorld = posWorld.xyz;
 				o.screenPos = o.pos;
@@ -76,8 +76,7 @@ Shader "liangairan/enviroment/unlittexture_cutout"
 
 			float4 frag(v2f i) : SV_Target
 			{
-
-				fixed4 col = tex2D(_MainTex, i.uv);
+				half4 col = tex2D(_MainTex, i.uv);
 				clip(col.a - _Cutoff);
 				//float shadowAttention = getShadowAttention(i.uvProj, i.normalWorld, i.posWorld);
 #if STIPPLE_ENABLE
@@ -91,8 +90,6 @@ Shader "liangairan/enviroment/unlittexture_cutout"
 			}
 			ENDCG
 		}
-
-		
-
 	}
+	//FallBack "Diffuse"
 }

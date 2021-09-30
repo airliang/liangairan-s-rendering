@@ -72,18 +72,13 @@ Shader "liangairan/enviroment/unlittexture_cutout_transparent"
 
 			float4 frag(v2f i) : SV_Target
 			{
-
 				fixed4 col = tex2D(_MainTex, i.uv);
 				clip(col.a - _Cutoff);
 				//float shadowAttention = getShadowAttention(i.uvProj, i.normalWorld, i.posWorld);
 				col.a = _Transparency;
 				return col; //*shadowAttention;
-
 			}
 			ENDCG
 		}
-
-		
-
 	}
 }

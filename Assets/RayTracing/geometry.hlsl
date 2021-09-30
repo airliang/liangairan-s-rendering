@@ -8,11 +8,13 @@ struct Ray
     float4 orig;
     float4 direction;
 
+	//代表该ray的最远距离
 	float tMax()
 	{
 		return orig.w;
 	}
 
+	//ray当前的位置
 	float t()
 	{
 		return direction.w;
@@ -130,7 +132,7 @@ bool BoundIntersectP(Ray ray, Bounds bounds, float3 invDir, int dirIsNeg[3])
 	return (tMin < ray.tMax()) && (tMax > 0);
 }
 
-bool BoundRayIntersect(Ray ray, float4 bxy, float2 bz, float3 invDir, int3 signs, out float hitTMin)
+bool BoundRayIntersect(Ray ray, float4 bxy, float2 bz, float3 invDir, int3 signs, float hitT, out float hitTMin)
 {
 	float4 rayOrig = ray.orig;
 	
@@ -165,7 +167,7 @@ bool BoundRayIntersect(Ray ray, float4 bxy, float2 bz, float3 invDir, int3 signs
 	tMin = max(tMin, tzMin);
 	tMax = min(tMax, tzMax);
 	hitTMin = tMin;
-	return (tMin < ray.tMax()) && (tMax > 0);
+	return (tMin < hitT) && (tMax > 0);
 }
 
 bool BoundIntersect(Ray ray, Bounds bounds, float3 invDir, int dirIsNeg[3])
@@ -262,7 +264,10 @@ Ray TransformRay(float4x4 mat, Ray ray)
 {
 	Ray output;
 	output.orig = mul(mat, float4(ray.orig.xyz, 1));
+	output.orig.w = ray.orig.w;
 	output.direction = mul(mat, float4(ray.direction.xyz, 0));
+	output.direction = normalize(output.direction);
+	output.direction.w = ray.direction.w;
 	return output;
 }
 
