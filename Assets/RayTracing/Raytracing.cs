@@ -575,6 +575,7 @@ public class Raytracing : MonoBehaviour
         extend.SetBuffer(kRayTraversal, "RNGs", samplerBuffer);
         extend.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
         extend.SetInt("instBVHAddr", instBVHNodeAddr);
+        extend.SetInt("bvhNodesNum", bvhAccel.m_nodes.Count);
     }
     private void OnPostRender()
     {
@@ -778,8 +779,8 @@ public class Raytracing : MonoBehaviour
         //else
         //    Debug.DrawRay(ray.orig, ray.direction * 20.0f, Color.red, duration);
 
-        int x = 577;//(int)rasterWidth / 2 + 60;
-        int y = 101;//(int)rasterHeight / 2;
+        int x = 343; //577;//(int)rasterWidth / 2 + 60;
+        int y = 133;//101;//(int)rasterHeight / 2;
         int index = x + y * (int)rasterWidth;
         //index = 700 + 360 * (int)rasterWidth;
         GPURay gpuRay = gpuRays[index];

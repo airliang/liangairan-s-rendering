@@ -134,7 +134,7 @@ bool WoodTriangleRayIntersect(float3 rayOrig, float3 rayDir, float4 m0, float4 m
 	float t = -Oz * invDz;
 
 	//if t is in bounding and less than the ray.tMax
-	if (t >= tmin && t < hitT)
+	if (/*t >= tmin && */t < hitT)
 	{
 		// Compute and check barycentric u.
 		float Ox = m0.w + dot(rayOrig, m0.xyz);//ray.orig.x * m0.x + ray.orig.y * m0.y + ray.orig.z * m0.z;
@@ -368,7 +368,7 @@ bool IntersectBVHandTriangles(Ray ray, int bvhOffset, out Interaction interactio
 	return hitIndex != -1;
 }
 
-bool IntersectMeshBVH(float4 rayOrig, float4 rayDir, int bvhOffset, out float hitT, out int hitIndex, out Interaction interaction)
+bool IntersectMeshBVH(float4 rayOrig, float4 rayDir, int bvhOffset, float4x4 objectToWorld, out float hitT, out int hitIndex, out Interaction interaction)
 {
 	interaction = (Interaction)0;
 	int INVALID_INDEX = EntrypointSentinel;
@@ -485,34 +485,6 @@ bool IntersectMeshBVH(float4 rayOrig, float4 rayDir, int bvhOffset, out float hi
 					continue;
 				}
 
-				/*
-				//if t is in bounding and less than the ray.tMax
-				if (t >= tmin && t < hitT)
-				{
-					// Compute and check barycentric u.
-					float Ox = m0.w + dot(rayOrig.xyz, m0.xyz);//origx * m0.x + origy * m0.y + origz * m0.z;
-					float Dx = dot(rayDir.xyz, m0.xyz); //dirx * m0.x + diry * m0.y + dirz * m0.z;
-					float u = Ox + t * Dx;
-
-					if (u >= 0.0f)
-					{
-						// Compute and check barycentric v.
-						float Oy = m1.w + dot(rayOrig.xyz, m1.xyz);//origx * m1.x + origy * m1.y + origz * m1.z;
-						float Dy = dot(rayDir.xyz, m1.xyz);//dirx * m1.x + diry * m1.y + dirz * m1.z;
-						float v = Oy + t * Dy;
-
-						if (v >= 0.0f && u + v <= 1.0f)
-						{
-							// Record intersection.
-							// Closest intersection not required => terminate.
-							hitT = t;
-							hitIndex = triAddr;
-							//return true;
-						}
-					}
-				}
-				*/
-
 				float2 uv = 0;
 				bool hitTriangle = WoodTriangleRayIntersect(rayOrig.xyz, rayDir.xyz, m0, m1, m2, tmin, uv, hitT);
 				if (hitTriangle)
@@ -522,6 +494,8 @@ bool IntersectMeshBVH(float4 rayOrig, float4 rayDir, int bvhOffset, out float hi
 					const float4 v1 = WVertices[triAddr + 1].position;
 					const float4 v2 = WVertices[triAddr + 2].position;
 					float4 hitPos = v0 * uv.x + v1 * uv.y + v2 * (1.0 - uv.x - uv.y);
+					hitPos.w = 1;
+					hitPos = mul(objectToWorld, hitPos);
 
 					hitPos.xyz = offset_ray(hitPos.xyz, normal);
 					hitPos.w = hitT;
@@ -592,7 +566,7 @@ bool IntersectBVH(Ray ray, out Interaction interaction)
 	traversalStack[0] = EntrypointSentinel;
 	//meshInstanceStack[0] = -1;
 	//int leafAddr = 0;               // If negative, then first postponed leaf, non-negative if no leaf (innernode).
-	int nodeAddr = instBVHAddr < 0 ? 0 : instBVHAddr;
+	int nodeAddr = instBVHAddr >= bvhNodesNum ? 0 : instBVHAddr;
 	//int primitivesNum = 0;   //当前节点的primitives数量
 	//int primitivesNum2 = 0;
 	//int triIdx = 0;
@@ -620,98 +594,123 @@ bool IntersectBVH(Ray ray, out Interaction interaction)
 	int3 signs = int3(signX, signY, signZ);
 	//int meshInstanceIndex = 0;
 
-	//这个nodeAddr从哪里来？
-	while (nodeAddr != EntrypointSentinel)
+	if (nodeAddr == 0)
 	{
-
-		BVHNode curNode = BVHTree[nodeAddr];
-		int4 cnodes = asint(curNode.cids);
-
-		float t0 = 0;
-		//bool traverseChild0 = RayBoundIntersect(ray.orig.xyz, curNode.b0xy, curNode.b01z.xy, invDir.x, invDir.y, invDir.z, hitT, t0);
-		bool traverseChild0 = BoundRayIntersect(ray, curNode.b0xy, curNode.b01z.xy, invDir, signs, hitT, t0);
-		float t1 = 0;
-		//bool traverseChild1 = RayBoundIntersect(ray.orig.xyz, curNode.b1xy, curNode.b01z.zw, invDir.x, invDir.y, invDir.z, hitT, t1);
-		bool traverseChild1 = BoundRayIntersect(ray, curNode.b1xy, curNode.b01z.zw, invDir, signs, hitT, t1);
-
-		int2 next = GetNodeChildIndex(curNode.cids); //new Vector2Int(INVALID_INDEX, INVALID_INDEX);
-		int2 nextMeshInstanceIds = nodeAddr >= instBVHAddr ? GetTopLevelLeaveMeshInstance(curNode.cids) : int2(-1, -1);
-		if (!traverseChild0)
+		MeshInstance meshInstance = MeshInstances[0];
+		Ray rayTemp = TransformRay(meshInstance.worldToLocal, ray);;
+		//invDir = GetInverseDirection(ray.direction);
+		float bvhHit = hitT;
+		int meshHitTriangleIndex = -1;
+		if (IntersectMeshBVH(rayTemp.orig, rayTemp.direction, 0, meshInstance.localToWorld, bvhHit, meshHitTriangleIndex, tmpInteraction))
 		{
-			next.x = EntrypointSentinel;
-			nextMeshInstanceIds.x = -1;
-		}
-		if (!traverseChild1)
-		{
-			next.y = EntrypointSentinel;
-			nextMeshInstanceIds.y = -1;
-		}
-
-		bool swp = false;
-		//3 cases after boundrayintersect
-		if (traverseChild0 && traverseChild1)
-		{
-			//两个都命中
-			swp = (t1 < t0);
-			if (swp)
+			if (bvhHit < hitT)
 			{
-				next = int2(next.y, next.x);
-				nextMeshInstanceIds = int2(nextMeshInstanceIds.y, nextMeshInstanceIds.x);
+				hitT = bvhHit;
+				hitIndex = meshHitTriangleIndex;
+				hitBVHNode == 0;
+			}
+		}
+	}
+	else
+	{
+		int test = 0;
+		//这个nodeAddr从哪里来？
+		while (nodeAddr != EntrypointSentinel)
+		{
+
+			BVHNode curNode = BVHTree[nodeAddr];
+			int4 cnodes = asint(curNode.cids);
+
+			float t0 = 0;
+			//bool traverseChild0 = RayBoundIntersect(ray.orig.xyz, curNode.b0xy, curNode.b01z.xy, invDir.x, invDir.y, invDir.z, hitT, t0);
+			bool traverseChild0 = BoundRayIntersect(ray, curNode.b0xy, curNode.b01z.xy, invDir, signs, hitT, t0);
+			float t1 = 0;
+			//bool traverseChild1 = RayBoundIntersect(ray.orig.xyz, curNode.b1xy, curNode.b01z.zw, invDir.x, invDir.y, invDir.z, hitT, t1);
+			bool traverseChild1 = BoundRayIntersect(ray, curNode.b1xy, curNode.b01z.zw, invDir, signs, hitT, t1);
+
+			int2 next = GetNodeChildIndex(curNode.cids); //new Vector2Int(INVALID_INDEX, INVALID_INDEX);
+			int2 nextMeshInstanceIds = nodeAddr >= instBVHAddr ? GetTopLevelLeaveMeshInstance(curNode.cids) : int2(-1, -1);
+			if (!traverseChild0)
+			{
+				next.x = EntrypointSentinel;
+				nextMeshInstanceIds.x = -1;
+			}
+			if (!traverseChild1)
+			{
+				next.y = EntrypointSentinel;
+				nextMeshInstanceIds.y = -1;
 			}
 
-			//next.y入栈
-			if (next.x >= instBVHAddr)
-				nodeAddr = next.x;
-			//这里入栈的可能是bottomlevel bvh leaf
-			if (next.y >= instBVHAddr)
-				traversalStack[++stackIndex] = next.y;
-
-		}
-		else if (!traverseChild0 && !traverseChild1)
-		{
-			//两个都不命中
-			//meshInstanceIndex = nodeAddr >= instBVHOffset ? meshInstanceStack[stackIndex + 1] : meshInstanceIndex;
-			nodeAddr = traversalStack[stackIndex--];
-
-		}
-		else
-		{
-			//只有其中一个命中
-			if (nodeAddr >= instBVHAddr)
+			bool swp = false;
+			//3 cases after boundrayintersect
+			if (traverseChild0 && traverseChild1)
 			{
-				//meshInstanceIndex = traverseChild0 ? nextMeshInstanceIds.x : nextMeshInstanceIds.y;
-				int nextNode = traverseChild0 ? next.x : next.y;
-				if (nextNode >= instBVHAddr)
+				//两个都命中
+				swp = (t1 < t0);
+				if (swp)
 				{
-					nodeAddr = nextNode;
+					next = int2(next.y, next.x);
+					nextMeshInstanceIds = int2(nextMeshInstanceIds.y, nextMeshInstanceIds.x);
 				}
+
+				//next.y入栈
+				if (next.x >= instBVHAddr)
+					nodeAddr = next.x;
 				else
 					nodeAddr = traversalStack[stackIndex--];
+				//这里入栈的可能是bottomlevel bvh leaf
+				if (next.y >= instBVHAddr)
+					traversalStack[++stackIndex] = next.y;
+
 			}
-		}
-
-
-		for (int i = 0; i < 2; ++i)
-		{
-			//如果next是bottom level bvh node
-			if (0 <= next[i] && next[i] < instBVHAddr)
+			else if (!traverseChild0 && !traverseChild1)
 			{
-				MeshInstance meshInstance = MeshInstances[nextMeshInstanceIds[i]];
-				Ray rayTemp = TransformRay(meshInstance.worldToLocal, ray);
-				//invDir = GetInverseDirection(ray.direction);
-				float bvhHit = hitT;
-				int meshHitIndex = -1;
-				if (IntersectMeshBVH(rayTemp.orig, rayTemp.direction, next[i], bvhHit, meshHitIndex, tmpInteraction))
+				//两个都不命中
+				//meshInstanceIndex = nodeAddr >= instBVHOffset ? meshInstanceStack[stackIndex + 1] : meshInstanceIndex;
+				nodeAddr = traversalStack[stackIndex--];
+
+			}
+			else
+			{
+				//只有其中一个命中
+				if (nodeAddr >= instBVHAddr)
 				{
-					if (bvhHit < hitT)
+					//meshInstanceIndex = traverseChild0 ? nextMeshInstanceIds.x : nextMeshInstanceIds.y;
+					int nextNode = traverseChild0 ? next.x : next.y;
+					if (nextNode >= instBVHAddr)
 					{
-						hitT = bvhHit;
-						hitIndex = meshHitIndex;
-						hitBVHNode = next[i];
-						interaction = tmpInteraction;
+						nodeAddr = nextNode;
+					}
+					else
+						nodeAddr = traversalStack[stackIndex--];
+				}
+			}
+
+
+			for (int i = 0; i < 2; ++i)
+			{
+				//如果next是bottom level bvh node
+				if (0 <= next[i] && next[i] < instBVHAddr)
+				{
+					MeshInstance meshInstance = MeshInstances[nextMeshInstanceIds[i]];
+					Ray rayTemp = TransformRay(meshInstance.worldToLocal, ray);
+					//invDir = GetInverseDirection(ray.direction);
+					float bvhHit = hitT;
+					int meshHitTriangleIndex = -1;
+					if (IntersectMeshBVH(rayTemp.orig, rayTemp.direction, next[i], meshInstance.localToWorld, bvhHit, meshHitTriangleIndex, tmpInteraction))
+					{
+						if (bvhHit < hitT)
+						{
+							hitT = bvhHit;
+							hitIndex = meshHitTriangleIndex;
+							hitBVHNode = next[i];
+							interaction = tmpInteraction;
+						}
 					}
 				}
 			}
+			if (++test >= 10)
+				return false;
 		}
 	}
 	return hitIndex > -1;

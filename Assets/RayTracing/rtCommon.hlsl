@@ -45,5 +45,5 @@ uniform float3 testBoundMax;
 uniform float3 testBoundMin;
 
 uniform int instBVHAddr;
-
+uniform int bvhNodesNum;
 #endif
