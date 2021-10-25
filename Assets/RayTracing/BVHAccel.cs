@@ -121,16 +121,14 @@ public class BVHAccel
 	//gpu中的bvh nodes数组
 	public List<GPUBVHNode> m_nodes = new List<GPUBVHNode>();
 	public List<Vector4> m_woodTriangleVertices = new List<Vector4>();
-	public List<Vector4> m_worldVertices = new List<Vector4>();
+	public List<int> m_woodTriangleIndices = new List<int>();
+	public List<GPUVertex> sceneVertices;
+	//如果是instance bvh，下面的Vertices是 local space vertex，否则就是world space vertex
+	//public List<GPUVertex> m_vertices = new List<GPUVertex>();
 
 	//woop's triangle transform
 	Vector4[] m_woop = new Vector4[3];
-	//public List<GPUTriangleIndex> triDatas;
 
-	//模型空间里的split bvh
-	//public List<GPUBVHNode> meshBVHNodes;
-	//按bounding box 划分的bvh
-	//public GPUBVHNode[] m_meshInstanceBVHNodes;
 
 	public int instBVHNodeAddr = 0;
 
@@ -188,6 +186,7 @@ public class BVHAccel
 
 	public void Build(List<Primitive> primitives, List<GPUVertex> vertices, List<int> triangles)
     {
+		sceneVertices = vertices;
 		/*
 		primitives = prims;
 		maxPrimsInNode = maxPrims;
@@ -216,6 +215,7 @@ public class BVHAccel
 
 	public void Clear()
     {
+		sceneVertices = null;
 		root = null;
 		//linearNodes = null;
 	}
@@ -262,8 +262,7 @@ public class BVHAccel
 		*/
 
 		//m_nodes全是inner node，找到对应的三角形画出来
-		//for (int i = 0; i < m_nodes.Count; ++i)
-		int i = 3;
+		for (int i = 0; i < m_nodes.Count; ++i)
 		{
 			if (SingleToInt32Bits(m_nodes[i].cids.x) >= 0)
             {
@@ -276,12 +275,14 @@ public class BVHAccel
 				int triAddr = SingleToInt32Bits(m_nodes[i].cids.x);
 				int triNum = SingleToInt32Bits(m_nodes[i].cids.z);
 
-				for (int tri = ~triAddr; tri < ~triAddr + triNum * 3; tri += 3)
+                for (int tri = ~triAddr; tri < ~triAddr + triNum * 3; tri += 3)
                 {
-					RenderDebug.DrawTriangle(m_worldVertices[tri], m_worldVertices[tri + 1], m_worldVertices[tri + 2], Color.red);
+                    RenderDebug.DrawTriangle(sceneVertices[m_woodTriangleIndices[tri]].position,
+						sceneVertices[m_woodTriangleIndices[tri + 1]].position,
+						sceneVertices[m_woodTriangleIndices[tri + 2]].position, Color.red);
                 }
-				//RenderDebug.DrawDebugBound(m_nodes[i].b0xy.x, m_nodes[i].b0xy.y, m_nodes[i].b0xy.z, m_nodes[i].b0xy.w, m_nodes[i].b01z.x, m_nodes[i].b01z.y, Color.white);
-			}
+                //RenderDebug.DrawDebugBound(m_nodes[i].b0xy.x, m_nodes[i].b0xy.y, m_nodes[i].b0xy.z, m_nodes[i].b0xy.w, m_nodes[i].b01z.x, m_nodes[i].b01z.y, Color.white);
+            }
 
 			if (SingleToInt32Bits(m_nodes[i].cids.y) >= 0)
 			{
@@ -294,10 +295,10 @@ public class BVHAccel
 				int triAddr = SingleToInt32Bits(m_nodes[i].cids.y);
 				int triNum = SingleToInt32Bits(m_nodes[i].cids.w);
 
-				for (int tri = ~triAddr; tri < ~triAddr + triNum * 3; tri += 3)
-				{
-					RenderDebug.DrawTriangle(m_worldVertices[tri], m_worldVertices[tri + 1], m_worldVertices[tri + 2], Color.yellow);
-				}
+				//for (int tri = ~triAddr; tri < ~triAddr + triNum * 3; tri += 3)
+				//{
+				//	RenderDebug.DrawTriangle(m_vertices[tri].position, m_vertices[tri + 1].position, m_vertices[tri + 2].position, Color.yellow);
+				//}
 				//RenderDebug.DrawDebugBound(m_nodes[i].b1xy.x, m_nodes[i].b1xy.y, m_nodes[i].b1xy.z, m_nodes[i].b1xy.w, m_nodes[i].b01z.z, m_nodes[i].b01z.w, Color.red);
 			}
 		}
@@ -430,14 +431,18 @@ public class BVHAccel
 						for (int v = 0; v < 3; ++v)
 						{
 							m_woodTriangleVertices.Add(m_woop[v]);
+							m_woodTriangleIndices.Add(primitive.triIndices[v]);
 							Vector4 worldPos = gpuVertices[primitive.triIndices[v]].position;
+							Vector4 uv = gpuVertices[primitive.triIndices[v]].uv;
 							//if (v == 0)
 							//	worldPos.w = Int32BitsToSingle(primitive.materialIndex);
-							m_worldVertices.Add(worldPos);
+							
+							//m_vertices.Add(new GPUVertex(worldPos, uv));
 						}
 					}
 					m_woodTriangleVertices.Add(new Vector4(Int32BitsToSingle(int.MaxValue), 0, 0 , 0));
-					m_worldVertices.Add(new Vector4(Int32BitsToSingle(int.MaxValue), 0, 0, 0));
+					m_woodTriangleIndices.Add(int.MaxValue);
+					//m_vertices.Add(new GPUVertex(new Vector4(Int32BitsToSingle(int.MaxValue), 0, 0, 0), Vector4.zero));
 					c2 = child.nPrimitives;
 				}
 				else
@@ -476,12 +481,14 @@ public class BVHAccel
 						for (int v = 0; v < 3; ++v)
 						{
 							m_woodTriangleVertices.Add(m_woop[v]);
-							m_worldVertices.Add(gpuVertices[primitive.triIndices[v]].position);
+							m_woodTriangleIndices.Add(primitive.triIndices[v]);
+							//m_vertices.Add(new GPUVertex(gpuVertices[primitive.triIndices[v]].position, gpuVertices[primitive.triIndices[v]].uv));
 						}
 
 					}
 					m_woodTriangleVertices.Add(new Vector4(Int32BitsToSingle(int.MaxValue), 0, 0, 0));
-					m_worldVertices.Add(new Vector4(Int32BitsToSingle(int.MaxValue), 0, 0, 0));
+					m_woodTriangleIndices.Add(int.MaxValue);
+					//m_vertices.Add(new GPUVertex(new Vector4(Int32BitsToSingle(int.MaxValue), 0, 0, 0), Vector4.zero));
 					c3 = child.nPrimitives;
 				}
 				else
@@ -902,12 +909,21 @@ public class BVHAccel
 					}
 
 					//next.y入栈
+					bool curNodeIsX = false;
 					if (next.x >= instBVHNodeAddr)
+					{
 						nodeAddr = next.x;
+						curNodeIsX = true;
+					}
 					else
-						nodeAddr = traversalStack[stackIndex--];
+					{
+						if (next.y >= instBVHNodeAddr)
+							nodeAddr = next.y;
+						else
+							nodeAddr = traversalStack[stackIndex--];
+					}
 					//这里入栈的可能是bottomlevel bvh leaf
-					if (next.y >= instBVHNodeAddr)
+					if (next.y >= instBVHNodeAddr && curNodeIsX)
 						traversalStack[++stackIndex] = next.y;
 					//if (nodeAddr >= instBVHOffset)
 					//            {
@@ -986,9 +1002,9 @@ public class BVHAccel
             if (hitIndex != -1)
 			{
 				int triAddrDebug = hitIndex;
-				RenderDebug.DrawTriangle(meshInstanceTmp.localToWorld.MultiplyPoint(m_worldVertices[triAddrDebug]),
-					meshInstanceTmp.localToWorld.MultiplyPoint(m_worldVertices[triAddrDebug + 1]),
-					meshInstanceTmp.localToWorld.MultiplyPoint(m_worldVertices[triAddrDebug + 2]), Color.green);
+				RenderDebug.DrawTriangle(meshInstanceTmp.localToWorld.MultiplyPoint(sceneVertices[m_woodTriangleIndices[triAddrDebug]].position),
+					meshInstanceTmp.localToWorld.MultiplyPoint(sceneVertices[m_woodTriangleIndices[triAddrDebug + 1]].position),
+					meshInstanceTmp.localToWorld.MultiplyPoint(sceneVertices[m_woodTriangleIndices[triAddrDebug + 2]].position), Color.green);
 			}
 		}
 		
@@ -1167,7 +1183,9 @@ public class BVHAccel
 		//return false;
 		if (hitIndex != -1)
         {
-			RenderDebug.DrawTriangle(m_worldVertices[hitIndex], m_worldVertices[hitIndex + 1], m_worldVertices[hitIndex + 2], Color.green);
+			RenderDebug.DrawTriangle(sceneVertices[m_woodTriangleIndices[hitIndex]].position, 
+				sceneVertices[m_woodTriangleIndices[hitIndex + 1]].position, 
+				sceneVertices[m_woodTriangleIndices[hitIndex + 2]].position, Color.green);
 
 		}
 		return hitIndex != -1;
@@ -1182,8 +1200,8 @@ public class BVHAccel
 		List<int> instBVHOffset = new List<int>();
 
 		//首先创建每个meshHandle的localspace的bvh
+		sceneVertices = vertices;
 
-		
 		for (int i = 0; i < meshHandles.Count; ++i)
 		{
 			instBVHOffset.Add(instBVHNodeAddr);

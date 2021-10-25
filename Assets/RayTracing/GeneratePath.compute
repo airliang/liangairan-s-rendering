@@ -1,0 +1,97 @@
+#include "sampler.hlsl"
+#include "rtCommon.hlsl"
+#include "bxdf.hlsl"
+#include "light.hlsl"
+// Each #kernel tells which function to compile; you can have many kernels
+
+#pragma kernel GeneratePath
+
+cbuffer cb
+{
+	int bounces;
+};
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+
+
+RWStructuredBuffer<Ray>   Rays;
+RWStructuredBuffer<Ray>   ShadowRays;
+StructuredBuffer<BXDF>    Materials;
+StructuredBuffer<Interaction>       Intersections;
+RWStructuredBuffer<float4> PathRadiances;  //x L, y-beta, z- nee pdf
+
+//估计直接光照
+float3 EstimateDirect(uint threadId, Light light, inout Interaction isect)
+{
+	//反射方程
+	// f = ∫[H]L(x)BSDF(x)cos(θ)dω，其中x是当前的碰撞点
+	//化成蒙特卡洛积分
+	// f = 1/N ∑g(x)/pdf
+	//由于积分中有L(x)和BSDF(x)两个函数，所以pdf应该取哪一个比较靠谱？
+	//为了降低方差，引入了MIS，Multiple Importance Sampling，所以有lightPdf和scatteringPdf
+	float lightPdf = 0;
+	float scatteringPdf = 0;
+
+	//计算MIS中的第一个pdf，采样light的入射光
+	float3 wi;
+	float3 li = SampleLightRadiance(threadId, light, isect.p, lightPdf, wi);
+	return li;
+}
+
+float3 ComputeBounceRadiance(inout Interaction isect, uint threadId)
+{
+	//判断是否击中
+	bool isHit = isect.IsHit();
+
+	if (bounces == 0)
+	{
+		if (!isHit)
+		{
+			//采样环境贴图，我这里先返回0
+			return 0;
+		}
+	}
+
+	//首先计算直接光照
+	float lightPdf = 1.0;
+	Light light = SampleLight(lightPdf, threadId);
+
+	//计算简直光照，简直光照中的wi其实在上面直接光照中采样bsdf的时候可以重用
+	float3 Li = EstimateDirect(threadId, light, isect) / lightPdf;
+}
+
+
+[numthreads(8, 8, 1)]
+void GeneratePath(uint3 id : SV_DispatchThreadID)
+{
+	// TODO: insert actual code here!
+	if (id.x >= rasterSize.x || id.y >= rasterSize.y)
+		return;
+
+	uint threadId = id.x + id.y * rasterSize.x;
+	Interaction isect = Intersections[threadId];
+	float beta = 1.0;
+	if (isect.IsHit())
+	{
+		//get the primitive's material
+		//BXDF material = Materials[asint(isect.primitive.y)];
+		//sampling the in direction as the output ray and compute the spectum
+		float3 wi;
+		float pdf = 0;
+		int matIndex = isect.materialID;//asint(isect.primitive.y);
+		BXDF bxdf = Materials[matIndex];
+		float4 f = SampleBSDF(wi, pdf, Get2D(threadId), float3x3(isect.row1.xyz, isect.row2.xyz, isect.row3.xyz), isect, bxdf);
+		beta *= f * abs(dot(wi, isect.normal)) / pdf;
+		//f += beta * SampleLight(isect, threadId);
+
+		Ray ray;
+		ray.orig = isect.p;
+		ray.orig.w = 0;
+		ray.direction = float4(wi, 0);
+		ray.orig.w = FLT_MAX;
+		Rays[threadId] = ray;
+		PathRadiances[threadId] += f;
+	}
+
+
+}

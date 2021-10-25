@@ -325,7 +325,7 @@ Transform:
   m_GameObject: {fileID: 10}
   m_LocalRotation: {x: -1, y: -0.000000043711385, z: -0.000000043711385, w: -0.00000008742278}
   m_LocalPosition: {x: -2.7552, y: 5.487, z: 2.8298204}
-  m_LocalScale: {x: 0.0012, y: 1, z: 0.001}
+  m_LocalScale: {x: 0.12, y: 1, z: 0.1}
   m_Children: []
   m_Father: {fileID: 21}
   m_RootOrder: 5
@@ -1984,7 +1984,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e7bc8385336503748bb50fa990384ab4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  shapeType: 3
+  shapeType: 2
   isAreaLight: 1
   lightSpectrum: {r: 1, g: 1, b: 1, a: 1}
   spectrumScale: {x: 541126.8, y: 381971.8, z: 127323.9}
@@ -2016,8 +2016,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   generateRay: {fileID: 7200000, guid: 89a21110d834b3a45a61b50ba8e85ddf, type: 3}
-  extend: {fileID: 7200000, guid: 8c98bbc01ef926a4991c6ab29793b90a, type: 3}
+  generatePath: {fileID: 7200000, guid: 9f5ba9218bea57843aff129e1675fb7b, type: 3}
+  RayTravel: {fileID: 7200000, guid: 8c98bbc01ef926a4991c6ab29793b90a, type: 3}
   initRandom: {fileID: 7200000, guid: f09f3de862413a74781d4d49b8cbd9ee, type: 3}
+  useInstanceBVH: 1
 --- !u!1 &25648568
 GameObject:
   m_ObjectHideFlags: 0

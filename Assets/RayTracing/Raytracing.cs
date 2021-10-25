@@ -10,6 +10,30 @@ class RTMesh
     public int triangleStart = 0;
 }
 
+class AreaLight
+{
+    public float area = 0;
+    public List<Vector2> triangleDistributions = new List<Vector2>();
+    //在整个Distribution1D中的地址
+    public int distributionAddress = -1;
+}
+
+class AreaLightInstance
+{
+    public AreaLight light;
+    public int meshInstanceID = -1;
+}
+
+public class RTSceneData
+{
+    public List<Primitive> primitives = new List<Primitive>();
+    public List<MeshHandle> meshHandles = new List<MeshHandle>();
+    public List<MeshInstance> meshInstances = new List<MeshInstance>();
+    public List<int> triangles = new List<int>();
+    public List<GPUVertex> gpuVertices = new List<GPUVertex>();
+    public List<GPULight> gpuLights = new List<GPULight>();
+}
+
 //[ExecuteInEditMode]
 [RequireComponent(typeof(Camera))]
 public class Raytracing : MonoBehaviour
@@ -25,17 +49,22 @@ public class Raytracing : MonoBehaviour
     //List<Vector3> positions = new List<Vector3>();
     List<int> triangles = new List<int>();
     List<GPUVertex> gpuVertices = new List<GPUVertex>();
-    GPUPrimitive[] gpuPrimitives = null;
+    //GPUPrimitive[] gpuPrimitives = null;
     List<GPULight> gpuLights = new List<GPULight>();
     GPURay[] gpuRays = null;
     GPURandomSampler[] gpuRandomSamplers = null;
     GPUInteraction[] gpuInteractions = null;
     GPUMaterial[] gpuMaterials = null;
+    List<Vector2> Distributions1D = new List<Vector2>();
+    //Dictionary<Mesh, Distribution1D<Vector2>> meshTriangleDistribution = new Dictionary<Mesh, Distribution1D<Vector2>>();
+    Dictionary<Mesh, AreaLight> meshDistributions = new Dictionary<Mesh, AreaLight>();
+    
 
     BVHAccel bvhAccel = new BVHAccel();
 
     public ComputeShader generateRay;
-    public ComputeShader extend;
+    public ComputeShader generatePath;
+    public ComputeShader RayTravel;
     public ComputeShader initRandom;
     int kGeneratePrimaryRay;
     //generate path ray
@@ -57,6 +86,7 @@ public class Raytracing : MonoBehaviour
     ComputeBuffer pathRadianceBuffer;
     //ComputeBuffer meshHandleBuffer;
     ComputeBuffer meshInstanceBuffer;
+    ComputeBuffer distribution1DBuffer;
     //ComputeBuffer transformBuffer;
 
     RenderTexture outputTexture;
@@ -126,18 +156,18 @@ public class Raytracing : MonoBehaviour
             else
             {
                 //path ray generation
-                //generateRay.Dispatch(kGeneratePath, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
+                //generatePath.Dispatch(kGeneratePath, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
 
                 //next event estimation
             }
 
-            //extend.SetBuffer(kRayTraversal, "Rays", rayBuffer);
-            extend.SetFloat("_time", Time.time);
-            extend.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
+            //RayTravel.SetBuffer(kRayTraversal, "Rays", rayBuffer);
+            RayTravel.SetFloat("_time", Time.time);
+            RayTravel.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
 
-            //extend.SetVector("testBoundMax", bvhAccel.linearNodes[0].bounds.max);
-            //extend.SetVector("testBoundMin", bvhAccel.linearNodes[0].bounds.min);
-            extend.Dispatch(kRayTraversal, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
+            //RayTravel.SetVector("testBoundMax", bvhAccel.linearNodes[0].bounds.max);
+            //RayTravel.SetVector("testBoundMin", bvhAccel.linearNodes[0].bounds.min);
+            RayTravel.Dispatch(kRayTraversal, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
         }
 
         //Debug.Log(indepententSampler.UniformFloat());
@@ -157,13 +187,18 @@ public class Raytracing : MonoBehaviour
         gpuMaterials = new GPUMaterial[shapes.Length];
 
         int renderObjectsNum = 0;
-        int lightObjectsNum = 0;
+        
+
+        //use area as the distribution
+        List<Vector2> lightsDistribution = new List<Vector2>();
+        List<float> lightAreas = new List<float>();
 
         if (useInstanceBVH)
         {
             //Dictionary<Mesh, int> sharedMeshes = new Dictionary<Mesh, int>();
             List<Mesh> sharedMeshes = new List<Mesh>();
-            sharedMeshes.Find(s => s == this);
+            int lightObjectsNum = 0;
+            //sharedMeshes.Find(s => s == this);
             //List<Vector2> uvs = new List<Vector2>();
             //int triangleOffset = 0;
             //先生成MeshHandle
@@ -199,11 +234,7 @@ public class Raytracing : MonoBehaviour
 
                     if (shapes[i].isAreaLight)
                     {
-                        GPULight gpuLight = new GPULight();
-                        gpuLight.color = shapes[i].lightSpectrum;
-                        gpuLight.intensity = shapes[i].lightIntensity;
-                        gpuLight.pointRadius = 0;
-                        gpuLights.Add(gpuLight);
+                        lightObjectsNum++;
                     }
 
                     MeshFilter meshRenderer = shapes[i].GetComponent<MeshFilter>();
@@ -241,33 +272,80 @@ public class Raytracing : MonoBehaviour
                 }
             }
 
-            int lightIndex = -1;
+            float totalLightArea = 0;
+            
+            List<Vector2> lightTriangleDistributions = new List<Vector2>();
             List<Transform> meshTransforms = new List<Transform>();
+            List<AreaLightInstance> areaLightInstances = new List<AreaLightInstance>();
             //生成meshinstance和对应的material
             for (int i = 0; i < shapes.Length; ++i)
             {
                 BSDFMaterial bsdfMaterial = shapes[i].GetComponent<BSDFMaterial>();
                 Transform transform = shapes[i].transform;
+                int lightIndex = -1;
                 if (shapes[i].shapeType == Shape.ShapeType.triangleMesh && bsdfMaterial != null)
                 {
+
                     MeshFilter meshRenderer = shapes[i].GetComponent<MeshFilter>();
                     Mesh mesh = meshRenderer.sharedMesh;
                     int meshIndex = sharedMeshes.FindIndex(s => s == mesh);
+
                     if (shapes[i].isAreaLight)
                     {
-                        lightIndex = lightObjectsNum++;
+                        AreaLight areaLight = null;
+                        if (!meshDistributions.TryGetValue(mesh, out areaLight))
+                        {
+                            areaLight = new AreaLight();
+                            //compute the mesh triangle distribution
+                            
+                            List<float> triangleAreas = new List<float>();
+                            for (int t = 0; t < mesh.triangles.Length; t += 3)
+                            {
+                                Vector3 p0 = mesh.vertices[mesh.triangles[t]];
+                                Vector3 p1 = mesh.vertices[mesh.triangles[t + 1]];
+                                Vector3 p2 = mesh.vertices[mesh.triangles[t + 2]];
+                                float triangleArea = Vector3.Cross(p1 - p0, p2 - p0).magnitude * 0.5f;
+                                triangleAreas.Add(triangleArea);
+                                areaLight.area += triangleArea;
+                            }
+
+                            totalLightArea += areaLight.area;
+                            lightAreas.Add(areaLight.area);
+
+                            //Distribution1D<Vector2> distribution1D = new Distribution1D<Vector2>();
+                            float cdfArea = 0;
+                            for (int t = 0; t < triangleAreas.Count; ++t)
+                            {
+                                float pdf = triangleAreas[t] / areaLight.area;
+                                cdfArea += pdf;
+                                areaLight.triangleDistributions.Add(new Vector2(pdf, cdfArea));
+                            }
+                            areaLight.distributionAddress = lightObjectsNum + lightTriangleDistributions.Count;
+                            meshDistributions.Add(mesh, areaLight);
+                            lightTriangleDistributions.AddRange(areaLight.triangleDistributions);
+                        }
+
+                        AreaLightInstance areaLightInstance = new AreaLightInstance();
+                        areaLightInstance.light = areaLight;
+                        areaLightInstance.meshInstanceID = meshInstances.Count;
+                        areaLightInstances.Add(areaLightInstance);
+
+                        lightIndex = gpuLights.Count;
+                        GPULight gpuLight = new GPULight();
+                        gpuLight.radiance.x = shapes[i].lightSpectrum.linear.r;
+                        gpuLight.radiance.y = shapes[i].lightSpectrum.linear.g;
+                        gpuLight.radiance.z = shapes[i].lightSpectrum.linear.b;
+                        gpuLight.intensity = shapes[i].lightIntensity;
+                        gpuLight.pointRadius = 0;
+                        gpuLight.distributeAddress = areaLight.distributionAddress;
+                        gpuLights.Add(gpuLight);
+                        
                     }
-                    else
-                        lightIndex = -1;
+
                     int materialIndex = i;
 
                     if (mesh.subMeshCount > 1)
                     {
-                        for (int k = 0; k < mesh.subMeshCount; ++k)
-                        {
-                            SubMeshDescriptor smd = mesh.GetSubMesh(k);
-                            //smd.ma
-                        }
                     }
                     else
                     {
@@ -278,6 +356,26 @@ public class Raytracing : MonoBehaviour
                     meshTransforms.Add(transform);
                 }
             }
+
+            //构建light的分布
+            
+            List<Vector2> lightObjectDistribution = new List<Vector2>();
+            float allLightsTotalArea = 0;
+            for (int i = 0; i < areaLightInstances.Count; ++i)
+            {
+                allLightsTotalArea += areaLightInstances[i].light.area;
+            }
+            float cdf = 0;
+            for (int i = 0; i < areaLightInstances.Count; ++i)
+            {
+                float pdf = areaLightInstances[i].light.area / allLightsTotalArea;
+                cdf += pdf;
+                lightObjectDistribution.Add(new Vector2(pdf, cdf));
+            }
+
+            //构建Distribution1D
+            Distributions1D.AddRange(lightObjectDistribution);
+            Distributions1D.AddRange(lightTriangleDistributions);
 
             //创建bvh
 
@@ -290,6 +388,12 @@ public class Raytracing : MonoBehaviour
 
             meshInstanceBuffer = new ComputeBuffer(meshInstances.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(MeshInstance)), ComputeBufferType.Structured);
             meshInstanceBuffer.SetData(meshInstances.ToArray());
+
+            lightBuffer = new ComputeBuffer(gpuLights.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPULight)), ComputeBufferType.Structured);
+            lightBuffer.SetData(gpuLights.ToArray());
+
+            distribution1DBuffer = new ComputeBuffer(Distributions1D.Count, sizeof(float) * 2, ComputeBufferType.Default);
+            distribution1DBuffer.SetData(Distributions1D.ToArray());
         }
         else
         {
@@ -415,9 +519,9 @@ public class Raytracing : MonoBehaviour
         if (verticesBuffer == null)
         {
             int vertexSize = System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUVertex));
-            verticesBuffer = new ComputeBuffer(bvhAccel.m_worldVertices.Count, 16, ComputeBufferType.Structured);
+            verticesBuffer = new ComputeBuffer(gpuVertices.Count, vertexSize, ComputeBufferType.Structured);
         }
-        verticesBuffer.SetData(bvhAccel.m_worldVertices.ToArray());
+        verticesBuffer.SetData(gpuVertices.ToArray());
 
         if (triangleBuffer == null)
         {
@@ -540,12 +644,14 @@ public class Raytracing : MonoBehaviour
         }
         materialBuffer.SetData(gpuMaterials);
 
-        kGeneratePath = generateRay.FindKernel("GeneratePath");
-        generateRay.SetBuffer(kGeneratePath, "Rays", rayBuffer);
-        generateRay.SetBuffer(kGeneratePath, "Materials", materialBuffer);
-        generateRay.SetBuffer(kGeneratePath, "RNGs", samplerBuffer);
-        generateRay.SetBuffer(kGeneratePath, "Intersections", intersectBuffer);
-        generateRay.SetBuffer(kGeneratePath, "PathRadiances", pathRadianceBuffer);
+        kGeneratePath = generatePath.FindKernel("GeneratePath");
+        generatePath.SetBuffer(kGeneratePath, "Rays", rayBuffer);
+        generatePath.SetBuffer(kGeneratePath, "Materials", materialBuffer);
+        generatePath.SetBuffer(kGeneratePath, "RNGs", samplerBuffer);
+        generatePath.SetBuffer(kGeneratePath, "Intersections", intersectBuffer);
+        generatePath.SetBuffer(kGeneratePath, "PathRadiances", pathRadianceBuffer);
+        generatePath.SetBuffer(kGeneratePath, "lights", lightBuffer);
+        generatePath.SetBuffer(kGeneratePath, "Distributions1D", distribution1DBuffer);
     }
 
     void SetupRayTraversal()
@@ -561,21 +667,21 @@ public class Raytracing : MonoBehaviour
         intersectBuffer.SetData(gpuInteractions);
         float rasterWidth = Screen.width;
         float rasterHeight = Screen.height;
-        kRayTraversal = extend.FindKernel("RayTraversal");
-        extend.SetBuffer(kRayTraversal, "Rays", rayBuffer);
-        extend.SetBuffer(kRayTraversal, "WoodTriangles", woodTriBuffer);
-        extend.SetBuffer(kRayTraversal, "WVertices", verticesBuffer);
-        //extend.SetBuffer(kRayTraversal, "Primitives", primtiveBuffer);
-        extend.SetBuffer(kRayTraversal, "BVHTree", BVHBuffer);
-        extend.SetBuffer(kRayTraversal, "Intersections", intersectBuffer);
+        kRayTraversal = RayTravel.FindKernel("RayTraversal");
+        RayTravel.SetBuffer(kRayTraversal, "Rays", rayBuffer);
+        RayTravel.SetBuffer(kRayTraversal, "WoodTriangles", woodTriBuffer);
+        RayTravel.SetBuffer(kRayTraversal, "Vertices", verticesBuffer);
+        //RayTravel.SetBuffer(kRayTraversal, "Primitives", primtiveBuffer);
+        RayTravel.SetBuffer(kRayTraversal, "BVHTree", BVHBuffer);
+        RayTravel.SetBuffer(kRayTraversal, "Intersections", intersectBuffer);
         if (meshInstanceBuffer != null)
-            extend.SetBuffer(kRayTraversal, "MeshInstances", meshInstanceBuffer);
-        //extend.SetBuffer(kRayTraversal, "WorldMatrices", transformBuffer);
-        extend.SetTexture(kRayTraversal, "outputTexture", outputTexture);
-        extend.SetBuffer(kRayTraversal, "RNGs", samplerBuffer);
-        extend.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
-        extend.SetInt("instBVHAddr", instBVHNodeAddr);
-        extend.SetInt("bvhNodesNum", bvhAccel.m_nodes.Count);
+            RayTravel.SetBuffer(kRayTraversal, "MeshInstances", meshInstanceBuffer);
+        //RayTravel.SetBuffer(kRayTraversal, "WorldMatrices", transformBuffer);
+        RayTravel.SetTexture(kRayTraversal, "outputTexture", outputTexture);
+        RayTravel.SetBuffer(kRayTraversal, "RNGs", samplerBuffer);
+        RayTravel.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
+        RayTravel.SetInt("instBVHAddr", instBVHNodeAddr);
+        RayTravel.SetInt("bvhNodesNum", bvhAccel.m_nodes.Count);
     }
     private void OnPostRender()
     {
@@ -585,7 +691,6 @@ public class Raytracing : MonoBehaviour
     private void OnDestroy()
     {
         primitives.Clear();
-        gpuPrimitives = null;
         gpuLights = null;
         gpuRays = null;
         gpuInteractions = null;
@@ -596,6 +701,9 @@ public class Raytracing : MonoBehaviour
         bvhAccel.Clear();
         meshHandles.Clear();
         meshInstances.Clear();
+
+        Distributions1D.Clear();
+        meshDistributions.Clear();
 
         if (primtiveBuffer != null)
         {
@@ -680,6 +788,18 @@ public class Raytracing : MonoBehaviour
         {
             meshInstanceBuffer.Release();
             meshInstanceBuffer = null;
+        }
+
+        if (distribution1DBuffer != null)
+        {
+            distribution1DBuffer.Release();
+            distribution1DBuffer = null;
+        }
+
+        if (lightBuffer != null)
+        {
+            lightBuffer.Release();
+            lightBuffer = null;
         }
 
         cameraComponent = null;
@@ -779,8 +899,8 @@ public class Raytracing : MonoBehaviour
         //else
         //    Debug.DrawRay(ray.orig, ray.direction * 20.0f, Color.red, duration);
 
-        int x = 343; //577;//(int)rasterWidth / 2 + 60;
-        int y = 133;//101;//(int)rasterHeight / 2;
+        int x = 577;//(int)rasterWidth / 2 + 60;
+        int y = 101;//(int)rasterHeight / 2;
         int index = x + y * (int)rasterWidth;
         //index = 700 + 360 * (int)rasterWidth;
         GPURay gpuRay = gpuRays[index];

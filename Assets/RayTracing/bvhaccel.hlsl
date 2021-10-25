@@ -6,6 +6,19 @@
 #define STACK_SIZE 64
 #define EntrypointSentinel 0x76543210
 
+StructuredBuffer<BVHNode> BVHTree;
+StructuredBuffer<float4>   WoodTriangles;
+StructuredBuffer<Vertex>   Vertices;
+StructuredBuffer<int>      WoodTriangleIndices;
+StructuredBuffer<MeshInstance> MeshInstances;
+
+cbuffer cb
+{
+	uniform int instBVHAddr;
+	uniform int bvhNodesNum;
+	uniform int lightsNum;
+};
+
 int min_min(int a, int b, int c)
 {
 	return min(min(a, b), c);
@@ -297,18 +310,21 @@ bool IntersectBVHandTriangles(Ray ray, int bvhOffset, out Interaction interactio
 				if (hitTriangle)
 				{
 					hitIndex = triAddr;
-					const float4 v0 = WVertices[triAddr].position;
-					const float4 v1 = WVertices[triAddr + 1].position;
-					const float4 v2 = WVertices[triAddr + 2].position;
+					int vertexIndex0 = WoodTriangleIndices[triAddr];
+					int vertexIndex1 = WoodTriangleIndices[triAddr + 1];
+					int vertexIndex2 = WoodTriangleIndices[triAddr + 2];
+					const float4 v0 = Vertices[vertexIndex0].position;
+					const float4 v1 = Vertices[vertexIndex1].position;
+					const float4 v2 = Vertices[vertexIndex2].position;
 					float4 hitPos = v0 * uv.x + v1 * uv.y + v2 * (1.0 - uv.x - uv.y);
 
 					hitPos.xyz = offset_ray(hitPos.xyz, normal);
 					hitPos.w = hitT;
 					materialIndex = v0.w;
 
-					const float4 uv0 = WVertices[triAddr].uv;
-					const float4 uv1 = WVertices[triAddr + 1].uv;
-					const float4 uv2 = WVertices[triAddr + 2].uv;
+					const float4 uv0 = Vertices[vertexIndex0].uv;
+					const float4 uv1 = Vertices[vertexIndex1].uv;
+					const float4 uv2 = Vertices[vertexIndex2].uv;
 
 
 					//return true;
@@ -321,8 +337,9 @@ bool IntersectBVHandTriangles(Ray ray, int bvhOffset, out Interaction interactio
 					interaction.normal.xyz = normal;
 					interaction.p = hitPos;
 					interaction.uv = uv0 * uv.x + uv1 * uv.y + uv2 * (1.0 - uv.x - uv.y);
-
+					
 					//计算切线
+					/*
 					float3 dp02 = v0.xyz - v2.xyz;
 					float3 dp12 = v1.xyz - v2.xyz;
 					float2 duv02 = uv0.xy - uv2.xy;
@@ -342,6 +359,7 @@ bool IntersectBVHandTriangles(Ray ray, int bvhOffset, out Interaction interactio
 
 					interaction.tangent.xyz = normalize(interaction.dpdu.xyz);
 					interaction.bitangent.xyz = normalize(cross(interaction.tangent.xyz, normal));
+					*/
 				}
 			} // triangle
 
@@ -363,12 +381,12 @@ bool IntersectBVHandTriangles(Ray ray, int bvhOffset, out Interaction interactio
 	//{ 
 	//	STORE_RESULT(rayidx, FETCH_TEXTURE(triIndices, hitIndex, int), hitT); 
 	//}
-	interaction.primitive.x = asfloat(hitIndex);
-	interaction.primitive.y = materialIndex;
+	//interaction.primitive.x = asfloat(hitIndex);
+	interaction.materialID = materialIndex;
 	return hitIndex != -1;
 }
 
-bool IntersectMeshBVH(float4 rayOrig, float4 rayDir, int bvhOffset, float4x4 objectToWorld, out float hitT, out int hitIndex, out Interaction interaction)
+bool IntersectMeshBVH(float4 rayOrig, float4 rayDir, int bvhOffset, float4x4 objectToWorld, float4x4 worldToObject, out float hitT, out int hitIndex, out Interaction interaction)
 {
 	interaction = (Interaction)0;
 	int INVALID_INDEX = EntrypointSentinel;
@@ -481,7 +499,6 @@ bool IntersectMeshBVH(float4 rayOrig, float4 rayDir, int bvhOffset, float4x4 obj
 				float3 normal = normalize(cross(m0, m1));
 				if (dot(normal, rayDir.xyz) >= 0)
 				{
-					//RenderDebug.DrawNormal(m_worldVertices[triAddr], m_worldVertices[triAddr + 1], m_worldVertices[triAddr + 2], 0.3f, 0.35f);
 					continue;
 				}
 
@@ -490,9 +507,12 @@ bool IntersectMeshBVH(float4 rayOrig, float4 rayDir, int bvhOffset, float4x4 obj
 				if (hitTriangle)
 				{
 					hitIndex = triAddr;
-					const float4 v0 = WVertices[triAddr].position;
-					const float4 v1 = WVertices[triAddr + 1].position;
-					const float4 v2 = WVertices[triAddr + 2].position;
+					int vertexIndex0 = WoodTriangleIndices[triAddr];
+					int vertexIndex1 = WoodTriangleIndices[triAddr + 1];
+					int vertexIndex2 = WoodTriangleIndices[triAddr + 2];
+					const float4 v0 = Vertices[vertexIndex0].position;
+					const float4 v1 = Vertices[vertexIndex1].position;
+					const float4 v2 = Vertices[vertexIndex2].position;
 					float4 hitPos = v0 * uv.x + v1 * uv.y + v2 * (1.0 - uv.x - uv.y);
 					hitPos.w = 1;
 					hitPos = mul(objectToWorld, hitPos);
@@ -501,9 +521,9 @@ bool IntersectMeshBVH(float4 rayOrig, float4 rayDir, int bvhOffset, float4x4 obj
 					hitPos.w = hitT;
 					//materialIndex = v0.w;
 
-					const float4 uv0 = WVertices[triAddr].uv;
-					const float4 uv1 = WVertices[triAddr + 1].uv;
-					const float4 uv2 = WVertices[triAddr + 2].uv;
+					const float4 uv0 = Vertices[vertexIndex0].uv;
+					const float4 uv1 = Vertices[vertexIndex1].uv;
+					const float4 uv2 = Vertices[vertexIndex2].uv;
 
 
 					//return true;
@@ -513,11 +533,14 @@ bool IntersectMeshBVH(float4 rayOrig, float4 rayDir, int bvhOffset, float4x4 obj
 					//	break;
 					//}
 					//计算法线
-					interaction.normal.xyz = normal;
+					interaction.normal.xyz = normalize(mul(normal, worldToObject));
 					interaction.p = hitPos;
 					interaction.uv = uv0 * uv.x + uv1 * uv.y + uv2 * (1.0 - uv.x - uv.y);
-
+					interaction.row1 = objectToWorld._m00_m01_m02_m03;
+					interaction.row2 = objectToWorld._m10_m11_m12_m13;
+					interaction.row3 = objectToWorld._m20_m21_m22_m23;
 					//计算切线
+					/*
 					float3 dp02 = v0.xyz - v2.xyz;
 					float3 dp12 = v1.xyz - v2.xyz;
 					float2 duv02 = uv0.xy - uv2.xy;
@@ -537,6 +560,7 @@ bool IntersectMeshBVH(float4 rayOrig, float4 rayDir, int bvhOffset, float4x4 obj
 
 					interaction.tangent.xyz = normalize(interaction.dpdu.xyz);
 					interaction.bitangent.xyz = normalize(cross(interaction.tangent.xyz, normal));
+					*/
 				}
 
 			} // triangle
@@ -601,20 +625,20 @@ bool IntersectBVH(Ray ray, out Interaction interaction)
 		//invDir = GetInverseDirection(ray.direction);
 		float bvhHit = hitT;
 		int meshHitTriangleIndex = -1;
-		if (IntersectMeshBVH(rayTemp.orig, rayTemp.direction, 0, meshInstance.localToWorld, bvhHit, meshHitTriangleIndex, tmpInteraction))
+		if (IntersectMeshBVH(rayTemp.orig, rayTemp.direction, 0, meshInstance.localToWorld, meshInstance.worldToLocal, bvhHit, meshHitTriangleIndex, tmpInteraction))
 		{
 			if (bvhHit < hitT)
 			{
 				hitT = bvhHit;
 				hitIndex = meshHitTriangleIndex;
+				tmpInteraction.materialID = meshInstance.GetMaterialID();
 				hitBVHNode == 0;
+				interaction = tmpInteraction;
 			}
 		}
 	}
 	else
 	{
-		int test = 0;
-		//这个nodeAddr从哪里来？
 		while (nodeAddr != EntrypointSentinel)
 		{
 
@@ -653,13 +677,22 @@ bool IntersectBVH(Ray ray, out Interaction interaction)
 					nextMeshInstanceIds = int2(nextMeshInstanceIds.y, nextMeshInstanceIds.x);
 				}
 
+				bool curNodeIsX = false;
 				//next.y入栈
 				if (next.x >= instBVHAddr)
+				{
 					nodeAddr = next.x;
+					curNodeIsX = true;
+				}
 				else
-					nodeAddr = traversalStack[stackIndex--];
+				{
+					if (next.y >= instBVHAddr)
+						nodeAddr = next.y;
+					else
+						nodeAddr = traversalStack[stackIndex--];
+				}
 				//这里入栈的可能是bottomlevel bvh leaf
-				if (next.y >= instBVHAddr)
+				if (next.y >= instBVHAddr && curNodeIsX)
 					traversalStack[++stackIndex] = next.y;
 
 			}
@@ -697,10 +730,11 @@ bool IntersectBVH(Ray ray, out Interaction interaction)
 					//invDir = GetInverseDirection(ray.direction);
 					float bvhHit = hitT;
 					int meshHitTriangleIndex = -1;
-					if (IntersectMeshBVH(rayTemp.orig, rayTemp.direction, next[i], meshInstance.localToWorld, bvhHit, meshHitTriangleIndex, tmpInteraction))
+					if (IntersectMeshBVH(rayTemp.orig, rayTemp.direction, next[i], meshInstance.localToWorld, meshInstance.worldToLocal, bvhHit, meshHitTriangleIndex, tmpInteraction))
 					{
 						if (bvhHit < hitT)
 						{
+							tmpInteraction.materialID = meshInstance.GetMaterialID();
 							hitT = bvhHit;
 							hitIndex = meshHitTriangleIndex;
 							hitBVHNode = next[i];
@@ -709,8 +743,6 @@ bool IntersectBVH(Ray ray, out Interaction interaction)
 					}
 				}
 			}
-			if (++test >= 10)
-				return false;
 		}
 	}
 	return hitIndex > -1;

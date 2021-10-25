@@ -21,21 +21,44 @@ struct Ray
 	}
 };
 
+struct ShadowRay
+{
+	float3 position;
+	float3 direction;
+	//mis weight
+	float  weight;
+	float  pdf;
+};
+
+struct BSDFSample
+{
+	float3 direction;
+	float  weight;
+	float  pdf;
+};
 
 struct Interaction  //64byte
 {
 	float4 p;   //交点
 	//float time;        //应该是相交的ray的参数t
 	float4 wo;
-	float4 normal;
-	float4 primitive;   //0 is triangle index, y is material index
+	float3 normal;
+	uint   materialID;
+	//float4 primitive;   //0 is triangle index, y is material index
 	float4 uv;
-	float4 ns;   
-	float4 dpdu;
-	float4 dpdv;
-	float4 tangent;
-	float4 bitangent;
+	float4 row1;
+	float4 row2;
+	float4 row3;
+	//float4 ns;   
+	//float4 dpdu;
+	//float4 dpdv;
+	//float4 tangent;
+	//float4 bitangent;
 	//int    primitive; //intersect with primitives index, -1 represents no intersection
+	bool IsHit()
+	{
+		return p.w > 0;
+	}
 };
 
 struct AreaLight
@@ -269,6 +292,21 @@ Ray TransformRay(float4x4 mat, Ray ray)
 	output.direction = normalize(output.direction);
 	output.direction.w = ray.direction.w;
 	return output;
+}
+
+//return the triangle point
+//p0 p1 p2 is the local position of a mesh
+void SampleTrianglePoint(float3 p0, float3 p1, float3 p2, float2 u, out float3 normal, out float3 position, out float pdf)
+{
+	//caculate bery centric uv w = 1 - u - v
+	float t = sqrt(u.x);
+	float2 uv = float2(1.0 - t, t * u.y);
+	float w = 1 - uv.x - uv.y;
+
+	position = p0 * w + p1 * uv.x + p2 * uv.y;
+	float3 crossVector = cross(p1 - p0, p2 - p0);
+	normal = normalize(crossVector);
+	pdf = 1.0 / length(crossVector);
 }
 
 #endif

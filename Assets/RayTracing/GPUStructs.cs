@@ -13,9 +13,12 @@ public struct GPUPrimitive
 public struct GPULight
 {
     public int type;  //0 - deltadistance 1 - delta point 2 - area
-    public Color color;
+    public int meshInstanceID;
+    public int distributeAddress;   //triangle area distribution
+    public int trianglesNum;
     public float intensity;
     public float pointRadius;
+    public Vector3 radiance;
 }
 
 public struct GPURay
@@ -46,14 +49,18 @@ public struct GPUInteraction
     //float time;
     //Vector4 pError; //floating point error
     Vector4 wo;   //output direction
-    Vector4 normal; //geometry normal
-    Vector4 primitive;
+    Vector3 normal; //geometry normal
+    uint materialID;
+    //Vector4 primitive;
     Vector4 uv;
-    Vector4 ns;  //shading normal
-    Vector4 dpdu;
-    Vector4 dpdv;
-    Vector4 tangent;
-    Vector4 bitangent;
+    Vector4 row1;
+    Vector4 row2;
+    Vector4 row3;
+    //Vector4 ns;  //shading normal
+    //Vector4 dpdu;
+    //Vector4 dpdv;
+    //Vector4 tangent;
+    //Vector4 bitangent;
 }
 
 public struct GPUBounds
@@ -240,6 +247,12 @@ public struct GPUVertex
 {
     public Vector4 position;
     public Vector4 uv;
+
+    public GPUVertex(Vector4 _position, Vector4 _uv)
+    {
+        position = _position;
+        uv = _uv;
+    }
 }
 public struct GPUBVHNode
 {

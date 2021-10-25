@@ -114,6 +114,36 @@ struct RNG
 };
 
 RWStructuredBuffer<RNG>    RNGs;
+//x pdf y cdf
+StructuredBuffer<float2> Distributions1D;
+
+//binary search
+int FindIntervalSmall(int start, int size, float u)
+{
+    int first = 0, len = size;
+    while (len > 0)
+    {
+        int nHalf = len >> 1;
+        int middle = first + nHalf;
+        // Bisect range based on value of _pred_ at _middle_
+        float2 distrubution = Distributions1D[start + middle];
+        if (distrubution.y <= u)
+        {
+            first = middle + 1;
+            len -= nHalf + 1;
+        }
+        else
+            len = nHalf;
+    }
+    return clamp(first - 1, 0, size - 2);
+}
+
+int SampleDistribution1DDiscrete(float u, int start, int num, out float pdf)
+{
+    int offset = FindIntervalSmall(start, num, u);
+    pdf = Distributions1D[start + offset].x;
+    return offset;
+}
 
 float UniformFloat(inout RNG rng)
 {
@@ -142,6 +172,7 @@ float Get1D(uint threadId)
 
 class RandomSampler
 {
+    /*
     float2 Get2D(float2 p, float t)
     {
         float v = .152;
@@ -157,6 +188,15 @@ class RandomSampler
 
         return hash11(pos);
     }
+    */
+
+    float Get1D(uint threadId)
+    {
+        RNG rng = RNGs[threadId];
+        float u = UniformFloat(rng);
+        RNGs[threadId] = rng;
+        return u;
+    }
 
     float2 Get2D(int rngIndex)
     {
@@ -166,12 +206,12 @@ class RandomSampler
         return u;
     }
 
-    CameraSample GetCameraSample(float2 pRaster, float t)
-    {
-        CameraSample camSample;
-        camSample.pFilm = pRaster + Get2D(pRaster, t);
-        return camSample;
-    }
+    //CameraSample GetCameraSample(float2 pRaster, float t)
+    //{
+    //    CameraSample camSample;
+    //    camSample.pFilm = pRaster + Get2D(pRaster, t);
+    //    return camSample;
+    //}
 
     CameraSample GetCameraSample(float2 pRaster, int rngIndex)
     {

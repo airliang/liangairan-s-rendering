@@ -11,7 +11,8 @@
 // with cs.SetTexture
 
 //use the matrix to calculate the world space ray
-
+StructuredBuffer<Ray>    Rays;
+RWStructuredBuffer<Interaction>       Intersections;
 RWTexture2D<half4> outputTexture;
 
 [numthreads(8,8,1)]
@@ -27,7 +28,7 @@ void RayTraversal(uint3 id : SV_DispatchThreadID)
     //if (IntersectBVHandTriangles(ray, 0, isect))
     if (IntersectBVH(ray, isect))
     {
-        int triIndex = asint(isect.primitive.x);
+        //int triIndex = asint(isect.primitive.x);
         //float3 color = (float)(triIndex / 3) / 50.0;
         float3 color = isect.normal.xyz * 0.5 + 0.5f;
         //RNG rng = RNGs[threadId];
