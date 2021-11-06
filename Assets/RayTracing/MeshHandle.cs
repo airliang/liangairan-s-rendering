@@ -8,6 +8,7 @@ public struct MeshHandle
     public int triangleOffset;
     public int vertexCount;
     public int triangleCount;
+    public int bvhOffset;
     public GPUBounds localBounds;
 
     public MeshHandle(int _vertexOff, 
@@ -20,6 +21,7 @@ public struct MeshHandle
         triangleOffset = _triangleOff;
         vertexCount = _vertexCount;
         triangleCount = _triangleCount;
+        bvhOffset = -1;
         localBounds = GPUBounds.ConvertUnityBounds(bounds);
     }
 }
@@ -31,7 +33,7 @@ public struct MeshInstance
     public int meshHandleIndex;
     public int materialIndex;
     public int lightIndex;
-    public int m0;
+    public int bvhOffset;
 
     public MeshInstance(Matrix4x4 _local2world, Matrix4x4 _world2local, int _meshHandleIndex, int _materialIndex, int _lightIndex)
     {
@@ -40,6 +42,6 @@ public struct MeshInstance
         meshHandleIndex = _meshHandleIndex;
         materialIndex = _materialIndex;
         lightIndex = _lightIndex;
-        m0 = 0;
+        bvhOffset = -1;
     }
 }

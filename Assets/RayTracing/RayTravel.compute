@@ -5,10 +5,7 @@
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel RayTraversal
 
-
-
-// Create a RenderTexture with enableRandomWrite flag and set it
-// with cs.SetTexture
+float2 rasterSize;
 
 //use the matrix to calculate the world space ray
 StructuredBuffer<Ray>    Rays;

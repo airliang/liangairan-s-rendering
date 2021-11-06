@@ -2,6 +2,7 @@
 #ifndef SAMPLER_HLSL
 #define SAMPLER_HLSL
 #include "mathdef.hlsl"
+#include "GPUStructs.hlsl"
 
 //----------------------------------------------------------------------------------------
 //  1 out, 1 in...
@@ -100,18 +101,7 @@ float3 CosineSampleHemisphere(float2 u)
 	return float3(rphi.x, rphi.y, z);
 }
 
-struct CameraSample 
-{
-    float2 pFilm;
-    //Point2f pLens;
-    //Float time;
-};
 
-struct RNG
-{
-    uint state;
-    uint s1;
-};
 
 RWStructuredBuffer<RNG>    RNGs;
 //x pdf y cdf
@@ -143,6 +133,24 @@ int SampleDistribution1DDiscrete(float u, int start, int num, out float pdf)
     int offset = FindIntervalSmall(start, num, u);
     pdf = Distributions1D[start + offset].x;
     return offset;
+}
+
+int SampleLightTriangle(int start, int count, float u, out float pdf)
+{
+    //get light mesh triangle index
+    int index = SampleDistribution1DDiscrete(u, start, count, pdf);
+    return index;
+}
+
+float DiscretePdf(int index)
+{
+    return Distributions1D[index];
+}
+
+float PowerHeuristic(int nf, float fPdf, int ng, float gPdf)
+{
+    float f = nf * fPdf, g = ng * gPdf;
+    return (f * f) / (f * f + g * g);
 }
 
 float UniformFloat(inout RNG rng)

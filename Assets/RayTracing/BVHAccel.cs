@@ -1204,16 +1204,19 @@ public class BVHAccel
 
 		for (int i = 0; i < meshHandles.Count; ++i)
 		{
+			MeshHandle meshH = meshHandles[i];
+			meshH.bvhOffset = instBVHNodeAddr;
+			meshHandles[i] = meshH;
 			instBVHOffset.Add(instBVHNodeAddr);
 			int nodesNum = BuildMeshBVH(meshHandles[i], vertices, triangles);
 			instBVHNodeAddr = nodesNum;
-
 		}
 		// build the instance bounding box bvh
 		BuildInstBVH(meshTransforms, meshInstances, vertices, triangles, instBVHOffset);
 
 		MeshInstance meshInstance = meshInstances[0];
 		MeshHandle meshHandle = meshHandles[meshInstance.meshHandleIndex];
+		meshInstance.bvhOffset = meshHandle.bvhOffset;
 		Vector3 worldBoundMin = Vector3.zero;
 		Vector3 worldBoundMax = Vector3.zero;
 		GPUBounds.TransformBounds(ref meshInstance.localToWorld, meshHandle.localBounds.min, meshHandle.localBounds.max, out worldBoundMin, out worldBoundMax);

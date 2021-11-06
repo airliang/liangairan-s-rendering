@@ -17,17 +17,7 @@ struct BXDF
 //	Bounds bounds;
 //};
 
-struct MeshInstance
-{
-	float4x4 localToWorld;
-	float4x4 worldToLocal;
-	int4     indices;  //x-meshhandle y-material index z-light index w
 
-	int GetMaterialID()
-	{
-		return indices.y;
-	}
-};
 
 //buffers
 
@@ -41,7 +31,6 @@ struct MeshInstance
 
 
 uniform float _time;
-uniform float2 rasterSize;
 
 uniform float3 testBoundMax;
 uniform float3 testBoundMin;

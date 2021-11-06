@@ -1,0 +1,111 @@
+#include "bvhaccel.hlsl"
+#include "sampler.hlsl"
+#include "bxdf.hlsl"
+#include "light.hlsl"
+
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+uniform int    lightsNum;
+uniform float2 rasterSize;
+
+
+StructuredBuffer<Interaction>  Intersections;
+RWStructuredBuffer<ShadowRay>  ShadowRays;
+StructuredBuffer<Light> lights;
+StructuredBuffer<Material> materials;
+
+Light SampleLightSource(out float pdf, uint threadId, out int index)
+{
+	index = SampleDistribution1DDiscrete(0, lightsNum, rs.Get1D(threadId), pdf);
+	return lights[index];
+}
+
+bool ShadowRayVisibilityTest(ShadowRay shadowRay)
+{
+	Ray ray;
+	ray.orig.xyz = shadowRay.p0;
+	ray.orig.w = FLT_MAX;
+	ray.direction.xyz = shadowRay.p1 - shadowRay.p0;
+	ray.direction.w = 0;
+	return IntersectP(ray);
+}
+
+ShadowRay SampleShadowRay(uint threadId, Light light, Interaction isect)
+{
+	ShadowRay shadowRay = (ShadowRay)0;
+	int distributionAddress = light.distributeAddress;
+	float u = rs.Get1D(threadId);
+	float triPdf = 0;
+	float lightPdf = 0;
+	int triangleIndex = SampleLightTriangle(distributionAddress, light.trianglesNum, u, lightPdf);
+	int vertexStart = triangleIndex * 3 - lightsNum;
+	float3 p0 = Vertices[vertexStart].position.xyz;
+	float3 p1 = Vertices[vertexStart + 1].position.xyz;
+	float3 p2 = Vertices[vertexStart + 2].position.xyz;
+	//convert to worldpos
+	MeshInstance meshInstance = MeshInstances[light.meshInstanceID];
+	p0 = mul(meshInstance.localToWorld, float4(p0, 1)).xyz;
+	p1 = mul(meshInstance.localToWorld, float4(p1, 1)).xyz;
+	p2 = mul(meshInstance.localToWorld, float4(p2, 1)).xyz;
+
+	//float3 lightPointNormal;
+	float3 trianglePoint;
+	//SampleTrianglePoint(p0, p1, p2, rs.Get2D(threadId), lightPointNormal, trianglePoint, triPdf);
+	float3 wi;
+	float3 Li = SampleTriangleLight(p0, p1, p2, rs.Get2D(threadId), isect, light, wi, trianglePoint, triPdf);
+	lightPdf *= triPdf;
+
+	shadowRay.p0 = isect.p.xyz;
+	shadowRay.p1 = trianglePoint;
+	//shadowRay.pdf = triPdf;
+	shadowRay.lightPdf = lightPdf;
+	//float3 Li = light.radiance;
+	//shadowRay.lightNormal = lightPointNormal;
+	//float3 wi = normalize(shadowRay.p1 - shadowRay.p0);
+
+	//sample bsdf
+	Material material = materials[isect.materialID];
+	float3 wiLocal = isect.WorldToLocal(wi);
+	float3 woLocal = isect.WorldToLocal(isect.wo.xyz);
+	float3 f = LambertBRDF(woLocal, wiLocal, material.kd.xyz) * abs(dot(wi, isect.normal));
+	float scatteringPdf = LambertPDF(woLocal, wiLocal);
+
+	if (ShadowRayVisibilityTest(shadowRay))
+	{
+		//sample psdf and compute the mis weight
+		shadowRay.weight = 
+			PowerHeuristic(1, lightPdf, 1, scatteringPdf);
+		shadowRay.radiance = f * Li * shadowRay.weight / lightPdf;
+	}
+	else
+	{
+		shadowRay.radiance = 0;
+	}
+
+	return shadowRay;
+}
+
+
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+	if (id.x >= rasterSize.x || id.y >= rasterSize.y)
+		return;
+
+	uint threadId = id.x + id.y * rasterSize.x;
+	Interaction isect = Intersections[threadId];
+
+	if (isect.IsHit())
+	{
+		float lightSourcePdf = 0.0;
+		int lightIndex = 0;
+		Light light = SampleLightSource(lightSourcePdf, threadId, lightIndex);
+
+		ShadowRay shadowRay = SampleShadowRay(threadId, light, isect);
+		shadowRay.lightSourcePdf = lightSourcePdf;
+		shadowRay.lightIndex = asfloat(lightIndex);
+		ShadowRays[threadId] = shadowRay;
+	}
+}

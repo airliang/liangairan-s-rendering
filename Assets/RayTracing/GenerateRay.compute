@@ -1,5 +1,5 @@
 #include "sampler.hlsl"
-#include "rtCommon.hlsl"
+#include "GPUStructs.hlsl"
 #include "bxdf.hlsl"
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel GeneratePrimary
@@ -11,9 +11,10 @@
 //use the matrix to calculate the world space ray
 matrix RasterToCamera;
 matrix CameraToWorld;
-
+float2 rasterSize;
 
 RWStructuredBuffer<Ray>    Rays;
+RWStructuredBuffer<PathRadiance> pathRadiances;
 [numthreads(8,8,1)]
 void GeneratePrimary(uint3 id : SV_DispatchThreadID)
 {
@@ -33,5 +34,9 @@ void GeneratePrimary(uint3 id : SV_DispatchThreadID)
     ray.direction = mul(CameraToWorld, float4(normalize(nearplanePoint.xyz), 0));
     ray.orig.w = FLT_MAX;
     Rays[threadId] = ray;
+    PathRadiance bounceRadiance;
+    bounceRadiance.li = 0;
+    bounceRadiance.beta = 1.0;
+    pathRadiances[threadId] = bounceRadiance;
 }
 

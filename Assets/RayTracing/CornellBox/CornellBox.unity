@@ -2019,6 +2019,8 @@ MonoBehaviour:
   generatePath: {fileID: 7200000, guid: 9f5ba9218bea57843aff129e1675fb7b, type: 3}
   RayTravel: {fileID: 7200000, guid: 8c98bbc01ef926a4991c6ab29793b90a, type: 3}
   initRandom: {fileID: 7200000, guid: f09f3de862413a74781d4d49b8cbd9ee, type: 3}
+  SampleShadowRay: {fileID: 7200000, guid: 04a3649e79e1b39499bc6f3019e9e3dc, type: 3}
+  EstimateDirect: {fileID: 7200000, guid: 0e9388db8ef7da84fa9512dbe530a0f8, type: 3}
   useInstanceBVH: 1
 --- !u!1 &25648568
 GameObject:

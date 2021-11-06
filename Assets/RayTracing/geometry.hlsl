@@ -23,11 +23,16 @@ struct Ray
 
 struct ShadowRay
 {
-	float3 position;
-	float3 direction;
+	float3 p0;   //isect position
+	float3 p1;   //light sample point position
+	float3 radiance;  //light radiance
+	//float3 lightNormal;  //light sample point normal
 	//mis weight
 	float  weight;
-	float  pdf;
+	float  lightSourcePdf;        //Light Radiance pdf
+	float  lightPdf;   //light sampling pdf
+	float  visibility; //1 is visible, 0 invisible
+	float  lightIndex; 
 };
 
 struct BSDFSample
@@ -52,12 +57,25 @@ struct Interaction  //64byte
 	//float4 ns;   
 	//float4 dpdu;
 	//float4 dpdv;
-	//float4 tangent;
-	//float4 bitangent;
+	float3 tangent;  //the same as pbrt's ss(x)
+	float3 bitangent; //the same as pbrt's ts(y)
 	//int    primitive; //intersect with primitives index, -1 represents no intersection
 	bool IsHit()
 	{
 		return p.w > 0;
+	}
+
+	float3 WorldToLocal(float3 v)
+	{
+		return float3(dot(tangent, v), dot(bitangent, v), dot(normal, v));
+	}
+
+	float3 LocalToWorld(float3 v)
+	{
+		return float3(tangent.x * v.x + bitangent.x * v.y + normal.x * v.z,
+			tangent.y * v.x + bitangent.y * v.y + normal.y * v.z,
+			tangent.z * v.x + bitangent.z * v.y + normal.z * v.z
+			);
 	}
 };
 
@@ -65,6 +83,13 @@ struct AreaLight
 {
 	float3 Lemit;  //xyz radiance
 	float  Area;   //area
+};
+
+struct Triangle
+{
+	float3 p0;
+	float3 p1;
+	float3 p2;
 };
 
 struct Bounds
@@ -296,17 +321,19 @@ Ray TransformRay(float4x4 mat, Ray ray)
 
 //return the triangle point
 //p0 p1 p2 is the local position of a mesh
-void SampleTrianglePoint(float3 p0, float3 p1, float3 p2, float2 u, out float3 normal, out float3 position, out float pdf)
+float3 SampleTrianglePoint(float3 p0, float3 p1, float3 p2, float2 u, out float pdf)
 {
 	//caculate bery centric uv w = 1 - u - v
 	float t = sqrt(u.x);
 	float2 uv = float2(1.0 - t, t * u.y);
 	float w = 1 - uv.x - uv.y;
 
-	position = p0 * w + p1 * uv.x + p2 * uv.y;
+	float3 position = p0 * w + p1 * uv.x + p2 * uv.y;
 	float3 crossVector = cross(p1 - p0, p2 - p0);
-	normal = normalize(crossVector);
 	pdf = 1.0 / length(crossVector);
+
+	return position;
 }
+
 
 #endif
