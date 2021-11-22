@@ -244,27 +244,79 @@ public class BVHAccel
 		return myOffset;
 	}
 
-	public void DrawDebug()
+	public void DrawDebug(List<MeshInstance> meshInstances, bool instanceBVH = true)
     {
-		/*
-		if (linearNodes != null)
+		if (instanceBVH)
         {
-			for (int i = 0; i < linearNodes.Length; ++i)
+			for (int i = instBVHNodeAddr; i < m_nodes.Count; ++i)
 			{
-				if (linearNodes[i].nPrimitives > 0)
+				RenderDebug.DrawDebugBound(m_nodes[i].b0xy.x, m_nodes[i].b0xy.y, m_nodes[i].b0xy.z, m_nodes[i].b0xy.w, m_nodes[i].b01z.x, m_nodes[i].b01z.y, Color.white);
+			}
+
+			for (int i = 0; i < instBVHNodeAddr; ++i)
+            {
+				int nodeAddr = SingleToInt32Bits(m_nodes[i].cids.x);
+				int meshInstanceIndex = SingleToInt32Bits(m_nodes[i].cids.z);
+				MeshInstance meshInst = meshInstances[meshInstanceIndex];
+				if (nodeAddr >= 0)
                 {
-					GPUBounds bound = linearNodes[i].bounds;
-					RenderDebug.DrawDebugBound(bound.min.x, bound.max.x, bound.min.y, bound.max.y, bound.min.z, bound.max.z);
+					Vector3 min = new Vector3(m_nodes[i].b0xy.x, m_nodes[i].b0xy.z, m_nodes[i].b01z.x);
+					Vector3 max = new Vector3(m_nodes[i].b0xy.y, m_nodes[i].b0xy.w, m_nodes[i].b01z.y);
+					BoundingUtils.TransformBounds(ref meshInst.localToWorld, ref min, ref max);
+					RenderDebug.DrawDebugBound(min, max, Color.white);
+				}
+				else
+                {
+					int triAddr = nodeAddr;
+					for (int tri = ~triAddr; ; tri += 3)
+					{
+						Vector4 m0 = m_woodTriangleVertices[tri];     //matrix row 0 
+
+						if (SingleToInt32Bits(m0.x) == 0x7fffffff)
+							break;
+
+						RenderDebug.DrawTriangle(meshInst.localToWorld.MultiplyPoint(sceneVertices[m_woodTriangleIndices[tri]].position),
+						meshInst.localToWorld.MultiplyPoint(sceneVertices[m_woodTriangleIndices[tri + 1]].position),
+						meshInst.localToWorld.MultiplyPoint(sceneVertices[m_woodTriangleIndices[tri + 2]].position), Color.red);
+					}
 				}
 				
+                
+
+                nodeAddr = SingleToInt32Bits(m_nodes[i].cids.y);
+				meshInstanceIndex = SingleToInt32Bits(m_nodes[i].cids.w);
+				meshInst = meshInstances[meshInstanceIndex];
+				if (nodeAddr >= 0)
+                {
+					Vector3 min = new Vector3(m_nodes[i].b0xy.x, m_nodes[i].b0xy.z, m_nodes[i].b01z.x);
+					Vector3 max = new Vector3(m_nodes[i].b0xy.y, m_nodes[i].b0xy.w, m_nodes[i].b01z.y);
+					BoundingUtils.TransformBounds(ref meshInst.localToWorld, ref min, ref max);
+					RenderDebug.DrawDebugBound(min, max, Color.white);
+				}
+				else
+                {
+					int triAddr = nodeAddr;
+
+					for (int tri = ~triAddr; ; tri += 3)
+					{
+						Vector4 m0 = m_woodTriangleVertices[tri];     //matrix row 0 
+
+						if (SingleToInt32Bits(m0.x) == 0x7fffffff)
+							break;
+						RenderDebug.DrawTriangle(meshInst.localToWorld.MultiplyPoint(sceneVertices[m_woodTriangleIndices[tri]].position),
+						meshInst.localToWorld.MultiplyPoint(sceneVertices[m_woodTriangleIndices[tri + 1]].position),
+						meshInst.localToWorld.MultiplyPoint(sceneVertices[m_woodTriangleIndices[tri + 2]].position), Color.red);
+					}
+				}
 			}
 		}
-		*/
-
+		
 		//m_nodes全是inner node，找到对应的三角形画出来
+		/*
 		for (int i = 0; i < m_nodes.Count; ++i)
 		{
-			if (SingleToInt32Bits(m_nodes[i].cids.x) >= 0)
+			int nodeAddr = SingleToInt32Bits(m_nodes[i].cids.x);
+			if (nodeAddr >= instBVHNodeAddr)
             {
 				RenderDebug.DrawDebugBound(m_nodes[i].b0xy.x, m_nodes[i].b0xy.y, m_nodes[i].b0xy.z, m_nodes[i].b0xy.w, m_nodes[i].b01z.x, m_nodes[i].b01z.y, Color.white);
 			}
@@ -275,23 +327,24 @@ public class BVHAccel
 				int triAddr = SingleToInt32Bits(m_nodes[i].cids.x);
 				int triNum = SingleToInt32Bits(m_nodes[i].cids.z);
 
-                for (int tri = ~triAddr; tri < ~triAddr + triNum * 3; tri += 3)
-                {
-                    RenderDebug.DrawTriangle(sceneVertices[m_woodTriangleIndices[tri]].position,
-						sceneVertices[m_woodTriangleIndices[tri + 1]].position,
-						sceneVertices[m_woodTriangleIndices[tri + 2]].position, Color.red);
-                }
+      //          for (int tri = ~triAddr; tri < ~triAddr + triNum * 3; tri += 3)
+      //          {
+      //              RenderDebug.DrawTriangle(sceneVertices[m_woodTriangleIndices[tri]].position,
+						//sceneVertices[m_woodTriangleIndices[tri + 1]].position,
+						//sceneVertices[m_woodTriangleIndices[tri + 2]].position, Color.red);
+      //          }
                 //RenderDebug.DrawDebugBound(m_nodes[i].b0xy.x, m_nodes[i].b0xy.y, m_nodes[i].b0xy.z, m_nodes[i].b0xy.w, m_nodes[i].b01z.x, m_nodes[i].b01z.y, Color.white);
             }
 
-			if (SingleToInt32Bits(m_nodes[i].cids.y) >= 0)
+			nodeAddr = SingleToInt32Bits(m_nodes[i].cids.y);
+			if (nodeAddr >= instBVHNodeAddr)
 			{
 				RenderDebug.DrawDebugBound(m_nodes[i].b1xy.x, m_nodes[i].b1xy.y, m_nodes[i].b1xy.z, m_nodes[i].b1xy.w, m_nodes[i].b01z.z, m_nodes[i].b01z.w, Color.white);
 			}
 			else
             {
 				//if (!drawBound)
-				RenderDebug.DrawDebugBound(m_nodes[i].b1xy.x, m_nodes[i].b1xy.y, m_nodes[i].b1xy.z, m_nodes[i].b1xy.w, m_nodes[i].b01z.z, m_nodes[i].b01z.w, Color.gray);
+				//RenderDebug.DrawDebugBound(m_nodes[i].b1xy.x, m_nodes[i].b1xy.y, m_nodes[i].b1xy.z, m_nodes[i].b1xy.w, m_nodes[i].b01z.z, m_nodes[i].b01z.w, Color.gray);
 				int triAddr = SingleToInt32Bits(m_nodes[i].cids.y);
 				int triNum = SingleToInt32Bits(m_nodes[i].cids.w);
 
@@ -302,6 +355,7 @@ public class BVHAccel
 				//RenderDebug.DrawDebugBound(m_nodes[i].b1xy.x, m_nodes[i].b1xy.y, m_nodes[i].b1xy.z, m_nodes[i].b1xy.w, m_nodes[i].b01z.z, m_nodes[i].b01z.w, Color.red);
 			}
 		}
+		*/
     }
 
 	public static void TestPartition()
@@ -443,7 +497,9 @@ public class BVHAccel
 					m_woodTriangleVertices.Add(new Vector4(Int32BitsToSingle(int.MaxValue), 0, 0 , 0));
 					m_woodTriangleIndices.Add(int.MaxValue);
 					//m_vertices.Add(new GPUVertex(new Vector4(Int32BitsToSingle(int.MaxValue), 0, 0, 0), Vector4.zero));
-					c2 = child.nPrimitives;
+					//c2 = child.nPrimitives;
+					Primitive primitiveCur = primitives[child.firstPrimOffset];
+					c2 = primitiveCur.meshInstIndex;
 				}
 				else
                 {
@@ -489,7 +545,8 @@ public class BVHAccel
 					m_woodTriangleVertices.Add(new Vector4(Int32BitsToSingle(int.MaxValue), 0, 0, 0));
 					m_woodTriangleIndices.Add(int.MaxValue);
 					//m_vertices.Add(new GPUVertex(new Vector4(Int32BitsToSingle(int.MaxValue), 0, 0, 0), Vector4.zero));
-					c3 = child.nPrimitives;
+					Primitive primitiveCur = primitives[child.firstPrimOffset];
+					c3 = primitiveCur.meshInstIndex;
 				}
 				else
                 {
@@ -579,12 +636,95 @@ public class BVHAccel
 		//normal2.Normalize();
 	}
 
+
+	//build 2 types bvh
+	//meshinstance bvh and mesh primitive bvh
+	//return toplevel bvh在bvhbuffer中的位置
+	public int Build(List<Transform> meshTransforms, List<MeshInstance> meshInstances, List<MeshHandle> meshHandles, List<GPUVertex> vertices, List<int> triangles)
+    {
+		instBVHNodeAddr = 0;
+		List<int> instBVHOffset = new List<int>();
+
+		//首先创建每个meshHandle的localspace的bvh
+		sceneVertices = vertices;
+
+		for (int i = 0; i < meshHandles.Count; ++i)
+		{
+			MeshHandle meshH = meshHandles[i];
+			meshH.bvhOffset = instBVHNodeAddr;
+			meshHandles[i] = meshH;
+			instBVHOffset.Add(instBVHNodeAddr);
+			int nodesNum = BuildMeshBVH(meshHandles[i], vertices, triangles);
+			instBVHNodeAddr = nodesNum;
+		}
+		// build the instance bounding box bvh
+		BuildInstBVH(meshTransforms, meshInstances, vertices, triangles, instBVHOffset);
+
+		MeshInstance meshInstance = meshInstances[0];
+		MeshHandle meshHandle = meshHandles[meshInstance.meshHandleIndex];
+		meshInstance.bvhOffset = meshHandle.bvhOffset;
+		Vector3 worldBoundMin = Vector3.zero;
+		Vector3 worldBoundMax = Vector3.zero;
+		GPUBounds.TransformBounds(ref meshInstance.localToWorld, meshHandle.localBounds.min, meshHandle.localBounds.max, out worldBoundMin, out worldBoundMax);
+		RenderDebug.DrawDebugBound(worldBoundMin, worldBoundMax, Color.white);
+
+		return instBVHNodeAddr;
+	}
+
+	public void BuildInstBVH(List<Transform> meshTransforms, List<MeshInstance> meshInstances, List<GPUVertex> vertices, List<int> triangles, List<int> instBVHOffset)
+    {
+		List<Primitive> primitives = new List<Primitive>();
+		for (int i = 0; i < meshTransforms.Count; ++i)
+		{
+			MeshInstance meshInst = meshInstances[i];
+			int meshHandleIndex = meshInst.meshHandleIndex;
+			Renderer renderer = meshTransforms[i].GetComponent<Renderer>();
+			Primitive meshInstPrim = new Primitive(renderer.bounds, meshHandleIndex, i);
+			primitives.Add(meshInstPrim);
+		}
+		List<Primitive> orderedPrims = new List<Primitive>();
+		//instance不需要用split的
+		BVHBuilder instBuilder = new BVHBuilder();
+		//保证一个leaf一个inst，所以maxPrimsInNode参数是1
+		if (primitives.Count > 1)
+        {
+			BVHBuildNode instRoot = instBuilder.Build(primitives, orderedPrims, null, null, 1);
+			primitives = orderedPrims;
+
+			CreateCompact(instRoot, primitives, vertices, false, instBVHOffset);
+		}
+		
+	}
+
+	//返回m_nodes的数量
+	public int BuildMeshBVH(MeshHandle meshHandle, List<GPUVertex> vertices, List<int> triangles)
+    {
+		
+		//生成MeshHandle的primitives
+		List<Primitive> primitives = new List<Primitive>();
+		int faceNum = meshHandle.triangleCount / 3;
+		for (int f = 0; f < faceNum; ++f)
+		{
+			int tri0 = triangles[f * 3 + meshHandle.triangleOffset];
+			int tri1 = triangles[f * 3 + 1 + meshHandle.triangleOffset];
+			int tri2 = triangles[f * 3 + 2 + meshHandle.triangleOffset];
+			primitives.Add(new Primitive(tri0, tri1, tri2, vertices[tri0].position, vertices[tri1].position, vertices[tri2].position, 0, 0));
+		}
+		List<Primitive> orderedPrims = new List<Primitive>();
+		BVHBuilder builder = new SplitBVHBuilder();
+		BVHBuildNode meshRoot = builder.Build(primitives, orderedPrims, vertices, triangles, primitives.Count < 3 ? 1 : maxLeafSize);
+		//CreateCompact生成的m_nodes数组只有inner node的数据，所以这里返回m_nodes.Count
+		primitives = orderedPrims;
+		CreateCompact(meshRoot, primitives, vertices, true);
+		return m_nodes.Count;
+	}
+
 	Vector3 MinOrMax(GPUBVHNode box, int n)
 	{
 		return n == 0 ? new Vector3(box.b0xy.x, box.b0xy.z, box.b01z.x) : new Vector3(box.b0xy.y, box.b0xy.y, box.b01z.y);
 	}
 	bool RayBoundIntersect(Vector3 rayOrig, Vector4 bxy, Vector2 bz, float idirx, float idiry, float idirz, float rayTMax, out float tMin)
-    {
+	{
 		int signX = (int)Mathf.Sign(idirx);
 		int signY = (int)Mathf.Sign(idiry);
 		int signZ = (int)Mathf.Sign(idirz);
@@ -595,7 +735,7 @@ public class BVHAccel
 		tMin = (bxy[signX] - rayOrig.x) * idirx;
 		float tMax = (bxy[1 - signX] - rayOrig.x) * idirx;
 		float tyMin = (bxy[signY + 2] - rayOrig.y) * idiry;
-		float tyMax = (bxy[1- signY + 2] - rayOrig.y) * idiry;
+		float tyMax = (bxy[1 - signY + 2] - rayOrig.y) * idiry;
 
 		if (tMin > tyMax || tyMin > tMax)
 			return false;
@@ -615,31 +755,68 @@ public class BVHAccel
 		if (rayTMax < tMin)
 			return false;
 
-		return true;
+		return (tMin < rayTMax) && (tMax > 0);
 	}
 
-	bool RayBoundIntersect(Vector3 rayOrig, Vector3 rayDirection, float tMin, float tMax, Vector3 invDir, Vector3 bMin, Vector3 bMax, out float hitT)
+	bool RayBoundIntersect(GPURay ray, Vector3 invDir, Vector3Int signs, Vector4 bxy, Vector2 bz, out float tMin)
     {
-        Vector3 f = (bMax - rayOrig);
-        f.Scale(invDir);
-        Vector3 n = (bMin - rayOrig);
-        n.Scale(invDir);
+		float gamma(int n)
+		{
+			float MachineEpsilon = 1.192092896e-07f;
+			return (n * MachineEpsilon) / (1 - n * MachineEpsilon);
+		}
+		tMin = (bxy[signs[0]] - ray.orig.x) * invDir.x;
+		float tMax = (bxy[1 - signs[0]] - ray.orig.x) * invDir.x;
+		float tyMin = (bxy[signs[1] + 2] - ray.orig.y) * invDir.y;
+		float tyMax = (bxy[1 - signs[1] + 2] - ray.orig.y) * invDir.y;
 
-        Vector3 tmax = Vector3.Max(f, n);
-        Vector3 tmin = Vector3.Min(f, n);
+		// Update _tMax_ and _tyMax_ to ensure robust bounds intersection
+		tMax *= 1 + 2 * gamma(3);
+		tyMax *= 1 + 2 * gamma(3);
+		if (tMin > tyMax || tyMin > tMax)
+			return false;
+		if (tyMin > tMin)
+			tMin = tyMin;
+		if (tyMax < tMax)
+			tMax = tyMax;
 
-        float t1 = Mathf.Min(Mathf.Min(tmax.x, Mathf.Min(tmax.y, tmax.z)), tMax);
-        float t0 = Mathf.Max(Mathf.Max(tmin.x, Mathf.Max(tmin.y, tmin.z)), tMin);
-        bool intersect = t0 < t1;
-        if (intersect)
-            hitT = t0;
-        else
-            hitT = 0;
-        return intersect;
-    }
+		// Check for ray intersection against $z$ slab
+		float tzMin = (bz[signs[2]] - ray.orig.z) * invDir.z;
+		float tzMax = (bz[1 - signs[2]] - ray.orig.z) * invDir.z;
+
+		// Update _tzMax_ to ensure robust bounds intersection
+		tzMax *= 1 + 2 * gamma(3);
+		if (tMin > tzMax || tzMin > tMax)
+			return false;
+		if (tzMin > tMin) tMin = tzMin;
+		if (tzMax < tMax) tMax = tzMax;
+		return (tMin < ray.tMax) && (tMax > 0);
+	}
+
+	/*
+	bool RayBoundIntersect(Vector3 rayOrig, Vector3 rayDirection, float tMin, float tMax, Vector3 invDir, Vector3 bMin, Vector3 bMax, out float hitT)
+	{
+		Vector3 f = (bMax - rayOrig);
+		f.Scale(invDir);
+		Vector3 n = (bMin - rayOrig);
+		n.Scale(invDir);
+
+		Vector3 tmax = Vector3.Max(f, n);
+		Vector3 tmin = Vector3.Min(f, n);
+
+		float t1 = Mathf.Min(Mathf.Min(tmax.x, Mathf.Min(tmax.y, tmax.z)), tMax);
+		float t0 = Mathf.Max(Mathf.Max(tmin.x, Mathf.Max(tmin.y, tmin.z)), tMin);
+		bool intersect = t0 < t1;
+		if (intersect)
+			hitT = t0;
+		else
+			hitT = 0;
+		return intersect;
+	}
+	*/
 
 	public Vector3 GetInverseDirection(Vector3 rayDir)
-    {
+	{
 		float ooeps = Mathf.Pow(2, -80.0f);//exp2f(-80.0f); // Avoid div by zero, returns 1/2^80, an extremely small number
 
 		float idirx = 1.0f / (Mathf.Abs(rayDir.x) > ooeps ? rayDir.x : Mathf.Sign(rayDir.x) * ooeps); // inverse ray direction
@@ -649,8 +826,9 @@ public class BVHAccel
 		return invDir;
 	}
 
-	public bool IntersectMeshBVH(Vector4 rayOrig, Vector4 rayDir, int bvhOffset, out float hitT, out int hitIndex)
-    {
+	public bool IntersectMeshBVH(Vector4 rayOrig, Vector4 rayDir, int bvhOffset, MeshInstance meshInstance, out float hitT, out int hitIndex, out GPUInteraction isect)
+	{
+		isect = new GPUInteraction();
 		const int INVALID_INDEX = 0x76543210;
 
 		//GPURay TempRay = new GPURay();
@@ -665,15 +843,15 @@ public class BVHAccel
 		hitT = rayOrig.w;
 
 		Vector3 invDir = GetInverseDirection(rayDir);
-		int stackIndex = 0;
-		hitIndex = -1;
+ 		int stackIndex = 0;
+ 		hitIndex = -1;
 
-		while (nodeAddr != INVALID_INDEX)
-		{
-			while ((uint)nodeAddr < (uint)INVALID_INDEX)
-			{
+ 		while (nodeAddr != INVALID_INDEX)
+ 		{
+ 			while ((uint)nodeAddr < (uint)INVALID_INDEX)
+ 			{
 				GPUBVHNode curNode = m_nodes[nodeAddr];
-				Vector4Int cnodes = SingleToInt32Bits(curNode.cids);
+ 				Vector4Int cnodes = SingleToInt32Bits(curNode.cids);
 
 				//left child ray-bound intersection test
 				float tMin = 0;
@@ -754,6 +932,17 @@ public class BVHAccel
 					float t = -Oz * invDz;
 
 					Vector3 normal = Vector3.Cross(m0, m1).normalized;
+
+					int vertexIndex0 = m_woodTriangleIndices[triAddr];
+					int vertexIndex1 = m_woodTriangleIndices[triAddr + 1];
+					int vertexIndex2 = m_woodTriangleIndices[triAddr + 2];
+					Vector3 v0 = sceneVertices[vertexIndex0].position;
+					Vector3 v1 = sceneVertices[vertexIndex1].position;
+					Vector3 v2 = sceneVertices[vertexIndex2].position;
+
+					//local normal
+					normal = Vector3.Cross(v1 - v0, v2 - v0).normalized;
+
 					if (Vector3.Dot(normal, rayDir) >= 0)
 					{
 						//RenderDebug.DrawNormal(m_worldVertices[triAddr], m_worldVertices[triAddr + 1], m_worldVertices[triAddr + 2], 0.3f, 0.35f);
@@ -777,11 +966,28 @@ public class BVHAccel
 
 							if (v >= 0.0f && u + v <= 1.0f)
 							{
+								Vector3 v0World = meshInstance.localToWorld.MultiplyPoint(v0);
+								Vector3 v1World = meshInstance.localToWorld.MultiplyPoint(v1);
+								Vector3 v2World = meshInstance.localToWorld.MultiplyPoint(v2);
 								// Record intersection.
 								// Closest intersection not required => terminate.
 								hitT = t;
 								hitIndex = triAddr;
-								//return true;
+
+								Vector3 hitPos = v0 * u + v1 * v + v2 * (1.0f - u - v);
+								//hitPos.w = 1;
+                                hitPos = meshInstance.localToWorld.MultiplyPoint(hitPos);
+								Vector3 worldNormal = meshInstance.worldToLocal.transpose.MultiplyVector(normal).normalized; //normalize(mul(normal, (float3x3)worldToObject));
+
+								isect.normal = worldNormal;
+								
+								isect.p = offset_ray(hitPos, worldNormal);
+								//isect.uv = uv0 * uv.x + uv1 * uv.y + uv2 * (1.0 - uv.x - uv.y);
+								//isect.row1 = objectToWorld._m00_m01_m02_m03;
+								//isect.row2 = objectToWorld._m10_m11_m12_m13;
+								//isect.row3 = objectToWorld._m20_m21_m22_m23;
+								isect.tangent = (v0World - hitPos).normalized;
+								isect.bitangent = Vector3.Cross(isect.normal, isect.tangent).normalized;
 							}
 						}
 					}
@@ -808,10 +1014,29 @@ public class BVHAccel
 		return hitIndex != -1;
 	}
 
+	float origin() { return 1.0f / 32.0f; }
+	float float_scale() { return 1.0f / 65536.0f; }
+	float int_scale() { return 256.0f; }
 
-	public bool IntersectInstTest(GPURay ray, List<MeshInstance> meshInstances, List<MeshHandle> meshHandles, int instBVHOffset)
-    {
+	// Normal points outward for rays exiting the surface, else is flipped.
+	Vector3 offset_ray(Vector3 p, Vector3 n)
+	{
+		Vector3Int of_i = new Vector3Int((int)(int_scale() * n.x), (int)(int_scale() * n.y), (int)(int_scale() * n.z));
+
+		Vector3 p_i = new Vector3(
+			Int32BitsToSingle(SingleToInt32Bits(p.x) + ((p.x < 0) ? -of_i.x : of_i.x)),
+			Int32BitsToSingle(SingleToInt32Bits(p.y) + ((p.y < 0) ? -of_i.y : of_i.y)),
+			Int32BitsToSingle(SingleToInt32Bits(p.z) + ((p.z < 0) ? -of_i.z : of_i.z)));
+
+		return new Vector3(Mathf.Abs(p.x) < origin()? p.x + float_scale() * n.x : p_i.x,
+					  Mathf.Abs(p.y) < origin()? p.y + float_scale() * n.y : p_i.y,
+					  Mathf.Abs(p.z) < origin()? p.z + float_scale() * n.z : p_i.z);
+	}
+
+	public bool IntersectInstTest(GPURay ray, List<MeshInstance> meshInstances, List<MeshHandle> meshHandles, int instBVHOffset, out float hitT, out GPUInteraction isect)
+	{
 		const int INVALID_INDEX = 0x76543210;
+		isect = new GPUInteraction();
 
 		int[] traversalStack = new int[64];
 		traversalStack[0] = INVALID_INDEX;
@@ -820,9 +1045,9 @@ public class BVHAccel
 		int nodeAddr = instBVHOffset >= m_nodes.Count ? 0 : instBVHOffset;
 
 		float tmin = ray.direction.w;
-		float hitT = ray.orig.w;  //tmax
-           // Ray origin.
-		//float ooeps = Mathf.Pow(2, -80.0f);//exp2f(-80.0f); // Avoid div by zero, returns 1/2^80, an extremely small number
+		hitT = ray.orig.w;  //tmax
+							// Ray origin.
+							//float ooeps = Mathf.Pow(2, -80.0f);//exp2f(-80.0f); // Avoid div by zero, returns 1/2^80, an extremely small number
 
 		//Vector3 invDir = new Vector3(idirx, idiry, idirz);
 		Vector3 invDir = GetInverseDirection(ray.direction);
@@ -842,13 +1067,13 @@ public class BVHAccel
 
 		//只有一个mesh的时候
 		if (nodeAddr == 0)
-        {
+		{
 			meshInstance = meshInstances[0];
 			GPURay rayTemp = GPURay.TransformRay(ref meshInstance.worldToLocal, ref ray);
 			//invDir = GetInverseDirection(ray.direction);
 			float bvhHit = hitT;
 			int meshHitTriangleIndex = -1;
-			if (IntersectMeshBVH(rayTemp.orig, rayTemp.direction, 0, out bvhHit, out meshHitTriangleIndex))
+			if (IntersectMeshBVH(rayTemp.orig, rayTemp.direction, 0, meshInstance, out bvhHit, out meshHitTriangleIndex, out isect))
 			{
 				hitMeshIndex = 0;
 				if (bvhHit < hitT)
@@ -860,7 +1085,7 @@ public class BVHAccel
 			}
 		}
 		else
-        {
+		{
 			while (nodeAddr != INVALID_INDEX)
 			{
 
@@ -967,7 +1192,8 @@ public class BVHAccel
 						//invDir = GetInverseDirection(ray.direction);
 						float bvhHit = hitT;
 						int meshHitTriangleIndex = -1;
-						if (IntersectMeshBVH(rayTemp.orig, rayTemp.direction, next[i], out bvhHit, out meshHitTriangleIndex))
+						GPUInteraction tmpInteraction;
+						if (IntersectMeshBVH(rayTemp.orig, rayTemp.direction, next[i], meshInstance, out bvhHit, out meshHitTriangleIndex, out tmpInteraction))
 						{
 							if (bvhHit < hitT)
 							{
@@ -975,31 +1201,33 @@ public class BVHAccel
 								hitIndex = meshHitTriangleIndex;
 								hitBVHNode = next[i];
 								hitMeshIndex = nextMeshInstanceIds[i];
+								isect = tmpInteraction;
+								isect.wo = -ray.direction;
 							}
 						}
-						else if (nextMeshInstanceIds[i] == 1)
-						{
-							//Debug.Log("error happen!");
-							int a = 0;
-						}
+						//else if (nextMeshInstanceIds[i] == 1)
+						//{
+						//	//Debug.Log("error happen!");
+						//	int a = 0;
+						//}
 					}
 				}
 			}
 		}
-		
-		
+
+
 
 		//for (int i = 0; i < meshInstances.Count; ++i)
 		if (hitBVHNode >= 0)
-        {
-            MeshInstance meshInstanceTmp = meshInstances[hitMeshIndex];
-            MeshHandle meshHandle = meshHandles[meshInstanceTmp.meshHandleIndex];
-            Vector3 worldBoundMin = Vector3.zero;
-            Vector3 worldBoundMax = Vector3.zero;
-            GPUBounds.TransformBounds(ref meshInstanceTmp.localToWorld, meshHandle.localBounds.min, meshHandle.localBounds.max, out worldBoundMin, out worldBoundMax);
-            RenderDebug.DrawDebugBound(worldBoundMin, worldBoundMax, Color.white);
+		{
+			MeshInstance meshInstanceTmp = meshInstances[hitMeshIndex];
+			//MeshHandle meshHandle = meshHandles[meshInstanceTmp.meshHandleIndex];
+			//Vector3 worldBoundMin = Vector3.zero;
+			//Vector3 worldBoundMax = Vector3.zero;
+			//GPUBounds.TransformBounds(ref meshInstanceTmp.localToWorld, meshHandle.localBounds.min, meshHandle.localBounds.max, out worldBoundMin, out worldBoundMax);
+			//RenderDebug.DrawDebugBound(worldBoundMin, worldBoundMax, Color.white);
 
-            if (hitIndex != -1)
+			if (hitIndex != -1)
 			{
 				int triAddrDebug = hitIndex;
 				RenderDebug.DrawTriangle(meshInstanceTmp.localToWorld.MultiplyPoint(sceneVertices[m_woodTriangleIndices[triAddrDebug]].position),
@@ -1007,12 +1235,12 @@ public class BVHAccel
 					meshInstanceTmp.localToWorld.MultiplyPoint(sceneVertices[m_woodTriangleIndices[triAddrDebug + 2]].position), Color.green);
 			}
 		}
-		
+
 
 		return hitIndex != -1;
 	}
 	public bool IntersectBVHTriangleTest(GPURay ray, int bvhOffset, out float tRay)
-    {
+	{
 		const int EntrypointSentinel = 0x76543210;
 		Vector4 rayOrig = ray.orig;
 		Vector4 rayDir = ray.direction;
@@ -1136,10 +1364,10 @@ public class BVHAccel
 
 					Vector3 normal = Vector3.Cross(m0, m1).normalized;
 					if (Vector3.Dot(normal, rayDir) >= 0)
-                    {
+					{
 						//RenderDebug.DrawNormal(m_worldVertices[triAddr], m_worldVertices[triAddr + 1], m_worldVertices[triAddr + 2], 0.3f, 0.35f);
 						continue;
-                    }
+					}
 
 					//if t is in bounding and less than the ray.tMax
 					if (t > tmin && t < hitT)
@@ -1182,93 +1410,408 @@ public class BVHAccel
 		tRay = hitT;
 		//return false;
 		if (hitIndex != -1)
-        {
-			RenderDebug.DrawTriangle(sceneVertices[m_woodTriangleIndices[hitIndex]].position, 
-				sceneVertices[m_woodTriangleIndices[hitIndex + 1]].position, 
+		{
+			RenderDebug.DrawTriangle(sceneVertices[m_woodTriangleIndices[hitIndex]].position,
+				sceneVertices[m_woodTriangleIndices[hitIndex + 1]].position,
 				sceneVertices[m_woodTriangleIndices[hitIndex + 2]].position, Color.green);
 
 		}
 		return hitIndex != -1;
 	}
 
-	//build 2 types bvh
-	//meshinstance bvh and mesh primitive bvh
-	//return toplevel bvh在bvhbuffer中的位置
-	public int Build(List<Transform> meshTransforms, List<MeshInstance> meshInstances, List<MeshHandle> meshHandles, List<GPUVertex> vertices, List<int> triangles)
+	public bool IntersectInstTestP(GPURay ray, List<MeshInstance> meshInstances, int instBVHOffset, out float hitT, out int meshInstanceIndex)
     {
-		instBVHNodeAddr = 0;
-		List<int> instBVHOffset = new List<int>();
+		const int INVALID_INDEX = 0x76543210;
 
-		//首先创建每个meshHandle的localspace的bvh
-		sceneVertices = vertices;
+		int[] traversalStack = new int[64];
+		traversalStack[0] = INVALID_INDEX;
 
-		for (int i = 0; i < meshHandles.Count; ++i)
+		//instBVHOffset >= m_nodes.Count说明没有inst
+		int nodeAddr = instBVHOffset >= m_nodes.Count ? 0 : instBVHOffset;
+
+		float tmin = ray.direction.w;
+		hitT = ray.orig.w;  //tmax
+							// Ray origin.
+							//float ooeps = Mathf.Pow(2, -80.0f);//exp2f(-80.0f); // Avoid div by zero, returns 1/2^80, an extremely small number
+
+		//Vector3 invDir = new Vector3(idirx, idiry, idirz);
+		Vector3 invDir = GetInverseDirection(ray.direction);
+		Vector3 invWorldDir = invDir;
+
+		int stackIndex = 0;   //当前traversalStack的索引号
+		MeshInstance meshInstance = new MeshInstance();
+		//MeshInstance meshInstanceDebug = new MeshInstance();
+		int signX = invDir.x < 0 ? 1 : 0;
+		int signY = invDir.y < 0 ? 1 : 0;
+		int signZ = invDir.z < 0 ? 1 : 0;
+		Vector3Int signs = new Vector3Int(signX, signY, signZ);
+
+		//int meshInstanceIndex = 0;
+		int hitIndex = -1;
+		int hitBVHNode = -1;
+		int hitMeshIndex = -1;
+
+		//只有一个mesh的时候
+		if (nodeAddr == 0)
 		{
-			MeshHandle meshH = meshHandles[i];
-			meshH.bvhOffset = instBVHNodeAddr;
-			meshHandles[i] = meshH;
-			instBVHOffset.Add(instBVHNodeAddr);
-			int nodesNum = BuildMeshBVH(meshHandles[i], vertices, triangles);
-			instBVHNodeAddr = nodesNum;
+			meshInstance = meshInstances[0];
+			GPURay rayTemp = GPURay.TransformRay(ref meshInstance.worldToLocal, ref ray);
+			//invDir = GetInverseDirection(ray.direction);
+			float bvhHit = hitT;
+			int meshHitTriangleIndex = -1;
+			GPUInteraction isect;
+			if (IntersectMeshBVH(rayTemp.orig, rayTemp.direction, 0, meshInstance, out bvhHit, out meshHitTriangleIndex, out isect))
+			{
+				hitMeshIndex = 0;
+				if (bvhHit < hitT)
+				{
+					hitBVHNode = 0;
+					hitT = bvhHit;
+					hitIndex = meshHitTriangleIndex;
+				}
+			}
 		}
-		// build the instance bounding box bvh
-		BuildInstBVH(meshTransforms, meshInstances, vertices, triangles, instBVHOffset);
+		else
+		{
+			while (nodeAddr != INVALID_INDEX)
+			{
 
-		MeshInstance meshInstance = meshInstances[0];
-		MeshHandle meshHandle = meshHandles[meshInstance.meshHandleIndex];
-		meshInstance.bvhOffset = meshHandle.bvhOffset;
-		Vector3 worldBoundMin = Vector3.zero;
-		Vector3 worldBoundMax = Vector3.zero;
-		GPUBounds.TransformBounds(ref meshInstance.localToWorld, meshHandle.localBounds.min, meshHandle.localBounds.max, out worldBoundMin, out worldBoundMax);
-		RenderDebug.DrawDebugBound(worldBoundMin, worldBoundMax, Color.white);
+				GPUBVHNode curNode = m_nodes[nodeAddr];
+				Vector4Int cnodes = SingleToInt32Bits(curNode.cids);
 
-		return instBVHNodeAddr;
+				float t0 = 0;
+				//left child ray-bound intersection test
+				//bool traverseChild0 = RayBoundIntersect(new Vector3(ray.orig.x, ray.orig.y, ray.orig.z), new Vector3(ray.direction.x, ray.direction.y, ray.direction.z),
+				//	ray.direction.w, ray.orig.w, invDir,
+				//	new Vector3(curNode.b0xy.x, curNode.b0xy.z, curNode.b01z.x), 
+				//	new Vector3(curNode.b0xy.z, curNode.b0xy.w, curNode.b01z.y), out t0);
+				bool traverseChild0 = RayBoundIntersect(ray.orig, curNode.b0xy, new Vector2(curNode.b01z.x, curNode.b01z.y), invDir.x, invDir.y, invDir.z, hitT, out t0);
+				//bool traverseChild0 = RayBoundIntersect(ray, invDir, signs, curNode.b0xy, new Vector2(curNode.b01z.x, curNode.b01z.y), out t0);
+				float t1 = 0;
+				//right child ray-bound intersection test
+				//bool traverseChild1 = RayBoundIntersect(new Vector3(ray.orig.x, ray.orig.y, ray.orig.z), new Vector3(ray.direction.x, ray.direction.y, ray.direction.z),
+				//	ray.direction.w, ray.orig.w, invDir,
+				//	new Vector3(curNode.b1xy.x, curNode.b1xy.z, curNode.b01z.z),
+				//	new Vector3(curNode.b1xy.z, curNode.b1xy.w, curNode.b01z.w), out t1);
+				bool traverseChild1 = RayBoundIntersect(ray.orig, curNode.b1xy, new Vector2(curNode.b01z.z, curNode.b01z.w), invDir.x, invDir.y, invDir.z, hitT, out t1);
+				//bool traverseChild1 = RayBoundIntersect(ray, invDir, signs, curNode.b1xy, new Vector2(curNode.b01z.z, curNode.b01z.w), out t1);
+
+				Vector2Int next = GetNodeChildIndex(curNode.cids); //new Vector2Int(INVALID_INDEX, INVALID_INDEX);
+				Vector2Int nextMeshInstanceIds = nodeAddr >= instBVHOffset ? GetTopLevelLeaveMeshInstance(curNode.cids) : new Vector2Int(-1, -1);
+				if (!traverseChild0)
+				{
+					next.x = INVALID_INDEX;
+					nextMeshInstanceIds.x = -1;
+				}
+				if (!traverseChild1)
+				{
+					next.y = INVALID_INDEX;
+					nextMeshInstanceIds.y = -1;
+				}
+
+				bool swp = false;
+				//3 cases after boundrayintersect
+				if (traverseChild0 && traverseChild1)
+				{
+					//两个都命中
+					swp = (t1 < t0);
+					if (swp)
+					{
+						next = new Vector2Int(next.y, next.x);
+						nextMeshInstanceIds = new Vector2Int(nextMeshInstanceIds.y, nextMeshInstanceIds.x);
+					}
+
+					//next.y入栈
+					bool curNodeIsX = false;
+					if (next.x >= instBVHNodeAddr)
+					{
+						nodeAddr = next.x;
+						curNodeIsX = true;
+					}
+					else
+					{
+						if (next.y >= instBVHNodeAddr)
+							nodeAddr = next.y;
+						else
+							nodeAddr = traversalStack[stackIndex--];
+					}
+					//这里入栈的可能是bottomlevel bvh leaf
+					if (next.y >= instBVHNodeAddr && curNodeIsX)
+						traversalStack[++stackIndex] = next.y;
+					//if (nodeAddr >= instBVHOffset)
+					//            {
+					//	meshInstanceIndex = nextMeshInstanceIds.x;
+					//	meshInstanceStack[stackIndex] = nextMeshInstanceIds.y;
+					//}
+
+					//if (0 <= next.y && YieldInstruction < )
+				}
+				else if (!traverseChild0 && !traverseChild1)
+				{
+					//两个都不命中
+					//meshInstanceIndex = nodeAddr >= instBVHOffset ? meshInstanceStack[stackIndex + 1] : meshInstanceIndex;
+					nodeAddr = traversalStack[stackIndex--];
+
+				}
+				else
+				{
+					//只有其中一个命中
+					if (nodeAddr >= instBVHOffset)
+					{
+						//meshInstanceIndex = traverseChild0 ? nextMeshInstanceIds.x : nextMeshInstanceIds.y;
+						int nextNode = traverseChild0 ? next.x : next.y;
+						if (nextNode >= instBVHNodeAddr)
+						{
+							nodeAddr = nextNode;
+						}
+						else
+							nodeAddr = traversalStack[stackIndex--];
+					}
+				}
+
+
+				for (int i = 0; i < 2; ++i)
+				{
+					//如果next是bottom level bvh node
+					if (0 <= next[i] && next[i] < instBVHNodeAddr)
+					{
+						meshInstance = meshInstances[nextMeshInstanceIds[i]];
+						GPURay rayTemp = GPURay.TransformRay(ref meshInstance.worldToLocal, ref ray);
+						//invDir = GetInverseDirection(ray.direction);
+						float bvhHit = hitT;
+						int meshHitTriangleIndex = -1;
+						GPUInteraction isect;
+						//if (IntersectMeshBVH(rayTemp.orig, rayTemp.direction, next[i], meshInstance, out bvhHit, out meshHitTriangleIndex, out isect))
+						if (IntersectMeshBVHP(rayTemp, next[i], out bvhHit, out meshHitTriangleIndex))
+						{
+							if (bvhHit < hitT)
+							{
+								hitT = bvhHit;
+								hitIndex = meshHitTriangleIndex;
+								hitBVHNode = next[i];
+								hitMeshIndex = nextMeshInstanceIds[i];
+							}
+							else
+                            {
+								int a = 0;
+                            }
+						}
+						else if (nextMeshInstanceIds[i] == 1)
+						{
+							//Debug.Log("error happen!");
+							int a = 0;
+						}
+						else
+                        {
+							int a = 0;
+                        }
+					}
+				}
+			}
+		}
+
+
+
+		//for (int i = 0; i < meshInstances.Count; ++i)
+		if (hitBVHNode >= 0)
+		{
+			MeshInstance meshInstanceTmp = meshInstances[hitMeshIndex];
+			//MeshHandle meshHandle = meshHandles[meshInstanceTmp.meshHandleIndex];
+			//Vector3 worldBoundMin = Vector3.zero;
+			//Vector3 worldBoundMax = Vector3.zero;
+			//GPUBounds.TransformBounds(ref meshInstanceTmp.localToWorld, meshHandle.localBounds.min, meshHandle.localBounds.max, out worldBoundMin, out worldBoundMax);
+			//RenderDebug.DrawDebugBound(worldBoundMin, worldBoundMax, Color.white);
+
+			if (hitIndex != -1)
+			{
+				int triAddrDebug = hitIndex;
+				RenderDebug.DrawTriangle(meshInstanceTmp.localToWorld.MultiplyPoint(sceneVertices[m_woodTriangleIndices[triAddrDebug]].position),
+					meshInstanceTmp.localToWorld.MultiplyPoint(sceneVertices[m_woodTriangleIndices[triAddrDebug + 1]].position),
+					meshInstanceTmp.localToWorld.MultiplyPoint(sceneVertices[m_woodTriangleIndices[triAddrDebug + 2]].position), Color.green);
+			}
+		}
+		meshInstanceIndex = hitMeshIndex;
+		return hitIndex != -1;
 	}
 
-	public void BuildInstBVH(List<Transform> meshTransforms, List<MeshInstance> meshInstances, List<GPUVertex> vertices, List<int> triangles, List<int> instBVHOffset)
-    {
-		List<Primitive> primitives = new List<Primitive>();
-		for (int i = 0; i < meshTransforms.Count; ++i)
-		{
-			MeshInstance meshInst = meshInstances[i];
-			int meshHandleIndex = meshInst.meshHandleIndex;
-			Renderer renderer = meshTransforms[i].GetComponent<Renderer>();
-			Primitive meshInstPrim = new Primitive(renderer.bounds, meshHandleIndex, i);
-			primitives.Add(meshInstPrim);
-		}
-		List<Primitive> orderedPrims = new List<Primitive>();
-		//instance不需要用split的
-		BVHBuilder instBuilder = new BVHBuilder();
-		//保证一个leaf一个inst，所以maxPrimsInNode参数是1
-		if (primitives.Count > 1)
-        {
-			BVHBuildNode instRoot = instBuilder.Build(primitives, orderedPrims, null, null, 1);
-			primitives = orderedPrims;
+	bool IntersectMeshBVHP(/*Vector4 rayOrig, Vector4 rayDir*/GPURay ray, int bvhOffset, out float hitT, out int hitIndex)
+	{
+		int INVALID_INDEX = 0x76543210;
 
-			CreateCompact(instRoot, primitives, vertices, false, instBVHOffset);
+		//GPURay TempRay = new GPURay();
+		int[] traversalStack = new int[64];
+		traversalStack[0] = INVALID_INDEX;
+		int leafAddr = 0;               // If negative, then first postponed leaf, non-negative if no leaf (innernode).
+
+		//instBVHOffset >= m_nodes.Count说明没有inst
+		int nodeAddr = bvhOffset;
+		Vector4 rayOrig = ray.orig;
+		Vector4 rayDir = ray.direction;
+		float tmin = rayDir.w;
+		hitT = rayOrig.w;
+
+		float ooeps = Mathf.Pow(2, -80.0f);//exp2f(-80.0f); // Avoid div by zero, returns 1/2^80, an extremely small number
+
+		Vector3 invDir = GetInverseDirection(rayDir);
+		int signX = invDir.x < 0 ? 1 : 0;
+		int signY = invDir.y < 0 ? 1 : 0;
+		int signZ = invDir.z < 0 ? 1 : 0;
+		Vector3Int signs = new Vector3Int(signX, signY, signZ);
+		int stackIndex = 0;
+		hitIndex = -1;
+
+		while (nodeAddr != INVALID_INDEX)
+		{
+			while ((uint)nodeAddr < (uint)INVALID_INDEX)
+			{
+				GPUBVHNode curNode = m_nodes[nodeAddr];
+				Vector4Int cnodes = SingleToInt32Bits(curNode.cids);
+
+				//left child ray-bound intersection test
+				float tMin = 0;
+				bool traverseChild0 = RayBoundIntersect(rayOrig, curNode.b0xy, new Vector2(curNode.b01z.x, curNode.b01z.y), invDir.x, invDir.y, invDir.z, hitT, out tMin);
+				//bool traverseChild0 = RayBoundIntersect(ray, invDir, signs, curNode.b0xy, new Vector2(curNode.b01z.x, curNode.b01z.y), out tMin);
+				//right child ray-bound intersection test
+				float tMin1 = 0;
+				bool traverseChild1 = RayBoundIntersect(rayOrig, curNode.b1xy, new Vector2(curNode.b01z.z, curNode.b01z.w), invDir.x, invDir.y, invDir.z, hitT, out tMin1);
+				//bool traverseChild1 = RayBoundIntersect(ray, invDir, signs, curNode.b1xy, new Vector2(curNode.b01z.z, curNode.b01z.w), out tMin1);
+
+
+				bool swp = (tMin1 < tMin);
+
+				tmin = Mathf.Min(tMin1, tMin);
+
+				if (!traverseChild0 && !traverseChild1)
+				{
+					nodeAddr = traversalStack[stackIndex];
+					stackIndex--;
+				}
+				// Otherwise => fetch child pointers.
+				else
+				{
+					nodeAddr = (traverseChild0) ? cnodes.x : cnodes.y;
+
+					if (traverseChild0 && traverseChild1)
+					{
+						if (swp)
+						{
+							//swap(nodeAddr, cnodes.y);
+							int tmp = nodeAddr;
+							nodeAddr = cnodes.y;
+							cnodes.y = tmp;
+						}
+						traversalStack[++stackIndex] = cnodes.y;
+					}
+				}
+
+				// First leaf => postpone and continue traversal.
+				if (nodeAddr < 0 && leafAddr >= 0)     // Postpone max 1
+				{
+					//leafAddr2= leafAddr;          // postpone 2
+					leafAddr = nodeAddr;            //leafAddr成了当前要处理的节点
+					nodeAddr = traversalStack[stackIndex];  //出栈，nodeAddr这个时候是下一个要访问的node
+					stackIndex--;
+				}
+
+				if (!(leafAddr >= 0))   //leaf node小于0，需要处理叶子节点，退出循环
+					break;
+			}
+
+			//遍历叶子
+			while (leafAddr < 0)
+			{
+				for (int triAddr = ~leafAddr; ; triAddr += 3)
+				{
+					Vector4 m0 = m_woodTriangleVertices[triAddr];     //matrix row 0 
+
+					if (SingleToInt32Bits(m0.x) == 0x7fffffff)
+						break;
+
+					Vector4 m1 = m_woodTriangleVertices[triAddr + 1]; //matrix row 1 
+					Vector4 m2 = m_woodTriangleVertices[triAddr + 2]; //matrix row 2
+
+					//Oz is a point, must plus w
+					float Oz = m2.w + Vector3.Dot((Vector3)rayOrig, (Vector3)m2);//origx * m2.x + origy * m2.y + origz * m2.z;
+															   //Dz is a vector
+					float invDz = 1.0f / Vector3.Dot(rayDir, m2);//(dirx * m2.x + diry * m2.y + dirz * m2.z);
+					float t = -Oz * invDz;
+
+					Vector3 normal = Vector3.Normalize(Vector3.Cross(m0, m1));
+					if (Vector3.Dot(normal, rayDir) >= 0)
+					{
+                        int vertexIndex0 = m_woodTriangleIndices[triAddr];
+                        int vertexIndex1 = m_woodTriangleIndices[triAddr + 1];
+                        int vertexIndex2 = m_woodTriangleIndices[triAddr + 2];
+                        Vector3 v0 = sceneVertices[vertexIndex0].position;
+                        Vector3 v1 = sceneVertices[vertexIndex1].position;
+                        Vector3 v2 = sceneVertices[vertexIndex2].position;
+						normal = Vector3.Cross(v1 - v0, v2 - v0).normalized;
+						if (Vector3.Dot(normal, rayDir) >= 0)
+							continue;
+					}
+
+					Vector2 uv;
+					float triangleHitT = 0;
+					bool hitTriangle = WoodTriangleRayIntersect(rayOrig, rayDir, m0, m1, m2, tmin, out uv, ref triangleHitT);
+					if (hitTriangle)
+					{
+						hitT = triangleHitT;
+						hitIndex = triAddr;
+						//int vertexIndex0 = WoodTriangleIndices[triAddr];
+						//int vertexIndex1 = WoodTriangleIndices[triAddr + 1];
+						//int vertexIndex2 = WoodTriangleIndices[triAddr + 2];
+						//const float4 v0 = Vertices[vertexIndex0].position;
+						//const float4 v1 = Vertices[vertexIndex1].position;
+						//const float4 v2 = Vertices[vertexIndex2].position;
+						//hitIndex = vertexIndex0 / 3;
+					}
+
+				} // triangle
+
+				// Another leaf was postponed => process it as well.
+				leafAddr = nodeAddr;
+				if (nodeAddr < 0)
+				{
+					nodeAddr = traversalStack[stackIndex--];
+				}
+			} // leaf
 		}
-		
+
+		return hitIndex != -1;
 	}
 
-	//返回m_nodes的数量
-	public int BuildMeshBVH(MeshHandle meshHandle, List<GPUVertex> vertices, List<int> triangles)
-    {
-		
-		//生成MeshHandle的primitives
-		List<Primitive> primitives = new List<Primitive>();
-		int faceNum = meshHandle.triangleCount / 3;
-		for (int f = 0; f < faceNum; ++f)
+	bool WoodTriangleRayIntersect(Vector3 rayOrig, Vector3 rayDir, Vector4 m0, Vector4 m1, Vector4 m2, float tmin, out Vector2 uv, ref float hitT)
+	{
+		uv = Vector2.zero;
+		//Oz is a point, must plus w
+		float Oz = m2.w + Vector3.Dot(rayOrig, m2);//ray.orig.x * m2.x + ray.orig.y * m2.y + ray.orig.z * m2.z;
+											   //Dz is a vector
+		float invDz = 1.0f / Vector3.Dot(rayDir, m2);//(ray.direction.x * m2.x + ray.direction.y * m2.y + ray.direction.z * m2.z);
+		float t = -Oz * invDz;
+
+		//if t is in bounding and less than the ray.tMax
+		if (t >= tmin && t < hitT)
 		{
-			int tri0 = triangles[f * 3 + meshHandle.triangleOffset];
-			int tri1 = triangles[f * 3 + 1 + meshHandle.triangleOffset];
-			int tri2 = triangles[f * 3 + 2 + meshHandle.triangleOffset];
-			primitives.Add(new Primitive(tri0, tri1, tri2, vertices[tri0].position, vertices[tri1].position, vertices[tri2].position, 0, 0));
+			// Compute and check barycentric u.
+			float Ox = m0.w + Vector3.Dot(rayOrig, m0);//ray.orig.x * m0.x + ray.orig.y * m0.y + ray.orig.z * m0.z;
+			float Dx = Vector3.Dot(rayDir, m0);//dirx * m0.x + diry * m0.y + dirz * m0.z;
+			float u = Ox + t * Dx;
+
+			if (u >= 0.0f)
+			{
+				// Compute and check barycentric v.
+				float Oy = m1.w + Vector3.Dot(rayOrig, m1);//ray.orig.x * m1.x + ray.orig.y * m1.y + ray.orig.z * m1.z;
+				float Dy = Vector3.Dot(rayDir, m1);//dirx * m1.x + diry * m1.y + dirz * m1.z;
+				float v = Oy + t * Dy;
+
+				if (v >= 0.0f && u + v <= 1.0f)
+				{
+					uv = new Vector2(u, v);
+					hitT = t;
+					return true;
+				}
+			}
 		}
-		List<Primitive> orderedPrims = new List<Primitive>();
-		BVHBuilder builder = new SplitBVHBuilder();
-		BVHBuildNode meshRoot = builder.Build(primitives, orderedPrims, vertices, triangles, primitives.Count < 3 ? 1 : maxLeafSize);
-		//CreateCompact生成的m_nodes数组只有inner node的数据，所以这里返回m_nodes.Count
-		CreateCompact(meshRoot, primitives, vertices, true);
-		return m_nodes.Count;
+		return false;
 	}
 }

@@ -14,22 +14,15 @@ StructuredBuffer<Interaction>  Intersections;
 RWStructuredBuffer<ShadowRay>  ShadowRays;
 StructuredBuffer<Light> lights;
 StructuredBuffer<Material> materials;
+RWTexture2D<half4> outputTexture;
 
-Light SampleLightSource(out float pdf, uint threadId, out int index)
+Light SampleLightSource(out float pdf, uint threadId, int lightCount, out int index)
 {
-	index = SampleDistribution1DDiscrete(0, lightsNum, rs.Get1D(threadId), pdf);
+	index = SampleDistribution1DDiscrete(rs.Get1D(threadId), 0, lightCount, pdf);
 	return lights[index];
 }
 
-bool ShadowRayVisibilityTest(ShadowRay shadowRay)
-{
-	Ray ray;
-	ray.orig.xyz = shadowRay.p0;
-	ray.orig.w = FLT_MAX;
-	ray.direction.xyz = shadowRay.p1 - shadowRay.p0;
-	ray.direction.w = 0;
-	return IntersectP(ray);
-}
+
 
 ShadowRay SampleShadowRay(uint threadId, Light light, Interaction isect)
 {
@@ -38,13 +31,17 @@ ShadowRay SampleShadowRay(uint threadId, Light light, Interaction isect)
 	float u = rs.Get1D(threadId);
 	float triPdf = 0;
 	float lightPdf = 0;
-	int triangleIndex = SampleLightTriangle(distributionAddress, light.trianglesNum, u, lightPdf);
-	int vertexStart = triangleIndex * 3 - lightsNum;
-	float3 p0 = Vertices[vertexStart].position.xyz;
-	float3 p1 = Vertices[vertexStart + 1].position.xyz;
-	float3 p2 = Vertices[vertexStart + 2].position.xyz;
-	//convert to worldpos
 	MeshInstance meshInstance = MeshInstances[light.meshInstanceID];
+	int triangleIndex = (SampleLightTriangle(distributionAddress, light.trianglesNum, u, lightPdf) - lightsNum) * 3 + meshInstance.triangleStartOffset;
+	int vertexStart = triangleIndex;
+	int vIndex0 = TriangleIndices[vertexStart];
+	int vIndex1 = TriangleIndices[vertexStart + 1];
+	int vIndex2 = TriangleIndices[vertexStart + 2];
+	float3 p0 = Vertices[vIndex0].position.xyz;
+	float3 p1 = Vertices[vIndex1].position.xyz;
+	float3 p2 = Vertices[vIndex2].position.xyz;
+	//convert to worldpos
+	
 	p0 = mul(meshInstance.localToWorld, float4(p0, 1)).xyz;
 	p1 = mul(meshInstance.localToWorld, float4(p1, 1)).xyz;
 	p2 = mul(meshInstance.localToWorld, float4(p2, 1)).xyz;
@@ -70,18 +67,39 @@ ShadowRay SampleShadowRay(uint threadId, Light light, Interaction isect)
 	float3 woLocal = isect.WorldToLocal(isect.wo.xyz);
 	float3 f = LambertBRDF(woLocal, wiLocal, material.kd.xyz) * abs(dot(wi, isect.normal));
 	float scatteringPdf = LambertPDF(woLocal, wiLocal);
+	int meshInstanceIndex = -1;
+	float hitT = 0;
+	bool shadowRayVisible = ShadowRayVisibilityTest(shadowRay, isect.normal, hitT, meshInstanceIndex);
 
-	if (ShadowRayVisibilityTest(shadowRay))
+	//if (!shadowRayVisible && meshInstanceIndex == isect.meshInstanceID && hitT < 0.001)
+	//{
+	//	shadowRay.radiance = float3(0, 0, 1);
+	//}
+	//else
 	{
-		//sample psdf and compute the mis weight
-		shadowRay.weight = 
-			PowerHeuristic(1, lightPdf, 1, scatteringPdf);
-		shadowRay.radiance = f * Li * shadowRay.weight / lightPdf;
+		if (shadowRayVisible)
+		{
+			//sample psdf and compute the mis weight
+			shadowRay.weight =
+				PowerHeuristic(1, lightPdf, 1, scatteringPdf);
+			shadowRay.radiance = f * Li * shadowRay.weight / lightPdf;
+		}
+		else
+		{
+			if (meshInstanceIndex == isect.meshInstanceID && hitT < 0.001)
+			{
+				if (meshInstanceIndex == 4)
+				{
+					shadowRay.radiance = float3(1, 0, 1);
+				}
+				else
+					shadowRay.radiance = float3(0, 0, 1);
+			}
+			else
+				shadowRay.radiance = float3(0, 1, 0);
+		}
 	}
-	else
-	{
-		shadowRay.radiance = 0;
-	}
+	
 
 	return shadowRay;
 }
@@ -99,13 +117,21 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 
 	if (isect.IsHit())
 	{
-		float lightSourcePdf = 0.0;
+		float lightSourcePdf = 1.0;
 		int lightIndex = 0;
-		Light light = SampleLightSource(lightSourcePdf, threadId, lightIndex);
+		//some error happen in SampleLightSource
+		Light light = SampleLightSource(lightSourcePdf, threadId, lightsNum, lightIndex);
+		//float testD = Distributions1D[0].y;
 
 		ShadowRay shadowRay = SampleShadowRay(threadId, light, isect);
 		shadowRay.lightSourcePdf = lightSourcePdf;
 		shadowRay.lightIndex = asfloat(lightIndex);
 		ShadowRays[threadId] = shadowRay;
+		outputTexture[id.xy] = half4(shadowRay.radiance, 1);
+		//outputTexture[id.xy] = half4(isect.normal.xyz, 1);
+	}
+	else
+	{
+		outputTexture[id.xy] = half4(lightsNum, 0, 0, 1);
 	}
 }

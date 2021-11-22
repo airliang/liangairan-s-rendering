@@ -6,6 +6,13 @@ struct MeshInstance
 	float4x4 localToWorld;
 	float4x4 worldToLocal;
 	int4     indices;  //x-meshhandle y-material index z-light index w-bvhoffset
+	int		 triangleStartOffset;  //triangle index start in trianglebuffer
+	int		 trianglesNum;
+
+	int GetLightIndex()
+	{
+		return indices.z;
+	}
 
 	int GetMaterialID()
 	{

@@ -15,11 +15,45 @@ struct Ray
 	}
 
 	//ray当前的位置
-	float t()
+	float tMin()
 	{
 		return direction.w;
 	}
+
+	void SetTMin(float tmin)
+	{
+		direction.w = tmin;
+	}
 };
+
+float origin() { return 1.0f / 32.0f; }
+float float_scale() { return 1.0f / 65536.0f; }
+float int_scale() { return 256.0f; }
+
+// Normal points outward for rays exiting the surface, else is flipped.
+float3 offset_ray(const float3 p, const float3 n)
+{
+	int3 of_i = int3(int_scale() * n.x, int_scale() * n.y, int_scale() * n.z);
+
+	float3 p_i = float3(
+		asfloat(asint(p.x) + ((p.x < 0) ? -of_i.x : of_i.x)),
+		asfloat(asint(p.y) + ((p.y < 0) ? -of_i.y : of_i.y)),
+		asfloat(asint(p.z) + ((p.z < 0) ? -of_i.z : of_i.z)));
+
+	return float3(abs(p.x) < origin() ? p.x + float_scale() * n.x : p_i.x,
+		abs(p.y) < origin() ? p.y + float_scale() * n.y : p_i.y,
+		abs(p.z) < origin() ? p.z + float_scale() * n.z : p_i.z);
+}
+
+Ray SpawnRay(float3 p, float3 direction, float3 normal, float tMax)
+{
+	Ray ray;
+	ray.orig.xyz = offset_ray(p, normal);
+	ray.orig.w = tMax;
+	ray.direction.xyz = direction;
+	ray.direction.w = 0;
+	return ray;
+}
 
 struct ShadowRay
 {
@@ -48,7 +82,7 @@ struct Interaction  //64byte
 	//float time;        //应该是相交的ray的参数t
 	float4 wo;
 	float3 normal;
-	uint   materialID;
+	
 	//float4 primitive;   //0 is triangle index, y is material index
 	float4 uv;
 	float4 row1;
@@ -59,6 +93,8 @@ struct Interaction  //64byte
 	//float4 dpdv;
 	float3 tangent;  //the same as pbrt's ss(x)
 	float3 bitangent; //the same as pbrt's ts(y)
+	uint   materialID;
+	uint   meshInstanceID;
 	//int    primitive; //intersect with primitives index, -1 represents no intersection
 	bool IsHit()
 	{
@@ -180,43 +216,7 @@ bool BoundIntersectP(Ray ray, Bounds bounds, float3 invDir, int dirIsNeg[3])
 	return (tMin < ray.tMax()) && (tMax > 0);
 }
 
-bool BoundRayIntersect(Ray ray, float4 bxy, float2 bz, float3 invDir, int3 signs, float hitT, out float hitTMin)
-{
-	float4 rayOrig = ray.orig;
-	
-	// Check for ray intersection against $x$ and $y$ slabs
-	float tMin = (bxy[signs.x] - rayOrig.x) * invDir.x;
-	float tMax = (bxy[1 - signs.x] - rayOrig.x) * invDir.x;
-	float tyMin = (bxy[signs.y + 2] - rayOrig.y) * invDir.y;
-	float tyMax = (bxy[1 - signs.y + 2] - rayOrig.y) * invDir.y;
 
-	// Update _tMax_ and _tyMax_ to ensure robust bounds intersection
-	//tMax *= 1 + 2 * gamma(3);
-	//tyMax *= 1 + 2 * gamma(3);
-	if (tMin > tyMax || tyMin > tMax)
-		return false;
-	//if (tyMin > tMin)
-	//	tMin = tyMin;
-	//if (tyMax < tMax)
-	//	tMax = tyMax;
-	tMin = max(tMin, tyMin);
-	tMax = min(tMax, tyMax);
-
-	// Check for ray intersection against $z$ slab
-	float tzMin = (bz[signs.z] - rayOrig.z) * invDir.z;
-	float tzMax = (bz[1 - signs.z] - rayOrig.z) * invDir.z;
-
-	// Update _tzMax_ to ensure robust bounds intersection
-	//tzMax *= 1 + 2 * gamma(3);
-	if (tMin > tzMax || tzMin > tMax)
-		return false;
-	//if (tzMin > tMin) tMin = tzMin;
-	//if (tzMax < tMax) tMax = tzMax;
-	tMin = max(tMin, tzMin);
-	tMax = min(tMax, tzMax);
-	hitTMin = tMin;
-	return (tMin < hitT) && (tMax > 0);
-}
 
 bool BoundIntersect(Ray ray, Bounds bounds, float3 invDir, int dirIsNeg[3])
 {
@@ -314,14 +314,13 @@ Ray TransformRay(float4x4 mat, Ray ray)
 	output.orig = mul(mat, float4(ray.orig.xyz, 1));
 	output.orig.w = ray.orig.w;
 	output.direction = mul(mat, float4(ray.direction.xyz, 0));
-	output.direction = normalize(output.direction);
 	output.direction.w = ray.direction.w;
 	return output;
 }
 
 //return the triangle point
 //p0 p1 p2 is the local position of a mesh
-float3 SampleTrianglePoint(float3 p0, float3 p1, float3 p2, float2 u, out float pdf)
+float3 SampleTrianglePoint(float3 p0, float3 p1, float3 p2, float2 u, out float3 normal, out float pdf)
 {
 	//caculate bery centric uv w = 1 - u - v
 	float t = sqrt(u.x);
@@ -330,6 +329,7 @@ float3 SampleTrianglePoint(float3 p0, float3 p1, float3 p2, float2 u, out float 
 
 	float3 position = p0 * w + p1 * uv.x + p2 * uv.y;
 	float3 crossVector = cross(p1 - p0, p2 - p0);
+	normal = normalize(crossVector);
 	pdf = 1.0 / length(crossVector);
 
 	return position;

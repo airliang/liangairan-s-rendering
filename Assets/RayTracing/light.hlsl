@@ -9,12 +9,12 @@ float3 SampleTriangleLight(float3 p0, float3 p1, float3 p2, float2 u, Interactio
 	float3 Li = 0;
 	float3 lightPointNormal;
 	float triPdf = 0;
-	position = SampleTrianglePoint(p0, p1, p2, u, triPdf);
+	position = SampleTrianglePoint(p0, p1, p2, u, lightPointNormal, triPdf);
 	pdf = triPdf;
 	wi = position - isect.p.xyz;
 	float wiLength = length(wi);
 	wi = normalize(wi);
-	pdf *= wiLength * wiLength / abs(dot(isect.normal, -wi));
+	pdf *= wiLength * wiLength / abs(dot(lightPointNormal, -wi));
 
 	return light.radiance;
 }

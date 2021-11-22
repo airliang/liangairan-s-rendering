@@ -34,8 +34,10 @@ public struct MeshInstance
     public int materialIndex;
     public int lightIndex;
     public int bvhOffset;
+    public int triangleStartOffset;  //triangle index start in trianglebuffer
+    public int trianglesNum;
 
-    public MeshInstance(Matrix4x4 _local2world, Matrix4x4 _world2local, int _meshHandleIndex, int _materialIndex, int _lightIndex)
+    public MeshInstance(Matrix4x4 _local2world, Matrix4x4 _world2local, int _meshHandleIndex, int _materialIndex, int _lightIndex, int _triangleOffset, int _trianglesNum)
     {
         localToWorld = _local2world;
         worldToLocal = _world2local;
@@ -43,5 +45,7 @@ public struct MeshInstance
         materialIndex = _materialIndex;
         lightIndex = _lightIndex;
         bvhOffset = -1;
+        triangleStartOffset = _triangleOffset;
+        trianglesNum = _trianglesNum;
     }
 }

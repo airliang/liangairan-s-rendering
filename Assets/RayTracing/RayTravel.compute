@@ -6,11 +6,14 @@
 #pragma kernel RayTraversal
 
 float2 rasterSize;
+uniform int    bounces;
 
 //use the matrix to calculate the world space ray
 StructuredBuffer<Ray>    Rays;
+StructuredBuffer<Light>  lights;
 RWStructuredBuffer<Interaction>       Intersections;
-RWTexture2D<half4> outputTexture;
+RWStructuredBuffer<PathRadiance> pathRadiances;
+//RWTexture2D<half4> outputTexture;
 
 [numthreads(8,8,1)]
 void RayTraversal(uint3 id : SV_DispatchThreadID)
@@ -21,9 +24,11 @@ void RayTraversal(uint3 id : SV_DispatchThreadID)
 
     int threadId = id.x + id.y * rasterSize.x;
     Ray ray = Rays[threadId];
-    Interaction isect = Intersections[threadId];
+    Interaction isect = (Interaction)0;//Intersections[threadId];
     //if (IntersectBVHandTriangles(ray, 0, isect))
-    if (IntersectBVH(ray, isect))
+    bool foundIntersect = IntersectBVH(ray, isect);
+    PathRadiance pathRadiance = pathRadiances[threadId];
+    if (foundIntersect)
     {
         //int triIndex = asint(isect.primitive.x);
         //float3 color = (float)(triIndex / 3) / 50.0;
@@ -31,11 +36,25 @@ void RayTraversal(uint3 id : SV_DispatchThreadID)
         //RNG rng = RNGs[threadId];
         //color.xy = Get2D(rng);
         //RNGs[threadId] = rng;
-        outputTexture[id.xy] = half4(color, 1);//abs(ray.direction);
+        int meshInstanceIndex = isect.meshInstanceID;
+        MeshInstance meshInstance = MeshInstances[meshInstanceIndex];
+        int lightIndex = meshInstance.GetLightIndex();
+
+        //isect.p.w = 1;
+        if (lightIndex >= 0)
+        {
+            Light light = lights[lightIndex];
+            pathRadiance.li += pathRadiance.beta * light.radiance;
+            color = light.radiance;
+        }
+        //outputTexture[id.xy] = half4(color, 1);//abs(ray.direction);
+        Intersections[threadId] = isect;
     }
     else
     {
+        //sample enviroment map
+        pathRadiance.li += pathRadiance.beta * float3(0, 0, 0);
         isect.p.w = -1;
-        outputTexture[id.xy] = half4(1, 0, 0, 1);
+        //outputTexture[id.xy] = half4(1, 0, 0, 1);
     }
 }

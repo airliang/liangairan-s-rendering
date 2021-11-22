@@ -10,12 +10,14 @@
 #define HALF_PI     1.57079632679489661923
 #define INV_HALF_PI 0.63661977236758134308
 #define LOG2_E      1.44269504088896340736
+#define ShadowEpsilon 0.0001
 
 #define MILLIMETERS_PER_METER 1000
 #define METERS_PER_MILLIMETER rcp(MILLIMETERS_PER_METER)
 #define CENTIMETERS_PER_METER 100
 #define METERS_PER_CENTIMETER rcp(CENTIMETERS_PER_METER)
 
+#define FLT_EPSILON     1.192092896e-07  //smallest positive number
 #define FLT_INF  asfloat(0x7F800000)
 #define FLT_EPS  5.960464478e-8  // 2^-24, machine epsilon: 1 + EPS = 1 (half of the ULP for 1.0f)
 #define FLT_MIN  1.175494351e-38 // Minimum normalized positive floating-point number
@@ -26,7 +28,7 @@
 
 
 float gamma(int n) {
-	return (n * FLT_EPS) / (1 - n * FLT_EPS);
+	return (n * FLT_EPSILON) / (1 - n * FLT_EPSILON);
 }
 
 float GammaCorrect(float value) {

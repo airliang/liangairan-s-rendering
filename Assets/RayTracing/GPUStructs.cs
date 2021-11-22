@@ -35,6 +35,14 @@ public struct GPURay
         output.direction.w = ray.direction.w;
         return output;
     }
+
+    public float tMax
+    {
+        get
+        {
+            return orig.w;
+        }
+    }
 }
 
 public struct GPURandomSampler
@@ -45,22 +53,35 @@ public struct GPURandomSampler
 
 public struct GPUInteraction
 {
-    Vector4 intinteractPoint;   //w is hitT
+    public Vector4 p;   //w is hitT
     //float time;
     //Vector4 pError; //floating point error
-    Vector4 wo;   //output direction
-    Vector3 normal; //geometry normal
-    uint materialID;
+    public Vector4 wo;   //output direction
     //Vector4 primitive;
-    Vector4 uv;
-    Vector4 row1;
-    Vector4 row2;
-    Vector4 row3;
+    public Vector4 uv;
+    public Vector4 row1;
+    public Vector4 row2;
+    public Vector4 row3;
     //Vector4 ns;  //shading normal
     //Vector4 dpdu;
     //Vector4 dpdv;
-    //Vector4 tangent;
-    //Vector4 bitangent;
+    public Vector3 normal; //geometry normal
+    public Vector3 tangent;
+    public Vector3 bitangent;
+    public uint materialID;
+    public uint meshInstanceID;
+
+    public Vector3 WorldToLocal(Vector3 v)
+    {
+        return new Vector3(Vector3.Dot(tangent, v), Vector3.Dot(bitangent, v), Vector3.Dot(normal, v));
+    }
+
+    public Vector3 LocalToWorld(Vector3 v)
+    {
+        return new Vector3(tangent.x * v.x + bitangent.x * v.y + normal.x * v.z,
+            tangent.y * v.x + bitangent.y * v.y + normal.y * v.z,
+            tangent.z * v.x + bitangent.z * v.y + normal.z * v.z);
+    }
 }
 
 public struct GPUBounds
@@ -299,16 +320,16 @@ public struct GPUPathRadiance
 
 public struct GPUShadowRay
 {
-    Vector3 p0;   //isect position
-    Vector3 p1;   //light sample point position
-    Vector3 radiance;  //light radiance
+    public Vector3 p0;   //isect position
+    public Vector3 p1;   //light sample point position
+    public Vector3 radiance;  //light radiance
     //float3 lightNormal;  //light sample point normal
     //mis weight
-    float weight;
-    float lightSourcePdf;        //Light Radiance pdf
-    float lightPdf;   //light sampling pdf
-    float visibility; //1 is visible, 0 invisible
-    float lightIndex;
+    public float weight;
+    public float lightSourcePdf;        //Light Radiance pdf
+    public float lightPdf;   //light sampling pdf
+    public float visibility; //1 is visible, 0 invisible
+    public float lightIndex;
 }
 
 

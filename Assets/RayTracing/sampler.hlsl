@@ -110,6 +110,8 @@ StructuredBuffer<float2> Distributions1D;
 //binary search
 int FindIntervalSmall(int start, int size, float u)
 {
+    if (size < 2)
+        return 0;
     int first = 0, len = size;
     while (len > 0)
     {
@@ -125,6 +127,7 @@ int FindIntervalSmall(int start, int size, float u)
         else
             len = nHalf;
     }
+    //if first - 1 < 0, the clamp function is useless
     return clamp(first - 1, 0, size - 2);
 }
 

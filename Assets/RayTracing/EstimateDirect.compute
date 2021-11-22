@@ -16,6 +16,7 @@ StructuredBuffer<ShadowRay>  ShadowRays;
 StructuredBuffer<Light> lights;
 StructuredBuffer<Material> materials;
 StructuredBuffer<PathRadiance> pathRadiances;
+RWTexture2D<half4> outputTexture;
 
 float AreaLightPdf(Light light, float3 orig, float3 wi)
 {
@@ -32,7 +33,7 @@ float AreaLightPdf(Light light, float3 orig, float3 wi)
     int meshHitTriangleIndex;  //wood triangle addr
     float pdf = 0;
     int distributionIndex = lightsNum;
-    if (IntersectMeshBVHP(rayTemp.orig, rayTemp.direction, meshInstance.GetBVHOffset(), bvhHit, meshHitTriangleIndex))
+    if (IntersectMeshBVHP(rayTemp, meshInstance.GetBVHOffset(), bvhHit, meshHitTriangleIndex))
     {
         int triAddr = meshHitTriangleIndex;
         int vertexIndex0 = WoodTriangleIndices[triAddr];
@@ -56,15 +57,6 @@ float AreaLightPdf(Light light, float3 orig, float3 wi)
     return pdf;
 }
 
-bool ShadowRayVisibilityTest(ShadowRay shadowRay)
-{
-    Ray ray;
-    ray.orig.xyz = shadowRay.p0;
-    ray.orig.w = FLT_MAX;
-    ray.direction.xyz = shadowRay.p1 - shadowRay.p0;
-    ray.direction.w = 0;
-    return IntersectP(ray);
-}
 
 float3 EstimateDirect(ShadowRay shadowRay, Interaction isect, float2 u)
 {

@@ -11,7 +11,10 @@
 //gpu中只分两种，reflection和refraction
 
 
-
+//float AbsCosTheta(float3 w)
+//{
+//	return abs(w.z);
+//}
 
 
 struct BSDF
@@ -53,7 +56,7 @@ float3 LambertBRDF(float3 wi, float3 wo, float3 R)
 //wi and wo must in local space
 float LambertPDF(float3 wi, float3 wo)
 {
-	return SameHemisphere(wo, wi) ? abs(wi) * INV_PI : 0;;
+	return SameHemisphere(wo, wi) ? AbsCosTheta(wi) * INV_PI : 0;;
 }
 
 

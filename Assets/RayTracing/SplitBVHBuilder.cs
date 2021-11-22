@@ -240,7 +240,7 @@ public class SplitBVHBuilder : BVHBuilder
     delegate bool Cmp(float a, float b);
     //delegate bool cmp2(float a, float b);
 
-    public override BVHBuildNode Build(List<Primitive> prims, List<Primitive> orderedPrims, List<GPUVertex> vertices, List<int> triangles, int _maxPrimsInNode = 4)
+    public override BVHBuildNode Build(List<Primitive> prims, List<Primitive> orderedPrims, List<GPUVertex> vertices, List<int> triangles, int _maxPrimsInNode = 1)
     {
         _triangles = triangles;
         _vertices = vertices;
@@ -791,7 +791,8 @@ public class SplitBVHBuilder : BVHBuilder
             //Reference last = m_refStack[m_refStack.Count - 1];
             //m_refStack.RemoveAt(m_refStack.Count - 1);
             Reference primRef = m_refStack[i];
-            _orderedPrimitives.Add(_primitives[primRef.triIdx]);
+            //if (!_orderedPrimitives.Contains(_primitives[primRef.triIdx]))
+                _orderedPrimitives.Add(_primitives[primRef.triIdx]);
         }
         BVHBuildNode leafNode = new BVHBuildNode();
         leafNode.InitLeaf(_orderedPrimitives.Count - spec.numRef, spec.numRef, spec.bounds);

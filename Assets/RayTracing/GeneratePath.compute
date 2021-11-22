@@ -44,9 +44,9 @@ void GeneratePath(uint3 id : SV_DispatchThreadID)
 		wi = isect.LocalToWorld(wiLocal);
 		beta *= f * abs(dot(wi, isect.normal)) / scatteringPdf;
 
-		Ray ray;
-		ray.orig = float4(isect.p.xyz, FLT_MAX);
-		ray.direction = float4(wi, 0);
+		Ray ray = SpawnRay(isect.p.xyz, wi, isect.normal, FLT_MAX);
+		//ray.orig = float4(isect.p.xyz, FLT_MAX);
+		//ray.direction = float4(wi, 0);
 
 		Rays[threadId] = ray;
 
