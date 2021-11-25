@@ -88,12 +88,7 @@ ShadowRay SampleShadowRay(uint threadId, Light light, Interaction isect)
 		{
 			if (meshInstanceIndex == isect.meshInstanceID && hitT < 0.001)
 			{
-				if (meshInstanceIndex == 4)
-				{
-					shadowRay.radiance = float3(1, 0, 1);
-				}
-				else
-					shadowRay.radiance = float3(0, 0, 1);
+				shadowRay.radiance = float3(0, 0, 1);
 			}
 			else
 				shadowRay.radiance = float3(0, 1, 0);
@@ -109,7 +104,7 @@ ShadowRay SampleShadowRay(uint threadId, Light light, Interaction isect)
 [numthreads(8,8,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
-	if (id.x >= rasterSize.x || id.y >= rasterSize.y)
+	if (id.x >= (uint)rasterSize.x || id.y >= (uint)rasterSize.y)
 		return;
 
 	uint threadId = id.x + id.y * rasterSize.x;

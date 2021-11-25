@@ -35,7 +35,7 @@ void GeneratePath(uint3 id : SV_DispatchThreadID)
 		PathRadiance pathRadiance = pathRadiances[threadId];
 		float3 beta = pathRadiance.beta;
 		Material material = materials[isect.materialID];
-		float3 woLocal = isect.WorldToLocal(isect.wo);
+		float3 woLocal = isect.WorldToLocal(isect.wo.xyz);
 		float3 wi;
 		float scatteringPdf = 0;
 		float3 wiLocal;

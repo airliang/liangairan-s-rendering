@@ -865,6 +865,8 @@ public class Raytracing : MonoBehaviour
         ReleaseComputeBuffer(distribution1DBuffer);
         ReleaseComputeBuffer(shadowRayBuffer);
         ReleaseComputeBuffer(pathRadianceBuffer);
+        ReleaseComputeBuffer(meshInstanceBuffer);
+        ReleaseComputeBuffer(BVHBuffer);
 
         if (outputTexture != null)
         {
@@ -926,7 +928,7 @@ public class Raytracing : MonoBehaviour
             return false;
         if (tzMin > tMin) tMin = tzMin;
         if (tzMax < tMax) tMax = tzMax;
-        return (tMin < ray.orig.w) && (tMax > 0);
+        return (tMin < ray.tMax) && (tMax > 0);
     }
 
     bool IntersectRay(GPUBounds bounds, GPURay ray)

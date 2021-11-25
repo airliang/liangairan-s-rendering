@@ -7,7 +7,7 @@ float2 rasterSize;
 [numthreads(8,8,1)]
 void CSInitSampler(uint3 id : SV_DispatchThreadID)
 {
-    if (id.x >= rasterSize.x || id.y >= rasterSize.y)
+    if (id.x >= (uint)rasterSize.x || id.y >= (uint)rasterSize.y)
         return;
 
     uint s0 = 0;

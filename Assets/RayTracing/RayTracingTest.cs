@@ -48,7 +48,7 @@ public class RayTracingTest
             else
                 len = nHalf;
         }
-        return Mathf.Clamp(first - 1, 0, size - 2);
+        return Mathf.Clamp(first - 1, 0, size - 2) + start;
     }
 
     static int SampleDistribution1DDiscrete(List<Vector2> Distributions1D, float u, int start, int num, out float pdf)
@@ -234,16 +234,12 @@ public class RayTracingTest
 		float scatteringPdf = LambertPDF(woLocal, wiLocal);
         int meshInstanceIndex = -1;
         float hitT = 0;
-		if (ShadowRayVisibilityTest(shadowRay, bvhAccel, meshInstances, instBVHOffset, out hitT, out meshInstanceIndex))
+		if (ShadowRayVisibilityTest(shadowRay, isect.normal, bvhAccel, meshInstances, instBVHOffset, out hitT, out meshInstanceIndex))
 		{
 			//sample psdf and compute the mis weight
 			shadowRay.weight =
 				PowerHeuristic(1, lightPdf, 1, scatteringPdf);
 			shadowRay.radiance = new Vector3(f.x * Li.x, f.y * Li.y, f.z * Li.z) * shadowRay.weight / lightPdf;
-            if (meshInstanceIndex == isect.meshInstanceID)
-            {
-                int a = 0;
-            }
 		}
 		else
 		{
@@ -254,13 +250,13 @@ public class RayTracingTest
 
 	}
 
-    public static bool ShadowRayVisibilityTest(GPUShadowRay shadowRay, BVHAccel bvhAccel, List<MeshInstance> meshInstances, int instBVHOffset, out float hitT, out int meshInstanceIndex)
+    public static bool ShadowRayVisibilityTest(GPUShadowRay shadowRay, Vector3 normal, BVHAccel bvhAccel, List<MeshInstance> meshInstances, int instBVHOffset, out float hitT, out int meshInstanceIndex)
 	{
 		GPURay ray = new GPURay();
-		ray.orig = shadowRay.p0;
-		ray.orig.w = 1.0f - 0.0001f;
+		ray.orig = BVHAccel.offset_ray(shadowRay.p0, normal);
+		ray.tmax = 1.0f - 0.0001f;
 		ray.direction = shadowRay.p1 - shadowRay.p0;
-		ray.direction.w = 0;
+		ray.tmin = 0;
         hitT = 0;
 
         return !bvhAccel.IntersectInstTestP(ray, meshInstances, instBVHOffset, out hitT, out meshInstanceIndex);

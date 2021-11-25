@@ -111,7 +111,7 @@ StructuredBuffer<float2> Distributions1D;
 int FindIntervalSmall(int start, int size, float u)
 {
     if (size < 2)
-        return 0;
+        return start;
     int first = 0, len = size;
     while (len > 0)
     {
@@ -128,7 +128,7 @@ int FindIntervalSmall(int start, int size, float u)
             len = nHalf;
     }
     //if first - 1 < 0, the clamp function is useless
-    return clamp(first - 1, 0, size - 2);
+    return clamp(first - 1, 0, size - 2) + start;
 }
 
 int SampleDistribution1DDiscrete(float u, int start, int num, out float pdf)
@@ -147,7 +147,7 @@ int SampleLightTriangle(int start, int count, float u, out float pdf)
 
 float DiscretePdf(int index)
 {
-    return Distributions1D[index];
+    return Distributions1D[index].x;
 }
 
 float PowerHeuristic(int nf, float fPdf, int ng, float gPdf)

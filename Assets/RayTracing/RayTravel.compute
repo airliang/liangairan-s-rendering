@@ -19,7 +19,7 @@ RWStructuredBuffer<PathRadiance> pathRadiances;
 void RayTraversal(uint3 id : SV_DispatchThreadID)
 {
     // TODO: insert actual code here!
-    if (id.x >= rasterSize.x || id.y >= rasterSize.y)
+    if (id.x >= (uint)rasterSize.x || id.y >= (uint)rasterSize.y)
         return;
 
     int threadId = id.x + id.y * rasterSize.x;

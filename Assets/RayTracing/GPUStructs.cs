@@ -23,16 +23,18 @@ public struct GPULight
 
 public struct GPURay
 {
-    public Vector4 orig;      //w is tMax，代表ray能到达的最远距离
-    public Vector4 direction; //w is time, 代表当前位置
+    public Vector3 orig;      //w is tMax，代表ray能到达的最远距离
+    public Vector3 direction; //w is time, 代表当前位置
+    public float tmax;
+    public float tmin;
 
     public static GPURay TransformRay(ref Matrix4x4 matrix, ref GPURay ray)
     {
         GPURay output = new GPURay();
         output.orig = matrix.MultiplyPoint(new Vector3(ray.orig.x, ray.orig.y, ray.orig.z));
-        output.orig.w = ray.orig.w;
+        output.tmax = ray.tmax;
         output.direction = matrix.MultiplyVector(ray.direction);
-        output.direction.w = ray.direction.w;
+        output.tmin = ray.tmin;
         return output;
     }
 
@@ -40,7 +42,23 @@ public struct GPURay
     {
         get
         {
-            return orig.w;
+            return tmax;
+        }
+        set
+        {
+            tmax = value;
+        }
+    }
+
+    public float tMin
+    {
+        get
+        {
+            return tmin;
+        }
+        set
+        {
+            tmin = value;
         }
     }
 }
@@ -283,9 +301,13 @@ public struct GPUBVHNode
     //public int idx2;
     //int c0;    //extend to 64bytes
     //int c1;
-    public Vector4 b0xy;  //bounding box b0 min.x, max.x min.y max.y
-    public Vector4 b1xy;  //bounding box b1 min.x, max.x min.y max.y
-    public Vector4 b01z;  //bounding box b0.min.z, b0.max.z b1.min.z b1.max.z
+    //public Vector4 b0xy;  //bounding box b0 min.x, max.x min.y max.y
+    //public Vector4 b1xy;  //bounding box b1 min.x, max.x min.y max.y
+    //public Vector4 b01z;  //bounding box b0.min.z, b0.max.z b1.min.z b1.max.z
+    public Vector3 b0min;
+    public Vector3 b0max;
+    public Vector3 b1min;
+    public Vector3 b1max;
     //x left node array index, y right node array index, z left node primitive's num if it is leaf, w right node primitive's num if leaf
     //if z and w < 0, is a meshinstance node, zw is the meshinstance id.
     public Vector4 cids;  

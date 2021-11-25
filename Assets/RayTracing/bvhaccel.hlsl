@@ -48,14 +48,14 @@ float spanEndKepler(float a0, float a1, float b0, float b1, float c0, float c1, 
 
 bool BoundRayIntersect(in Ray r, in float3 invdir, in float3 bmin, in float3 bmax, out float hitTMin)
 {
-	float3 f = (bmax - r.orig.xyz) * invdir;
-	float3 n = (bmin - r.orig.xyz) * invdir;
+	float3 f = (bmax - r.orig) * invdir;
+	float3 n = (bmin - r.orig) * invdir;
 
 	float3 tmax = max(f, n);
 	float3 tmin = min(f, n);
 
-	float t1 = min(min(tmax.x, min(tmax.y, tmax.z)), r.tMax());
-	float t0 = max(max(tmin.x, max(tmin.y, tmin.z)), r.tMin());
+	float t1 = min(min(tmax.x, min(tmax.y, tmax.z)), r.tmax);
+	float t0 = max(max(tmin.x, max(tmin.y, tmin.z)), r.tmin);
 	hitTMin = min(t0, t1);
 	return t1 >= t0;
 }
@@ -63,7 +63,7 @@ bool BoundRayIntersect(in Ray r, in float3 invdir, in float3 bmin, in float3 bma
 bool BoundRayIntersect(Ray ray, float4 bxy, float2 bz, float3 invDir, int3 signs, out float hitTMin)
 {
 	hitTMin = 0;
-	float4 rayOrig = ray.orig;
+	float3 rayOrig = ray.orig;
 
 	// Check for ray intersection against $x$ and $y$ slabs
 	float tMin = (bxy[signs.x] - rayOrig.x) * invDir.x;
@@ -96,12 +96,12 @@ bool BoundRayIntersect(Ray ray, float4 bxy, float2 bz, float3 invDir, int3 signs
 	tMin = max(tMin, tzMin);
 	tMax = min(tMax, tzMax);
 	hitTMin = tMin;
-	return (tMin < ray.tMax()) && (tMax > 0);
+	return (tMin < ray.tmax) && (tMax > 0);
 }
 
 bool SceneIntersectTest(Ray ray)
 {
-	float4 rayDir = ray.direction;
+	float3 rayDir = ray.direction;
 	//float3 invDir = 1.0 / ray.direction.xyz;
 	float ooeps = pow(2, -80.0f);//exp2f(-80.0f); // Avoid div by zero, returns 1/2^80, an extremely small number
 	//float idirx = 1.0f / (abs(rayDir.x) > ooeps ? rayDir.x : sign(rayDir.x) * ooeps); // inverse ray direction
@@ -121,17 +121,14 @@ bool SceneIntersectTest(Ray ray)
 	signZ = signZ < 0 ? 1 : 0;
 
 	BVHNode node = BVHTree[currentNodeIndex];
-	Bounds bounds;
-	bounds.min = float3(node.b0xy.x, node.b0xy.z, node.b01z.x);
-	bounds.max = float3(node.b0xy.y, node.b0xy.w, node.b01z.y);
 	//bounds.min = testBoundMin;
 	//bounds.max = testBoundMax;
 	//if (BoundIntersectP(ray, bounds, invDir, dirIsNeg))
 	float tMin = 0;
-	float hitT = ray.orig.w;
-	if (BoundRayIntersect(ray, node.b0xy, node.b01z.xy, invDir, int3(signX, signY, signZ), tMin))
+	//float hitT = ray.tmax;
+	if (BoundRayIntersect(ray, invDir, node.b0min, node.b0max, tMin))
 		return true;
-	if (BoundRayIntersect(ray, node.b1xy, node.b01z.zw, invDir, int3(signX, signY, signZ), tMin))
+	if (BoundRayIntersect(ray, invDir, node.b1min, node.b1max, tMin))
 		return true;
 
 	return false;
@@ -179,7 +176,7 @@ bool WoodTriangleRayIntersect(float3 rayOrig, float3 rayDir, float4 m0, float4 m
 	//Oz is a point, must plus w
 	float Oz = m2.w + dot(rayOrig, m2.xyz);//ray.orig.x * m2.x + ray.orig.y * m2.y + ray.orig.z * m2.z;
 	//Dz is a vector
-	float invDz = 1.0f / dot(rayDir, m2);//(ray.direction.x * m2.x + ray.direction.y * m2.y + ray.direction.z * m2.z);
+	float invDz = 1.0f / dot(rayDir, m2.xyz);//(ray.direction.x * m2.x + ray.direction.y * m2.y + ray.direction.z * m2.z);
 	float t = -Oz * invDz;
 	//t *= 1 + 2 * gamma(3);
 	//hitT = tmax;
@@ -229,12 +226,12 @@ bool IntersectBVHandTriangles(Ray ray, int bvhOffset, out Interaction interactio
 	int traversalStack[STACK_SIZE];
 	traversalStack[0] = EntrypointSentinel;
 	int leafAddr = 0;               // If negative, then first postponed leaf, non-negative if no leaf (innernode).
-	int nodeAddr = bvhOffset;
+	uint nodeAddr = bvhOffset;
 	//int primitivesNum = 0;   //当前节点的primitives数量
 	//int primitivesNum2 = 0;
 	int triIdx = 0;
-	float tmin = ray.direction.w;
-	float hitT = ray.orig.w;  //tmax
+	float tmin = ray.tmin;
+	float hitT = ray.tmax;  //tmax
           // Ray origin.
 	float ooeps = pow(2, -80.0f);//exp2f(-80.0f); // Avoid div by zero, returns 1/2^80, an extremely small number
 	//float idirx = 1.0f / (abs(rayDir.x) > ooeps ? rayDir.x : sign(rayDir.x) * ooeps); // inverse ray direction
@@ -269,11 +266,12 @@ bool IntersectBVHandTriangles(Ray ray, int bvhOffset, out Interaction interactio
 
 			
 			float tMin = 0;
-			bool traverseChild0 = BoundRayIntersect(ray, curNode.b0xy, curNode.b01z.xy, invDir, signs, tMin);
+			//bool traverseChild0 = BoundRayIntersect(ray, curNode.b0xy, curNode.b01z.xy, invDir, signs, tMin);
+			bool traverseChild0 = BoundRayIntersect(ray, invDir, curNode.b0min, curNode.b0max, tMin);
 			//if (tMin < 0)
 			//	tMin = 0;
 			float tMin1 = 0;
-			bool traverseChild1 = BoundRayIntersect(ray, curNode.b1xy, curNode.b01z.zw, invDir, signs, tMin1);
+			bool traverseChild1 = BoundRayIntersect(ray, invDir, curNode.b1min, curNode.b1max, tMin1);
 			//if (tMin1 < 0)
 			//	tMin1 = 0;
 
@@ -348,7 +346,7 @@ bool IntersectBVHandTriangles(Ray ray, int bvhOffset, out Interaction interactio
 
 				float2 uv = 0;
 				float triangleHit = 0;
-				bool hitTriangle = WoodTriangleRayIntersect(ray.orig.xyz, ray.direction.xyz, m0, m1, m2, tmin, ray.tMax(), uv, triangleHit);
+				bool hitTriangle = WoodTriangleRayIntersect(ray.orig.xyz, ray.direction.xyz, m0, m1, m2, tmin, ray.tmax, uv, triangleHit);
 				if (hitTriangle)
 				{
 					hitT = triangleHit;
@@ -403,10 +401,10 @@ bool IntersectMeshBVH(/*float4 rayOrig, float4 rayDir*/Ray ray, int bvhOffset, f
 	//instBVHOffset >= m_nodes.Count说明没有inst
 	int nodeAddr = bvhOffset;
 
-	float4 rayOrig = ray.orig;
-	float4 rayDir = ray.direction;
-	float tmin = rayDir.w;
-	hitT = rayOrig.w;
+	float3 rayOrig = ray.orig;
+	float3 rayDir = ray.direction;
+	float tmin = ray.tmin;
+	hitT = ray.tmax;
 
 	float ooeps = pow(2, -80.0f);//exp2f(-80.0f); // Avoid div by zero, returns 1/2^80, an extremely small number
 
@@ -435,15 +433,13 @@ bool IntersectMeshBVH(/*float4 rayOrig, float4 rayDir*/Ray ray, int bvhOffset, f
 			float tMin = tmin;
 			//bool traverseChild0 = RayBoundIntersect(rayOrig, curNode.b0xy, curNode.b01z.xy, invDir.x, invDir.y, invDir.z, hitT, tMin);
 			//bool traverseChild0 = BoundRayIntersect(ray, curNode.b0xy, curNode.b01z.xy, invDir, signs, tMin);
-			bool traverseChild0 = BoundRayIntersect(ray, invDir, float3(curNode.b0xy.x, curNode.b0xy.z, curNode.b01z.x), 
-				float3(curNode.b0xy.y, curNode.b0xy.w, curNode.b01z.y),  tMin);
+			bool traverseChild0 = BoundRayIntersect(ray, invDir, curNode.b0min, curNode.b0max, tMin);
 			//if (tMin < 0) tMin = 0;
 			//right child ray-bound intersection test
 			float tMin1 = tmin;
 			//bool traverseChild1 = RayBoundIntersect(rayOrig, curNode.b1xy, curNode.b01z.zw, invDir.x, invDir.y, invDir.z, hitT, tMin1);
 			//bool traverseChild1 = BoundRayIntersect(ray, curNode.b1xy, curNode.b01z.zw, invDir, signs, tMin1);
-			bool traverseChild1 = BoundRayIntersect(ray, invDir, float3(curNode.b1xy.x, curNode.b1xy.z, curNode.b01z.z),
-				float3(curNode.b1xy.y, curNode.b1xy.w, curNode.b01z.w), tMin1);
+			bool traverseChild1 = BoundRayIntersect(ray, invDir, curNode.b1min, curNode.b1max, tMin1);
 			//if (tMin1 < 0) tMin1 = 0;
 
 			if (!traverseChild0 && !traverseChild1)
@@ -527,7 +523,7 @@ bool IntersectMeshBVH(/*float4 rayOrig, float4 rayDir*/Ray ray, int bvhOffset, f
 
 				float2 uv = 0;
 				float triangleHit = 0;
-				bool hitTriangle = WoodTriangleRayIntersect(rayOrig.xyz, rayDir.xyz, m0, m1, m2, ray.tMin(), ray.tMax(), uv, triangleHit);
+				bool hitTriangle = WoodTriangleRayIntersect(rayOrig.xyz, rayDir.xyz, m0, m1, m2, ray.tmin, ray.tmax, uv, triangleHit);
 				if (hitTriangle)
 				{
 					hitT = triangleHit;
@@ -619,19 +615,19 @@ bool IntersectBVH(Ray ray, out Interaction interaction)
 {
 	interaction = (Interaction)0;
 	Interaction tmpInteraction;
-	float4 rayOrig = ray.orig;
-	float4 rayDir = ray.direction;
+	float3 rayOrig = ray.orig;
+	float3 rayDir = ray.direction;
 	int traversalStack[STACK_SIZE];
 	//int meshInstanceStack[STACK_SIZE];
 	traversalStack[0] = EntrypointSentinel;
 	//meshInstanceStack[0] = -1;
 	//int leafAddr = 0;               // If negative, then first postponed leaf, non-negative if no leaf (innernode).
-	int nodeAddr = instBVHAddr >= bvhNodesNum ? 0 : instBVHAddr;
+	uint nodeAddr = instBVHAddr >= bvhNodesNum ? 0 : instBVHAddr;
 	//int primitivesNum = 0;   //当前节点的primitives数量
 	//int primitivesNum2 = 0;
 	//int triIdx = 0;
-	float tmin = rayDir.w;
-	float hitT = rayOrig.w;  //tmax         // Ray origin.
+	float tmin = ray.tmin;
+	float hitT = ray.tmax;  //tmax         // Ray origin.
 	float ooeps = pow(2, -80.0f);//exp2f(-80.0f); // Avoid div by zero, returns 1/2^80, an extremely small number
 
 	float3 invDir = float3(1.0f / (abs(rayDir.x) > ooeps ? rayDir.x : sign(rayDir.x) * ooeps),
@@ -669,7 +665,7 @@ bool IntersectBVH(Ray ray, out Interaction interaction)
 				hitIndex = meshHitTriangleIndex;
 				tmpInteraction.materialID = meshInstance.GetMaterialID();
 				tmpInteraction.meshInstanceID = 0;
-				tmpInteraction.wo = -ray.direction;
+				tmpInteraction.wo.xyz = -ray.direction;
 				hitBVHNode == 0;
 				interaction = tmpInteraction;
 			}
@@ -686,15 +682,13 @@ bool IntersectBVH(Ray ray, out Interaction interaction)
 			float t0 = tmin;
 			//bool traverseChild0 = RayBoundIntersect(ray.orig.xyz, curNode.b0xy, curNode.b01z.xy, invDir.x, invDir.y, invDir.z, hitT, t0);
 			//bool traverseChild0 = BoundRayIntersect(ray, curNode.b0xy, curNode.b01z.xy, invDir, signs, t0);
-			bool traverseChild0 = BoundRayIntersect(ray, invDir, float3(curNode.b0xy.x, curNode.b0xy.z, curNode.b01z.x),
-				float3(curNode.b0xy.y, curNode.b0xy.w, curNode.b01z.y), t0);
+			bool traverseChild0 = BoundRayIntersect(ray, invDir, curNode.b0min, curNode.b0max, t0);
 			if (t0 < 0) t0 = 0;
 
 			float t1 = tmin;
 			//bool traverseChild1 = RayBoundIntersect(ray.orig.xyz, curNode.b1xy, curNode.b01z.zw, invDir.x, invDir.y, invDir.z, hitT, t1);
 			//bool traverseChild1 = BoundRayIntersect(ray, curNode.b1xy, curNode.b01z.zw, invDir, signs, t1);
-			bool traverseChild1 = BoundRayIntersect(ray, invDir, float3(curNode.b1xy.x, curNode.b1xy.z, curNode.b01z.z),
-				float3(curNode.b1xy.y, curNode.b1xy.w, curNode.b01z.w), t1);
+			bool traverseChild1 = BoundRayIntersect(ray, invDir, curNode.b1min, curNode.b1max, t1);
 			if (t1 < 0) t1 = 0;
 
 			int2 next = GetNodeChildIndex(curNode.cids); //new Vector2Int(INVALID_INDEX, INVALID_INDEX);
@@ -714,7 +708,7 @@ bool IntersectBVH(Ray ray, out Interaction interaction)
 			//3 cases after boundrayintersect
 			if (traverseChild0 && traverseChild1)
 			{
-				ray.SetTMin(min(t1, t0));
+				//ray.SetTMin(min(t1, t0));
 				//两个都命中
 				swp = (t1 < t0);
 				if (swp)
@@ -756,7 +750,7 @@ bool IntersectBVH(Ray ray, out Interaction interaction)
 				{
 					//meshInstanceIndex = traverseChild0 ? nextMeshInstanceIds.x : nextMeshInstanceIds.y;
 					int nextNode = traverseChild0 ? next.x : next.y;
-					ray.SetTMin(traverseChild0 ? t0 : t1);
+					//ray.SetTMin(traverseChild0 ? t0 : t1);
 					if (nextNode >= instBVHAddr)
 					{
 						nodeAddr = nextNode;
@@ -783,7 +777,7 @@ bool IntersectBVH(Ray ray, out Interaction interaction)
 						{
 							tmpInteraction.materialID = meshInstance.GetMaterialID();
 							tmpInteraction.meshInstanceID = nextMeshInstanceIds[i];
-							tmpInteraction.wo = -ray.direction;
+							tmpInteraction.wo.xyz = -ray.direction;
 							hitT = bvhHit;
 							hitIndex = meshHitTriangleIndex;
 							hitBVHNode = next[i];
@@ -809,10 +803,10 @@ bool IntersectMeshBVHP(Ray ray/*float4 rayOrig, float4 rayDir*/, int bvhOffset, 
 
 	//instBVHOffset >= m_nodes.Count说明没有inst
 	int nodeAddr = bvhOffset;
-	float4 rayOrig = ray.orig;
-	float4 rayDir = ray.direction;
-	float tmin = ray.direction.w;
-	hitT = ray.orig.w;
+	float3 rayOrig = ray.orig;
+	float3 rayDir = ray.direction;
+	float tmin = ray.tmin;
+	hitT = ray.tmax;
 
 	float ooeps = pow(2, -80.0f);//exp2f(-80.0f); // Avoid div by zero, returns 1/2^80, an extremely small number
 
@@ -841,14 +835,12 @@ bool IntersectMeshBVHP(Ray ray/*float4 rayOrig, float4 rayDir*/, int bvhOffset, 
 			float tMin = 0;
 			//bool traverseChild0 = RayBoundIntersect(rayOrig, curNode.b0xy, curNode.b01z.xy, invDir.x, invDir.y, invDir.z, hitT, tMin);
 			//bool traverseChild0 = BoundRayIntersect(ray, curNode.b0xy, curNode.b01z.xy, invDir, signs, tMin);
-			bool traverseChild0 = BoundRayIntersect(ray, invDir, float3(curNode.b0xy.x, curNode.b0xy.z, curNode.b01z.x),
-				float3(curNode.b0xy.y, curNode.b0xy.w, curNode.b01z.y), tMin);
+			bool traverseChild0 = BoundRayIntersect(ray, invDir, curNode.b0min, curNode.b0max, tMin);
 			//right child ray-bound intersection test
 			float tMin1 = 0;
 			//bool traverseChild1 = RayBoundIntersect(rayOrig, curNode.b1xy, curNode.b01z.zw, invDir.x, invDir.y, invDir.z, hitT, tMin1);
 			//bool traverseChild1 = BoundRayIntersect(ray, curNode.b1xy, curNode.b01z.zw, invDir, signs, tMin1);
-			bool traverseChild1 = BoundRayIntersect(ray, invDir, float3(curNode.b1xy.x, curNode.b1xy.z, curNode.b01z.z),
-				float3(curNode.b1xy.y, curNode.b1xy.w, curNode.b01z.w), tMin1);
+			bool traverseChild1 = BoundRayIntersect(ray, invDir, curNode.b1min, curNode.b1max, tMin1);
 
 			bool swp = (tMin1 < tMin);
 
@@ -904,10 +896,10 @@ bool IntersectMeshBVHP(Ray ray/*float4 rayOrig, float4 rayDir*/, int bvhOffset, 
 				float4 m2 = WoodTriangles[triAddr + 2]; //matrix row 2
 
 				//Oz is a point, must plus w
-				float Oz = m2.w + dot(rayOrig.xyz, m2.xyz);//origx * m2.x + origy * m2.y + origz * m2.z;
+				//float Oz = m2.w + dot(rayOrig.xyz, m2.xyz);//origx * m2.x + origy * m2.y + origz * m2.z;
 														   //Dz is a vector
-				float invDz = 1.0f / dot(rayDir.xyz, m2.xyz);//(dirx * m2.x + diry * m2.y + dirz * m2.z);
-				float t = -Oz * invDz;
+				//float invDz = 1.0f / dot(rayDir.xyz, m2.xyz);//(dirx * m2.x + diry * m2.y + dirz * m2.z);
+				//float t = -Oz * invDz;
 
 				float3 normal = normalize(cross(m0, m1)).xyz;
 				if (dot(normal, rayDir.xyz) >= 0)
@@ -925,7 +917,7 @@ bool IntersectMeshBVHP(Ray ray/*float4 rayOrig, float4 rayDir*/, int bvhOffset, 
 
 				float2 uv = 0;
 				float triangleHit = 0;
-				bool hitTriangle = WoodTriangleRayIntersect(rayOrig.xyz, rayDir.xyz, m0, m1, m2, ray.tMin(), ray.tMax(), uv, triangleHit);
+				bool hitTriangle = WoodTriangleRayIntersect(rayOrig, rayDir, m0, m1, m2, ray.tmin, ray.tmax, uv, triangleHit);
 				if (hitTriangle)
 				{
 					hitT = triangleHit;
@@ -967,8 +959,8 @@ bool IntersectP(Ray ray, out float hitT, out int meshInstanceIndex)
 	//int primitivesNum = 0;   //当前节点的primitives数量
 	//int primitivesNum2 = 0;
 	//int triIdx = 0;
-	float tmin = ray.direction.w;
-	hitT = ray.orig.w;  //tmax         // Ray origin.
+	float tmin = ray.tmin;
+	hitT = ray.tmax;  //tmax         // Ray origin.
 	float ooeps = pow(2, -80.0f);//exp2f(-80.0f); // Avoid div by zero, returns 1/2^80, an extremely small number
 
 	float3 invDir = float3(1.0f / (abs(rayDir.x) > ooeps ? rayDir.x : sign(rayDir.x) * ooeps),
@@ -1022,15 +1014,13 @@ bool IntersectP(Ray ray, out float hitT, out int meshInstanceIndex)
 			float t0 = 0;
 			//bool traverseChild0 = RayBoundIntersect(ray.orig.xyz, curNode.b0xy, curNode.b01z.xy, invDir.x, invDir.y, invDir.z, hitT, t0);
 			//bool traverseChild0 = BoundRayIntersect(ray, curNode.b0xy, curNode.b01z.xy, invDir, signs, t0);
-			bool traverseChild0 = BoundRayIntersect(ray, invDir, float3(curNode.b0xy.x, curNode.b0xy.z, curNode.b01z.x),
-				float3(curNode.b0xy.y, curNode.b0xy.w, curNode.b01z.y), t0);
+			bool traverseChild0 = BoundRayIntersect(ray, invDir, curNode.b0min, curNode.b0max, t0);
 			//if (t0 < 0) t0 = 0;
 
 			float t1 = 0;
 			//bool traverseChild1 = RayBoundIntersect(ray.orig.xyz, curNode.b1xy, curNode.b01z.zw, invDir.x, invDir.y, invDir.z, hitT, t1);
 			//bool traverseChild1 = BoundRayIntersect(ray, curNode.b1xy, curNode.b01z.zw, invDir, signs, t1);
-			bool traverseChild1 = BoundRayIntersect(ray, invDir, float3(curNode.b1xy.x, curNode.b1xy.z, curNode.b01z.z),
-				float3(curNode.b1xy.y, curNode.b1xy.w, curNode.b01z.w), t1);
+			bool traverseChild1 = BoundRayIntersect(ray, invDir, curNode.b1min, curNode.b1max, t1);
 			//if (t1 < 0) t1 = 0;
 
 			int2 next = GetNodeChildIndex(curNode.cids); //new Vector2Int(INVALID_INDEX, INVALID_INDEX);

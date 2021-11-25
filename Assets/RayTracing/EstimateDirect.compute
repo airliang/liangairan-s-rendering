@@ -29,7 +29,7 @@ float AreaLightPdf(Light light, float3 orig, float3 wi)
 
     //convert to mesh local space
     Ray rayTemp = TransformRay(meshInstance.worldToLocal, ray);
-    float bvhHit = ray.orig.w;
+    float bvhHit = ray.tmax;
     int meshHitTriangleIndex;  //wood triangle addr
     float pdf = 0;
     int distributionIndex = lightsNum;

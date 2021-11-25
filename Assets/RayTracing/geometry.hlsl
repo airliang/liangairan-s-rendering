@@ -5,25 +5,10 @@
 
 struct Ray
 {
-    float4 orig;
-    float4 direction;
-
-	//代表该ray的最远距离
-	float tMax()
-	{
-		return orig.w;
-	}
-
-	//ray当前的位置
-	float tMin()
-	{
-		return direction.w;
-	}
-
-	void SetTMin(float tmin)
-	{
-		direction.w = tmin;
-	}
+    float3 orig;
+    float3 direction;
+	float  tmax;
+	float  tmin;
 };
 
 float origin() { return 1.0f / 32.0f; }
@@ -48,10 +33,10 @@ float3 offset_ray(const float3 p, const float3 n)
 Ray SpawnRay(float3 p, float3 direction, float3 normal, float tMax)
 {
 	Ray ray;
-	ray.orig.xyz = offset_ray(p, normal);
-	ray.orig.w = tMax;
-	ray.direction.xyz = direction;
-	ray.direction.w = 0;
+	ray.orig = offset_ray(p, normal);
+	ray.tmax = tMax;
+	ray.direction = direction;
+	ray.tmin = 0;
 	return ray;
 }
 
@@ -173,9 +158,13 @@ struct BVHNode
 	//int    idx1;   //inner node for right child index, leaf for primitive's count
 	//int    c0;  //
 	//int    c1;
-	float4 b0xy;
-	float4 b1xy;
-	float4 b01z;
+	//float4 b0xy;
+	//float4 b1xy;
+	//float4 b01z;
+	float3 b0min;
+	float3 b0max;
+	float3 b1min;
+	float3 b1max;
 	float4 cids;   //x leftchild node index, y rightchild node index, if the node is leaf, nodeindex is negative
 };
 
@@ -213,7 +202,7 @@ bool BoundIntersectP(Ray ray, Bounds bounds, float3 invDir, int dirIsNeg[3])
 		return false;
 	if (tzMin > tMin) tMin = tzMin;
 	if (tzMax < tMax) tMax = tzMax;
-	return (tMin < ray.tMax()) && (tMax > 0);
+	return (tMin < ray.tmax) && (tMax > 0);
 }
 
 
@@ -245,7 +234,7 @@ bool BoundIntersect(Ray ray, Bounds bounds, float3 invDir, int dirIsNeg[3])
 		return false;
 	if (tzMin > tMin) tMin = tzMin;
 	if (tzMax < tMax) tMax = tzMax;
-	return (tMin < ray.tMax()) && (tMax > 0);
+	return (tMin < ray.tmax) && (tMax > 0);
 }
 
 float MinComponent(float3 v) {
@@ -311,10 +300,10 @@ bool SameHemisphere(float3 w, float3 wp)
 Ray TransformRay(float4x4 mat, Ray ray)
 {
 	Ray output;
-	output.orig = mul(mat, float4(ray.orig.xyz, 1));
-	output.orig.w = ray.orig.w;
-	output.direction = mul(mat, float4(ray.direction.xyz, 0));
-	output.direction.w = ray.direction.w;
+	output.orig = mul(mat, float4(ray.orig.xyz, 1)).xyz;
+	output.tmax = ray.tmax;
+	output.direction = mul(mat, float4(ray.direction.xyz, 0)).xyz;
+	output.tmin = ray.tmin;
 	return output;
 }
 
