@@ -100,6 +100,11 @@ public struct GPUInteraction
             tangent.y * v.x + bitangent.y * v.y + normal.y * v.z,
             tangent.z * v.x + bitangent.z * v.y + normal.z * v.z);
     }
+
+    public bool IsHit()
+    {
+        return p.w > 0;
+    }
 }
 
 public struct GPUBounds

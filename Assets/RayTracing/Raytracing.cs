@@ -67,14 +67,16 @@ public class Raytracing : MonoBehaviour
     public ComputeShader initRandom;
     public ComputeShader SampleShadowRay;
     public ComputeShader EstimateDirect;
+    public ComputeShader ImageReconstruction;
     int kGeneratePrimaryRay = -1;
     //generate path ray
     int kGeneratePath = -1;
     //generate next event estimate light sample ray
     int kRayTraversal = -1;
-    int kInitRandom;
-    int kSampleShadowRay;
-    int kEstimateDirect;
+    int kInitRandom = -1;
+    int kSampleShadowRay = -1;
+    int kEstimateDirect = -1;
+    int kImageReconstruction = -1;
     ComputeBuffer woodTriBuffer;
     ComputeBuffer woodTriIndexBuffer;
     ComputeBuffer verticesBuffer;
@@ -91,6 +93,8 @@ public class Raytracing : MonoBehaviour
     ComputeBuffer meshInstanceBuffer;
     ComputeBuffer distribution1DBuffer;
     ComputeBuffer shadowRayBuffer;
+    ComputeBuffer imageSpectrumsBuffer;
+    ComputeBuffer pathStatesBuffer;
     //ComputeBuffer transformBuffer;
 
     RenderTexture outputTexture;
@@ -102,6 +106,7 @@ public class Raytracing : MonoBehaviour
     Camera cameraComponent = null;
 
     const int MAX_PATH = 5;
+    int samplesPerPixel = 64;
 
     //for test
     //IndepententSampler indepententSampler = new IndepententSampler();
@@ -111,6 +116,7 @@ public class Raytracing : MonoBehaviour
     public bool useInstanceBVH = true;
     //toplevel bvh在bvh buffer中的位置
     int instBVHNodeAddr = -1;
+    int framesNum = 0;
     Mesh rectangleMesh;
 
     void Start()
@@ -141,7 +147,9 @@ public class Raytracing : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        bvhAccel.DrawDebug(meshInstances, useInstanceBVH);
+        //bvhAccel.DrawDebug(meshInstances, useInstanceBVH);
+        if (framesNum >= samplesPerPixel)
+            return;
 
         int rasterWidth = Screen.width;
         int rasterHeight = Screen.height;
@@ -155,7 +163,6 @@ public class Raytracing : MonoBehaviour
         //Camera camera = GetComponent<Camera>();
         //TestRay(cameraComponent, 0);
         TestPath();
-
         for (int i = 0; i < MAX_PATH; ++i)
         {
             //RayTravel.SetBuffer(kRayTraversal, "Rays", rayBuffer);
@@ -164,35 +171,29 @@ public class Raytracing : MonoBehaviour
 
             //RayTravel.SetVector("testBoundMax", bvhAccel.linearNodes[0].bounds.max);
             //RayTravel.SetVector("testBoundMin", bvhAccel.linearNodes[0].bounds.min);
+            RayTravel.SetInt("bounces", i);
             RayTravel.Dispatch(kRayTraversal, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
 
-            if (i == 0)
-            {
-                //generateRay.SetBuffer(kGeneratePrimaryRay, "Rays", rayBuffer);
-                
-            }
-            else
-            {
-                //path ray generation
-                //generatePath.Dispatch(kGeneratePath, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
-
-                //next event estimation
-                //generatePath.SetInt("bounces", i);
-                //generatePath.Dispatch(kGeneratePath, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
-            }
-
+            SampleShadowRay.SetInt("bounces", i);
             SampleShadowRay.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
             SampleShadowRay.SetInt("lightsNum", gpuLights.Count);
             SampleShadowRay.Dispatch(kSampleShadowRay, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
-
+            
+            EstimateDirect.Dispatch(kEstimateDirect, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
+            
+            generatePath.SetInt("bounces", i);
+            generatePath.Dispatch(kGeneratePath, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
         }
 
+        ImageReconstruction.SetInt("framesNum", ++framesNum);
+        ImageReconstruction.Dispatch(kImageReconstruction, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
+
         //Debug.Log(indepententSampler.UniformFloat());
-        
+
         //generateRay.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
         //generateRay.SetBuffer(kGenerateRay, "Rays", rayBuffer);
         //generateRay.Dispatch(kGenerateRay, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
-        
+
     }
 
     void SetupMaterials(Shape shape, BSDFMaterial bsdfMaterial)
@@ -346,9 +347,7 @@ public class Raytracing : MonoBehaviour
 
                         lightIndex = gpuLights.Count;
                         GPULight gpuLight = new GPULight();
-                        gpuLight.radiance.x = shapes[i].lightSpectrum.linear.r;
-                        gpuLight.radiance.y = shapes[i].lightSpectrum.linear.g;
-                        gpuLight.radiance.z = shapes[i].lightSpectrum.linear.b;
+                        gpuLight.radiance = shapes[i].lightSpectrum.linear.ToVector3().Mul(shapes[i].spectrumScale);
                         gpuLight.intensity = shapes[i].lightIntensity;
                         gpuLight.trianglesNum = mesh.triangles.Length / 3;
                         gpuLight.pointRadius = 0;
@@ -596,6 +595,8 @@ public class Raytracing : MonoBehaviour
         SetupEstimateNextEvent();
 
         SetupGeneratePath();
+
+        SetupImageReconstruction();
     }
 
     void SetupSamplers()
@@ -662,6 +663,11 @@ public class Raytracing : MonoBehaviour
             pathRadianceBuffer = new ComputeBuffer(Screen.width * Screen.height, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUPathRadiance)), ComputeBufferType.Structured);
         }
 
+        if (pathStatesBuffer == null)
+        {
+            pathStatesBuffer = new ComputeBuffer(Screen.width * Screen.height, sizeof(int), ComputeBufferType.Structured);
+        }
+
         if (gpuRays == null)
         {
             gpuRays = new GPURay[Screen.width * Screen.height];
@@ -681,6 +687,7 @@ public class Raytracing : MonoBehaviour
         generateRay.SetFloat("_time", Time.time);
         generateRay.SetBuffer(kGeneratePrimaryRay, "RNGs", samplerBuffer);
         generateRay.SetBuffer(kGeneratePrimaryRay, "pathRadiances", pathRadianceBuffer);
+        generateRay.SetBuffer(kGeneratePrimaryRay, "pathStates", pathStatesBuffer);
 
         cameraComponent = camera;
     }
@@ -709,11 +716,12 @@ public class Raytracing : MonoBehaviour
         SampleShadowRay.SetBuffer(kSampleShadowRay, "RNGs", samplerBuffer);
         SetComputeBuffer(SampleShadowRay, kSampleShadowRay, "WoodTriangleIndices", woodTriIndexBuffer);
         SetComputeBuffer(SampleShadowRay, kSampleShadowRay, "Distributions1D", distribution1DBuffer);
+        SetComputeBuffer(SampleShadowRay, kSampleShadowRay, "pathStates", pathStatesBuffer);
         SampleShadowRay.SetVector("rasterSize", new Vector4(Screen.width, Screen.height, 0, 0));
         SampleShadowRay.SetInt("instBVHAddr", instBVHNodeAddr);
         SampleShadowRay.SetInt("bvhNodesNum", bvhAccel.m_nodes.Count);
         SampleShadowRay.SetInt("lightsNum", gpuLights.Count);
-        SampleShadowRay.SetTexture(kSampleShadowRay, "outputTexture", outputTexture);
+        //SampleShadowRay.SetTexture(kSampleShadowRay, "outputTexture", outputTexture);
 
 
         kEstimateDirect = EstimateDirect.FindKernel("CSMain");
@@ -734,16 +742,20 @@ public class Raytracing : MonoBehaviour
         SetComputeBuffer(EstimateDirect, kEstimateDirect, "WoodTriangleIndices", woodTriIndexBuffer);
         //RayTravel.SetBuffer(kRayTraversal, "WorldMatrices", transformBuffer);
         EstimateDirect.SetBuffer(kEstimateDirect, "RNGs", samplerBuffer);
+        SetComputeBuffer(EstimateDirect, kEstimateDirect, "Distributions1D", distribution1DBuffer);
+        SetComputeBuffer(EstimateDirect, kEstimateDirect, "pathRadiances", pathRadianceBuffer);
+        SetComputeBuffer(EstimateDirect, kEstimateDirect, "pathStates", pathStatesBuffer);
         EstimateDirect.SetVector("rasterSize", new Vector4(Screen.width, Screen.height, 0, 0));
         EstimateDirect.SetInt("lightsNum", gpuLights.Count);
+        //EstimateDirect.SetTexture(kSampleShadowRay, "outputTexture", outputTexture);
+        //EstimateDirect.Dispatch(kEstimateDirect, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
     }
 
     void SetupGeneratePath()
     {
-       
         kGeneratePath = generatePath.FindKernel("GeneratePath");
         generatePath.SetBuffer(kGeneratePath, "Rays", rayBuffer);
-        generatePath.SetBuffer(kGeneratePath, "Materials", materialBuffer);
+        generatePath.SetBuffer(kGeneratePath, "materials", materialBuffer);
         generatePath.SetBuffer(kGeneratePath, "RNGs", samplerBuffer);
         generatePath.SetBuffer(kGeneratePath, "Intersections", intersectBuffer);
         generatePath.SetBuffer(kGeneratePath, "pathRadiances", pathRadianceBuffer);
@@ -751,6 +763,19 @@ public class Raytracing : MonoBehaviour
         SetComputeBuffer(generatePath, kGeneratePath, "lights", lightBuffer);
         //generatePath.SetBuffer(kGeneratePath, "Distributions1D", distribution1DBuffer);
         SetComputeBuffer(generatePath, kGeneratePath, "Distributions1D", distribution1DBuffer);
+        SetComputeBuffer(generatePath, kGeneratePath, "pathStates", pathStatesBuffer);
+    }
+
+    void SetupImageReconstruction()
+    {
+        if (imageSpectrumsBuffer == null)
+            imageSpectrumsBuffer = new ComputeBuffer(Screen.width * Screen.height, System.Runtime.InteropServices.Marshal.SizeOf(typeof(Vector3)), ComputeBufferType.Structured);
+
+        kImageReconstruction = ImageReconstruction.FindKernel("CSMain");
+        ImageReconstruction.SetBuffer(kImageReconstruction, "pathRadiances", pathRadianceBuffer);
+        ImageReconstruction.SetBuffer(kImageReconstruction, "spectrums", imageSpectrumsBuffer);
+        ImageReconstruction.SetTexture(kImageReconstruction, "outputTexture", outputTexture);
+        ImageReconstruction.SetVector("rasterSize", new Vector4(Screen.width, Screen.height, 0, 0));
     }
 
     void SetComputeBuffer(ComputeShader cs, int kernel, string name, ComputeBuffer buffer)
@@ -788,6 +813,7 @@ public class Raytracing : MonoBehaviour
         RayTravel.SetBuffer(kRayTraversal, "pathRadiances", pathRadianceBuffer);
         SetComputeBuffer(RayTravel, kRayTraversal, "lights", lightBuffer);
         SetComputeBuffer(RayTravel, kRayTraversal, "WoodTriangleIndices", woodTriIndexBuffer);
+        SetComputeBuffer(RayTravel, kRayTraversal, "pathStates", pathStatesBuffer);
         RayTravel.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
         RayTravel.SetInt("instBVHAddr", instBVHNodeAddr);
         RayTravel.SetInt("bvhNodesNum", bvhAccel.m_nodes.Count);
@@ -867,6 +893,8 @@ public class Raytracing : MonoBehaviour
         ReleaseComputeBuffer(pathRadianceBuffer);
         ReleaseComputeBuffer(meshInstanceBuffer);
         ReleaseComputeBuffer(BVHBuffer);
+        ReleaseComputeBuffer(imageSpectrumsBuffer);
+        ReleaseComputeBuffer(pathStatesBuffer);
 
         if (outputTexture != null)
         {
@@ -1016,8 +1044,8 @@ public class Raytracing : MonoBehaviour
         float rasterHeight = Screen.height;
         rayBuffer.GetData(gpuRays);
 
-        int x = 659;//216;//(int)rasterWidth / 2 + 60;
-        int y = 406;//206;//(int)rasterHeight / 2;
+        int x = 328;//216;//(int)rasterWidth / 2 + 60;
+        int y = 480;//206;//(int)rasterHeight / 2;
         int index = x + y * (int)rasterWidth;
         //index = 700 + 360 * (int)rasterWidth;
         GPURay gpuRay = gpuRays[index];
@@ -1025,15 +1053,43 @@ public class Raytracing : MonoBehaviour
         //bIntersectTest = IntersectRay(bvhAccel.linearNodes[0].bounds, gpuRay);
         float hitT = float.MaxValue;
         GPUInteraction interaction = new GPUInteraction();
-        bool bIntersectTest = useInstanceBVH ? bvhAccel.IntersectInstTest(gpuRay, meshInstances, meshHandles, bvhAccel.instBVHNodeAddr, out hitT, out interaction) : bvhAccel.IntersectBVHTriangleTest(gpuRay, 0, out hitT);//SceneIntersectTest(gpuRay);
-        if (bIntersectTest) 
+        GPUPathRadiance pathRadiance = new GPUPathRadiance();
+        pathRadiance.beta = Vector3.one;
+        for (int i = 0; i < MAX_PATH; ++i)
         {
-            RayTracingTest.SampleShadowRayTest(bvhAccel, instBVHNodeAddr, Distributions1D, gpuLights, interaction, meshInstances, gpuLights[0], triangles, gpuVertices, gpuMaterials);
+            bool bIntersectTest = useInstanceBVH ? bvhAccel.IntersectInstTest(gpuRay, meshInstances, meshHandles, bvhAccel.instBVHNodeAddr, out hitT, out interaction) : bvhAccel.IntersectBVHTriangleTest(gpuRay, 0, out hitT);//SceneIntersectTest(gpuRay);
+            if (bIntersectTest)
+            {
+                GPUShadowRay shadowRay = RayTracingTest.SampleShadowRayTest(bvhAccel, instBVHNodeAddr, Distributions1D, gpuLights, interaction, meshInstances, gpuLights[0], triangles, gpuVertices, gpuMaterials);
+                Vector3 onePathLightRadiance = RayTracingTest.EstimateDirect(bvhAccel, shadowRay, interaction, new Vector2(UnityEngine.Random.Range(0.0f, 1.0f), UnityEngine.Random.Range(0.0f, 1.0f)),
+                    gpuMaterials, gpuLights, meshInstances, triangles, gpuVertices, Distributions1D);
+                pathRadiance.li += pathRadiance.beta.Mul(onePathLightRadiance);
+                bool breakLoop = false;
+                gpuRay = RayTracingTest.GeneratePath(ref interaction, ref pathRadiance, gpuMaterials, out breakLoop);
+
+                if (breakLoop)
+                {
+                    break;
+                }
+
+                if (i > 3)
+                {
+                    float q = Mathf.Max(0.05f, 1 - pathRadiance.beta.y);
+                    if (UnityEngine.Random.Range(0.0f, 1.0f) < q)
+                    {
+                        pathRadiance.beta = Vector3.zero;
+                    }
+                    else
+                        pathRadiance.beta /= 1 - q;
+                }
+            }
+            else
+            {
+                //Debug.DrawRay(gpuRay.orig, gpuRay.direction * 20.0f, Color.red, duration);
+                break;
+            }
         }
-        else
-        {
-            //Debug.DrawRay(gpuRay.orig, gpuRay.direction * 20.0f, Color.red, duration);
-        }
+        
     }
 
     //test the light sampling

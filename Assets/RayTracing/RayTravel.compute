@@ -13,6 +13,7 @@ StructuredBuffer<Ray>    Rays;
 StructuredBuffer<Light>  lights;
 RWStructuredBuffer<Interaction>       Intersections;
 RWStructuredBuffer<PathRadiance> pathRadiances;
+RWStructuredBuffer<int>    pathStates;
 //RWTexture2D<half4> outputTexture;
 
 [numthreads(8,8,1)]
@@ -23,38 +24,49 @@ void RayTraversal(uint3 id : SV_DispatchThreadID)
         return;
 
     int threadId = id.x + id.y * rasterSize.x;
-    Ray ray = Rays[threadId];
-    Interaction isect = (Interaction)0;//Intersections[threadId];
-    //if (IntersectBVHandTriangles(ray, 0, isect))
-    bool foundIntersect = IntersectBVH(ray, isect);
-    PathRadiance pathRadiance = pathRadiances[threadId];
-    if (foundIntersect)
+    int pathState = pathStates[threadId];
+    if (pathState > 0)
     {
-        //int triIndex = asint(isect.primitive.x);
-        //float3 color = (float)(triIndex / 3) / 50.0;
-        float3 color = isect.normal.xyz * 0.5 + 0.5f;
-        //RNG rng = RNGs[threadId];
-        //color.xy = Get2D(rng);
-        //RNGs[threadId] = rng;
-        int meshInstanceIndex = isect.meshInstanceID;
-        MeshInstance meshInstance = MeshInstances[meshInstanceIndex];
-        int lightIndex = meshInstance.GetLightIndex();
-
-        //isect.p.w = 1;
-        if (lightIndex >= 0)
+        Ray ray = Rays[threadId];
+        Interaction isect = (Interaction)0;//Intersections[threadId];
+        //if (IntersectBVHandTriangles(ray, 0, isect))
+        bool foundIntersect = IntersectBVH(ray, isect);
+        PathRadiance pathRadiance = pathRadiances[threadId];
+        if (foundIntersect)
         {
-            Light light = lights[lightIndex];
-            pathRadiance.li += pathRadiance.beta * light.radiance;
-            color = light.radiance;
+            //int triIndex = asint(isect.primitive.x);
+            //float3 color = (float)(triIndex / 3) / 50.0;
+            //float3 color = isect.normal.xyz * 0.5 + 0.5f;
+            //RNG rng = RNGs[threadId];
+            //color.xy = Get2D(rng);
+            //RNGs[threadId] = rng;
+            int meshInstanceIndex = isect.meshInstanceID;
+            MeshInstance meshInstance = MeshInstances[meshInstanceIndex];
+            int lightIndex = meshInstance.GetLightIndex();
+
+            //isect.p.w = 1;
+            if (lightIndex >= 0 && bounces == 0)
+            {
+                Light light = lights[lightIndex];
+                pathRadiance.li += pathRadiance.beta * light.radiance;
+                //color = light.radiance;
+                //isect.p.w = 0;
+            }
+
+            //outputTexture[id.xy] = half4(color, 1);//abs(ray.direction);
+            Intersections[threadId] = isect;
+            pathStates[threadId] = 1;
         }
-        //outputTexture[id.xy] = half4(color, 1);//abs(ray.direction);
-        Intersections[threadId] = isect;
+        else
+        {
+            //sample enviroment map
+            pathRadiance.li += pathRadiance.beta * float3(0, 0, 0);
+            isect.p.w = -1;
+            pathStates[threadId] = 0;
+            //outputTexture[id.xy] = half4(1, 0, 0, 1);
+        }
+
+        pathRadiances[threadId] = pathRadiance;
     }
-    else
-    {
-        //sample enviroment map
-        pathRadiance.li += pathRadiance.beta * float3(0, 0, 0);
-        isect.p.w = -1;
-        //outputTexture[id.xy] = half4(1, 0, 0, 1);
-    }
+    
 }

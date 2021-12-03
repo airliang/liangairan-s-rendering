@@ -7,6 +7,7 @@
 #pragma kernel CSMain
 
 uniform int    lightsNum;
+uniform int    bounces;
 uniform float2 rasterSize;
 
 
@@ -14,7 +15,8 @@ StructuredBuffer<Interaction>  Intersections;
 RWStructuredBuffer<ShadowRay>  ShadowRays;
 StructuredBuffer<Light> lights;
 StructuredBuffer<Material> materials;
-RWTexture2D<half4> outputTexture;
+StructuredBuffer<int>    pathStates;
+//RWTexture2D<half4> outputTexture;
 
 Light SampleLightSource(out float pdf, uint threadId, int lightCount, out int index)
 {
@@ -53,30 +55,26 @@ ShadowRay SampleShadowRay(uint threadId, Light light, Interaction isect)
 	float3 Li = SampleTriangleLight(p0, p1, p2, rs.Get2D(threadId), isect, light, wi, trianglePoint, triPdf);
 	lightPdf *= triPdf;
 
-	shadowRay.p0 = isect.p.xyz;
-	shadowRay.p1 = trianglePoint;
-	//shadowRay.pdf = triPdf;
-	shadowRay.lightPdf = lightPdf;
-	//float3 Li = light.radiance;
-	//shadowRay.lightNormal = lightPointNormal;
-	//float3 wi = normalize(shadowRay.p1 - shadowRay.p0);
-
-	//sample bsdf
-	Material material = materials[isect.materialID];
-	float3 wiLocal = isect.WorldToLocal(wi);
-	float3 woLocal = isect.WorldToLocal(isect.wo.xyz);
-	float3 f = LambertBRDF(woLocal, wiLocal, material.kd.xyz) * abs(dot(wi, isect.normal));
-	float scatteringPdf = LambertPDF(woLocal, wiLocal);
-	int meshInstanceIndex = -1;
-	float hitT = 0;
-	bool shadowRayVisible = ShadowRayVisibilityTest(shadowRay, isect.normal, hitT, meshInstanceIndex);
-
-	//if (!shadowRayVisible && meshInstanceIndex == isect.meshInstanceID && hitT < 0.001)
-	//{
-	//	shadowRay.radiance = float3(0, 0, 1);
-	//}
-	//else
+	if (lightPdf > 0)
 	{
+		shadowRay.p0 = isect.p.xyz;
+		shadowRay.p1 = trianglePoint;
+		//shadowRay.pdf = triPdf;
+		shadowRay.lightPdf = lightPdf;
+		//float3 Li = light.radiance;
+		//shadowRay.lightNormal = lightPointNormal;
+		//float3 wi = normalize(shadowRay.p1 - shadowRay.p0);
+
+		//sample bsdf
+		Material material = materials[isect.materialID];
+		float3 wiLocal = isect.WorldToLocal(wi);
+		float3 woLocal = isect.WorldToLocal(isect.wo.xyz);
+		float3 f = LambertBRDF(woLocal, wiLocal, material.kd.xyz) * abs(dot(wi, isect.normal));
+		float scatteringPdf = LambertPDF(woLocal, wiLocal);
+		int meshInstanceIndex = -1;
+		float hitT = 0;
+		bool shadowRayVisible = ShadowRayVisibilityTest(shadowRay, isect.normal, hitT, meshInstanceIndex);
+
 		if (shadowRayVisible)
 		{
 			//sample psdf and compute the mis weight
@@ -86,14 +84,9 @@ ShadowRay SampleShadowRay(uint threadId, Light light, Interaction isect)
 		}
 		else
 		{
-			if (meshInstanceIndex == isect.meshInstanceID && hitT < 0.001)
-			{
-				shadowRay.radiance = float3(0, 0, 1);
-			}
-			else
-				shadowRay.radiance = float3(0, 1, 0);
 		}
 	}
+	
 	
 
 	return shadowRay;
@@ -108,25 +101,25 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 		return;
 
 	uint threadId = id.x + id.y * rasterSize.x;
-	Interaction isect = Intersections[threadId];
-
-	if (isect.IsHit())
+	
+	int pathState = pathStates[threadId];
+	if (pathState == 1)
 	{
 		float lightSourcePdf = 1.0;
 		int lightIndex = 0;
 		//some error happen in SampleLightSource
 		Light light = SampleLightSource(lightSourcePdf, threadId, lightsNum, lightIndex);
 		//float testD = Distributions1D[0].y;
-
+		Interaction isect = Intersections[threadId];
 		ShadowRay shadowRay = SampleShadowRay(threadId, light, isect);
 		shadowRay.lightSourcePdf = lightSourcePdf;
 		shadowRay.lightIndex = asfloat(lightIndex);
 		ShadowRays[threadId] = shadowRay;
-		outputTexture[id.xy] = half4(shadowRay.radiance, 1);
+		//outputTexture[id.xy] = half4(shadowRay.radiance, 1);
 		//outputTexture[id.xy] = half4(isect.normal.xyz, 1);
 	}
 	else
 	{
-		outputTexture[id.xy] = half4(lightsNum, 0, 0, 1);
+		//outputTexture[id.xy] = half4(lightsNum, 0, 0, 1);
 	}
 }

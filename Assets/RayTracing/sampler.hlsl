@@ -60,13 +60,13 @@ float2 ConcentricSampleDisk(float2 u)
 	if (abs(u1.x) > abs(u1.y))
 	{
 		r = u1.x;
-		theta = u1.y / u1.x * INV_FOUR_PI;
+		theta = u1.y / u1.x * PI_OVER_4;
 	}
 	else
 	{
 		//这里要反过来看，就是把视野选择90度
 		r = u1.y;
-		theta = INV_TWO_PI - u1.x / u1.y * INV_FOUR_PI;
+		theta = PI_OVER_2 - u1.x / u1.y * PI_OVER_4;
 	}
 	return r * float2(cos(theta), sin(theta));
 }

@@ -15,6 +15,7 @@ float2 rasterSize;
 
 RWStructuredBuffer<Ray>    Rays;
 RWStructuredBuffer<PathRadiance> pathRadiances;
+RWStructuredBuffer<int>    pathStates;
 [numthreads(8,8,1)]
 void GeneratePrimary(uint3 id : SV_DispatchThreadID)
 {
@@ -39,5 +40,6 @@ void GeneratePrimary(uint3 id : SV_DispatchThreadID)
     bounceRadiance.li = 0;
     bounceRadiance.beta = 1.0;
     pathRadiances[threadId] = bounceRadiance;
+    pathStates[threadId] = 1;
 }
 

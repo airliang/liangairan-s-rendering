@@ -1987,7 +1987,7 @@ MonoBehaviour:
   shapeType: 2
   isAreaLight: 1
   lightSpectrum: {r: 1, g: 1, b: 1, a: 1}
-  spectrumScale: {x: 541126.8, y: 381971.8, z: 127323.9}
+  spectrumScale: {x: 3, y: 3, z: 3}
   lightIntensity: 1
 --- !u!114 &60
 MonoBehaviour:
@@ -2021,6 +2021,7 @@ MonoBehaviour:
   initRandom: {fileID: 7200000, guid: f09f3de862413a74781d4d49b8cbd9ee, type: 3}
   SampleShadowRay: {fileID: 7200000, guid: 04a3649e79e1b39499bc6f3019e9e3dc, type: 3}
   EstimateDirect: {fileID: 7200000, guid: 0e9388db8ef7da84fa9512dbe530a0f8, type: 3}
+  ImageReconstruction: {fileID: 7200000, guid: 0df577181ba92c140b93275cf6a21642, type: 3}
   useInstanceBVH: 1
 --- !u!1 &25648568
 GameObject:
