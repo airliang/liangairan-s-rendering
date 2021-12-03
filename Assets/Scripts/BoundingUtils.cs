@@ -50,6 +50,25 @@ public class BoundingUtils
         return result;
     }
 
+    public static void TransformBounds(ref Matrix4x4 matrix, ref Vector3 min, ref Vector3 max)
+    {
+        Vector3 column0 = matrix.GetColumn(0);
+        Vector3 xa = column0 * min.x;
+        Vector3 xb = column0 * max.x;
+
+        Vector3 column1 = matrix.GetColumn(1);
+        Vector3 ya = column1 * min.y;
+        Vector3 yb = column1 * max.y;
+
+        Vector3 column2 = matrix.GetColumn(2);
+        Vector3 za = column2 * min.z;
+        Vector3 zb = column2 * max.z;
+
+        Vector3 column3 = matrix.GetColumn(3);
+        min = Vector3.Min(xa, xb) + Vector3.Min(ya, yb) + Vector3.Min(za, zb) + column3;
+        max = Vector3.Max(xa, xb) + Vector3.Max(ya, yb) + Vector3.Max(za, zb) + column3;
+    }
+
     public static void CalculateBoundingSphereFromFrustumPoints(Vector3[] points, out Vector3 outCenter, out float outRadius)
     {
         Vector3[] spherePoints = new Vector3[4];

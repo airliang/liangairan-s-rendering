@@ -159,7 +159,9 @@ public class Raytracing : MonoBehaviour
         generateRay.SetMatrix("RasterToCamera", RasterToCamera);
         generateRay.SetMatrix("CameraToWorld", cameraComponent.cameraToWorldMatrix);
         generateRay.Dispatch(kGeneratePrimaryRay, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
-
+        //SampleShadowRay.SetTexture(kSampleShadowRay, "outputTexture", outputTexture);
+        //RayTravel.SetTexture(kSampleShadowRay, "outputTexture", outputTexture);
+        //generatePath.SetTexture(kGeneratePath, "outputTexture", outputTexture);
         //Camera camera = GetComponent<Camera>();
         //TestRay(cameraComponent, 0);
         TestPath();
@@ -187,13 +189,6 @@ public class Raytracing : MonoBehaviour
 
         ImageReconstruction.SetInt("framesNum", ++framesNum);
         ImageReconstruction.Dispatch(kImageReconstruction, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
-
-        //Debug.Log(indepententSampler.UniformFloat());
-
-        //generateRay.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
-        //generateRay.SetBuffer(kGenerateRay, "Rays", rayBuffer);
-        //generateRay.Dispatch(kGenerateRay, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
-
     }
 
     void SetupMaterials(Shape shape, BSDFMaterial bsdfMaterial)
@@ -710,7 +705,7 @@ public class Raytracing : MonoBehaviour
         SetComputeBuffer(SampleShadowRay, kSampleShadowRay, "TriangleIndices", triangleBuffer);
         //RayTravel.SetBuffer(kRayTraversal, "Primitives", primtiveBuffer);
         SampleShadowRay.SetBuffer(kSampleShadowRay, "BVHTree", BVHBuffer);
-        SampleShadowRay.SetBuffer(kSampleShadowRay, "Intersections", intersectBuffer);
+        //SampleShadowRay.SetBuffer(kSampleShadowRay, "Intersections", intersectBuffer);
         SetComputeBuffer(SampleShadowRay, kSampleShadowRay, "MeshInstances", meshInstanceBuffer);
         //RayTravel.SetBuffer(kRayTraversal, "WorldMatrices", transformBuffer);
         SampleShadowRay.SetBuffer(kSampleShadowRay, "RNGs", samplerBuffer);
@@ -764,6 +759,7 @@ public class Raytracing : MonoBehaviour
         //generatePath.SetBuffer(kGeneratePath, "Distributions1D", distribution1DBuffer);
         SetComputeBuffer(generatePath, kGeneratePath, "Distributions1D", distribution1DBuffer);
         SetComputeBuffer(generatePath, kGeneratePath, "pathStates", pathStatesBuffer);
+        generatePath.SetVector("rasterSize", new Vector4(Screen.width, Screen.height, 0, 0));
     }
 
     void SetupImageReconstruction()
@@ -1044,8 +1040,8 @@ public class Raytracing : MonoBehaviour
         float rasterHeight = Screen.height;
         rayBuffer.GetData(gpuRays);
 
-        int x = 328;//216;//(int)rasterWidth / 2 + 60;
-        int y = 480;//206;//(int)rasterHeight / 2;
+        int x = 311;//216;//(int)rasterWidth / 2 + 60;
+        int y = 302;//206;//(int)rasterHeight / 2;
         int index = x + y * (int)rasterWidth;
         //index = 700 + 360 * (int)rasterWidth;
         GPURay gpuRay = gpuRays[index];
@@ -1055,7 +1051,7 @@ public class Raytracing : MonoBehaviour
         GPUInteraction interaction = new GPUInteraction();
         GPUPathRadiance pathRadiance = new GPUPathRadiance();
         pathRadiance.beta = Vector3.one;
-        for (int i = 0; i < MAX_PATH; ++i)
+        for (int i = 0; i < 3; ++i)
         {
             bool bIntersectTest = useInstanceBVH ? bvhAccel.IntersectInstTest(gpuRay, meshInstances, meshHandles, bvhAccel.instBVHNodeAddr, out hitT, out interaction) : bvhAccel.IntersectBVHTriangleTest(gpuRay, 0, out hitT);//SceneIntersectTest(gpuRay);
             if (bIntersectTest)

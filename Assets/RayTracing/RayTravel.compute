@@ -54,6 +54,8 @@ void RayTraversal(uint3 id : SV_DispatchThreadID)
             }
 
             //outputTexture[id.xy] = half4(color, 1);//abs(ray.direction);
+            //if (bounces == 1)
+            //    outputTexture[id.xy] = half4(abs(ray.direction), 1);
             Intersections[threadId] = isect;
             pathStates[threadId] = 1;
         }
@@ -63,7 +65,7 @@ void RayTraversal(uint3 id : SV_DispatchThreadID)
             pathRadiance.li += pathRadiance.beta * float3(0, 0, 0);
             isect.p.w = -1;
             pathStates[threadId] = 0;
-            //outputTexture[id.xy] = half4(1, 0, 0, 1);
+            //outputTexture[id.xy] = half4(0, 0, 0, 1);
         }
 
         pathRadiances[threadId] = pathRadiance;

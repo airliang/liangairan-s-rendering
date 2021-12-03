@@ -20,6 +20,7 @@ StructuredBuffer<Interaction>  Intersections;
 RWStructuredBuffer<PathRadiance> pathRadiances;
 StructuredBuffer<Material> materials;
 RWStructuredBuffer<int>    pathStates;
+//RWTexture2D<half4> outputTexture;
 
 [numthreads(8, 8, 1)]
 void GeneratePath(uint3 id : SV_DispatchThreadID)
@@ -53,6 +54,7 @@ void GeneratePath(uint3 id : SV_DispatchThreadID)
 		Ray ray = SpawnRay(isect.p.xyz, wi, isect.normal, FLT_MAX);
 		//ray.orig = float4(isect.p.xyz, FLT_MAX);
 		//ray.direction = float4(wi, 0);
+		//outputTexture[id.xy] = float4(1, 0, 0, 1);
 
 		Rays[threadId] = ray;
 
@@ -67,9 +69,12 @@ void GeneratePath(uint3 id : SV_DispatchThreadID)
 			else
 				pathRadiance.beta /= 1 - q;
 		}
-		pathRadiance.li += pathRadiance.beta * pathRadiance.li;
+
 		pathRadiances[threadId] = pathRadiance;
 	}
-
+	else
+	{
+		//outputTexture[id.xy] = float4(0, 0.5, 0, 1);
+	}
 
 }

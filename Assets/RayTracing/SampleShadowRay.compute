@@ -82,13 +82,8 @@ ShadowRay SampleShadowRay(uint threadId, Light light, Interaction isect)
 				PowerHeuristic(1, lightPdf, 1, scatteringPdf);
 			shadowRay.radiance = f * Li * shadowRay.weight / lightPdf;
 		}
-		else
-		{
-		}
 	}
 	
-	
-
 	return shadowRay;
 }
 
@@ -116,10 +111,13 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 		shadowRay.lightIndex = asfloat(lightIndex);
 		ShadowRays[threadId] = shadowRay;
 		//outputTexture[id.xy] = half4(shadowRay.radiance, 1);
-		//outputTexture[id.xy] = half4(isect.normal.xyz, 1);
+		//if (bounces >= 1)
+		//	outputTexture[id.xy] = half4(isect.normal.xyz, 1);
+		//else
+		//	outputTexture[id.xy] = half4(shadowRay.radiance, 1);
 	}
 	else
 	{
-		//outputTexture[id.xy] = half4(lightsNum, 0, 0, 1);
+		//outputTexture[id.xy] = half4(1, 0, 0, 1);
 	}
 }

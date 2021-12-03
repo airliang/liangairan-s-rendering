@@ -85,7 +85,6 @@ float3 EstimateDirect(ShadowRay shadowRay, Interaction isect, float2 u)
         {
             //caculate the mis weight
             float weight = PowerHeuristic(1, lightPdf, 1, scatteringPdf);
-
             Ld += f * light.radiance * weight / scatteringPdf;
         }
     }
