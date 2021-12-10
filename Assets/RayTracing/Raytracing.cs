@@ -55,6 +55,7 @@ public class Raytracing : MonoBehaviour
     //GPUMaterial[] gpuMaterials = null;
     List<GPUMaterial> gpuMaterials = new List<GPUMaterial>();
     List<Vector2> Distributions1D = new List<Vector2>();
+    List<GPUDistributionDiscript> gpuDistributionDiscripts = new List<GPUDistributionDiscript>();
     //Dictionary<Mesh, Distribution1D<Vector2>> meshTriangleDistribution = new Dictionary<Mesh, Distribution1D<Vector2>>();
     Dictionary<Mesh, AreaLight> meshDistributions = new Dictionary<Mesh, AreaLight>();
     
@@ -119,6 +120,8 @@ public class Raytracing : MonoBehaviour
     int framesNum = 0;
     Mesh rectangleMesh;
 
+    Filter filter;
+
     void Start()
     {
         //this is a bvh
@@ -142,6 +145,10 @@ public class Raytracing : MonoBehaviour
         BVHAccel.TestPartition();
         InitScene();
         SampleLightTest();
+
+        filter = new GaussianFilter(new Vector2(1.5f, 1.5f));
+        Vector2 uv = filter.GetSample(MathUtil.GetRandom01());
+        Debug.Log(uv);
     }
 
     // Update is called once per frame
@@ -149,7 +156,12 @@ public class Raytracing : MonoBehaviour
     {
         //bvhAccel.DrawDebug(meshInstances, useInstanceBVH);
         if (framesNum >= samplesPerPixel)
+        {
+            Vector2 uv = filter.GetSample(MathUtil.GetRandom01());
+            float random = MathUtil.UniformFloat();
+            Debug.Log(uv);
             return;
+        }
 
         int rasterWidth = Screen.width;
         int rasterHeight = Screen.height;
@@ -196,8 +208,9 @@ public class Raytracing : MonoBehaviour
         Renderer renderer = shape.GetComponent<MeshRenderer>();
         Color _Color = renderer.sharedMaterial.GetColor("_Color");
         GPUMaterial gpuMtl = new GPUMaterial();
-        gpuMtl.kd = _Color.linear;
-        
+        gpuMtl.kd = bsdfMaterial.matte.kd.spectrum.linear; //_Color.linear;
+
+
         gpuMaterials.Add(gpuMtl);
     }
 

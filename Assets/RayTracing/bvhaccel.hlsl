@@ -566,9 +566,9 @@ bool IntersectMeshBVH(/*float4 rayOrig, float4 rayDir*/Ray ray, int bvhOffset, f
 					interaction.p.xyz = hitPos.xyz;//offset_ray(hitPos.xyz, worldNormal);
 					interaction.p.w = hitT;
 					interaction.uv = uv0 * uv.x + uv1 * uv.y + uv2 * (1.0 - uv.x - uv.y);
-					interaction.row1 = objectToWorld._m00_m01_m02_m03;
-					interaction.row2 = objectToWorld._m10_m11_m12_m13;
-					interaction.row3 = objectToWorld._m20_m21_m22_m23;
+					//interaction.row1 = objectToWorld._m00_m01_m02_m03;
+					//interaction.row2 = objectToWorld._m10_m11_m12_m13;
+					//interaction.row3 = objectToWorld._m20_m21_m22_m23;
 					interaction.tangent = normalize(v0World.xyz - hitPos.xyz);
 					interaction.bitangent = normalize(cross(interaction.normal.xyz, interaction.tangent));
 					//º∆À„«–œﬂ

@@ -47,7 +47,7 @@ struct ShadowRay
 	float3 radiance;  //light radiance
 	//float3 lightNormal;  //light sample point normal
 	//mis weight
-	float  weight;
+	//float  weight;
 	float  lightSourcePdf;        //Light Radiance pdf
 	float  lightPdf;   //light sampling pdf
 	float  visibility; //1 is visible, 0 invisible
@@ -70,9 +70,9 @@ struct Interaction  //64byte
 	
 	//float4 primitive;   //0 is triangle index, y is material index
 	float4 uv;
-	float4 row1;
-	float4 row2;
-	float4 row3;
+	//float4 row1;
+	//float4 row2;
+	//float4 row3;
 	//float4 ns;   
 	//float4 dpdu;
 	//float4 dpdv;

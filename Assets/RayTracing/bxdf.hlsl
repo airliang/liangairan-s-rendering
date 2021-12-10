@@ -50,7 +50,7 @@ float Reflection(float3 wi, float3 wo)
 
 float3 LambertBRDF(float3 wi, float3 wo, float3 R)
 {
-	return R * INV_PI;
+	return wo.z == 0 ? 0 : R * INV_PI;
 }
 
 //wi and wo must in local space

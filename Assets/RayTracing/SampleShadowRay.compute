@@ -78,9 +78,9 @@ ShadowRay SampleShadowRay(uint threadId, Light light, Interaction isect)
 		if (shadowRayVisible)
 		{
 			//sample psdf and compute the mis weight
-			shadowRay.weight =
+			float weight =
 				PowerHeuristic(1, lightPdf, 1, scatteringPdf);
-			shadowRay.radiance = f * Li * shadowRay.weight / lightPdf;
+			shadowRay.radiance = f * Li * weight / lightPdf;
 		}
 	}
 	

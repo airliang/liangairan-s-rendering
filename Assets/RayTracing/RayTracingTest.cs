@@ -291,9 +291,9 @@ public class RayTracingTest
             if (ShadowRayVisibilityTest(shadowRay, isect.normal, bvhAccel, meshInstances, instBVHOffset, out hitT, out meshInstanceIndex))
             {
                 //sample psdf and compute the mis weight
-                shadowRay.weight =
+                float weight =
                     PowerHeuristic(1, lightPdf, 1, scatteringPdf);
-                shadowRay.radiance = new Vector3(f.x * Li.x, f.y * Li.y, f.z * Li.z) * shadowRay.weight / lightPdf;
+                shadowRay.radiance = new Vector3(f.x * Li.x, f.y * Li.y, f.z * Li.z) * weight / lightPdf;
                 shadowRay.visibility = 1;
             }
             else
@@ -431,4 +431,41 @@ public class RayTracingTest
 
         return !bvhAccel.IntersectInstTestP(ray, meshInstances, instBVHOffset, out hitT, out meshInstanceIndex);
 	}
+
+    public static float Sample1DContinuous(float u, GPUDistributionDiscript discript, List<Vector2> distribution, out float pdf, out int offset)
+    {
+        offset = FindIntervalSmall(distribution, discript.start, discript.num, u);
+        // Compute offset along CDF segment
+        float du = u - distribution[offset].y;
+        if ((distribution[offset + 1].y - distribution[offset].y) > 0)
+        {
+            du /= (distribution[offset + 1].y - distribution[offset].y);
+        }
+
+        // Compute PDF for sampled offset
+        pdf = distribution[offset].x;//(distribution.funcInt > 0) ? funcs[offset].x / distribution.funcInt : 0;
+
+        // Return $x\in{}[0,1)$ corresponding to sample
+        return (offset + du) / discript.num;
+    }
+
+    public static Vector2 Sample2DContinuous(Vector2 u, GPUDistributionDiscript discript, List<Vector2> distribution, out float pdf)
+    {
+        float pdfMarginal;
+        int v;
+        float d1 = Sample1DContinuous(u.y, discript, distribution, out pdfMarginal, out v);
+        int nu;
+        float pdfCondition;
+        GPUDistributionDiscript dCondition;
+        dCondition.start = discript.num + 1 + v * (discript.unum + 1);
+        dCondition.num = discript.unum;
+        dCondition.unum = 0;
+        dCondition.c = 0;
+        float d0 = Sample1DContinuous(u.x, dCondition, distribution, out pdfCondition, out nu);
+        //p(v|u) = p(u,v) / pv(u)
+        //so 
+        //p(u,v) = p(v|u) * pv(u)
+        pdf = pdfCondition * pdfMarginal;
+        return new Vector2(d0, d1);
+    }
 }

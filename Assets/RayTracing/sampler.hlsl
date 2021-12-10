@@ -3,6 +3,7 @@
 #define SAMPLER_HLSL
 #include "mathdef.hlsl"
 #include "GPUStructs.hlsl"
+#include "distributions.hlsl"
 
 //----------------------------------------------------------------------------------------
 //  1 out, 1 in...
@@ -107,33 +108,11 @@ RWStructuredBuffer<RNG>    RNGs;
 //x pdf y cdf
 StructuredBuffer<float2> Distributions1D;
 
-//binary search
-int FindIntervalSmall(int start, int size, float u)
-{
-    if (size < 2)
-        return start;
-    int first = 0, len = size;
-    while (len > 0)
-    {
-        int nHalf = len >> 1;
-        int middle = first + nHalf;
-        // Bisect range based on value of _pred_ at _middle_
-        float2 distrubution = Distributions1D[start + middle];
-        if (distrubution.y <= u)
-        {
-            first = middle + 1;
-            len -= nHalf + 1;
-        }
-        else
-            len = nHalf;
-    }
-    //if first - 1 < 0, the clamp function is useless
-    return clamp(first - 1, 0, size - 2) + start;
-}
+
 
 int SampleDistribution1DDiscrete(float u, int start, int num, out float pdf)
 {
-    int offset = FindIntervalSmall(start, num, u);
+    int offset = FindIntervalSmall(start, num, u, Distributions1D);
     pdf = Distributions1D[start + offset].x;
     return offset;
 }
@@ -227,7 +206,7 @@ class RandomSampler
     CameraSample GetCameraSample(float2 pRaster, int rngIndex)
     {
         CameraSample camSample;
-        camSample.pFilm = pRaster + Get2D(rngIndex); // *0.5 - float2(0.5, 0.5);
+        camSample.pFilm = pRaster + Get2D(rngIndex) - 0.5; // *0.5 - float2(0.5, 0.5);
         return camSample;
     }
 };

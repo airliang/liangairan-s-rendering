@@ -63,7 +63,16 @@ struct PathRadiance
 	float3 beta;  //one path compute throughput
 };
 
-
+struct DistributionDiscript
+{
+	//the distribution array index
+	int start;
+	//number of distribution
+	int num;
+	//number of 2D distribution
+	int unum;
+	int c;
+};
 
 
 

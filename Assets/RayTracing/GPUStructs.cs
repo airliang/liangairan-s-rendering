@@ -77,9 +77,9 @@ public struct GPUInteraction
     public Vector4 wo;   //output direction
     //Vector4 primitive;
     public Vector4 uv;
-    public Vector4 row1;
-    public Vector4 row2;
-    public Vector4 row3;
+    //public Vector4 row1;
+    //public Vector4 row2;
+    //public Vector4 row3;
     //Vector4 ns;  //shading normal
     //Vector4 dpdu;
     //Vector4 dpdv;
@@ -352,11 +352,19 @@ public struct GPUShadowRay
     public Vector3 radiance;  //light radiance
     //float3 lightNormal;  //light sample point normal
     //mis weight
-    public float weight;
+    //public float weight;
     public float lightSourcePdf;        //Light Radiance pdf
     public float lightPdf;   //light sampling pdf
     public float visibility; //1 is visible, 0 invisible
     public float lightIndex;
+}
+
+public struct GPUDistributionDiscript
+{
+    public int start;
+    public int num;
+    public int unum; //2D distribution
+    public int c;
 }
 
 

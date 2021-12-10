@@ -14,12 +14,17 @@ float3 SampleTriangleLight(float3 p0, float3 p1, float3 p2, float2 u, Interactio
 	wi = position - isect.p.xyz;
 	float wiLength = length(wi);
 	wi = normalize(wi);
-	float absCos = abs(dot(lightPointNormal, -wi));
+	float cos = dot(lightPointNormal, -wi);
+	float absCos = abs(cos);
 	pdf *= wiLength * wiLength / absCos;
-	if (isinf(pdf))
+	if (isinf(pdf) || wiLength == 0)
+	{
 		pdf = 0;
+		return 0;
+	}
+	
 
-	return light.radiance;
+	return cos > 0 ? light.radiance : 0;
 }
 
 #endif
