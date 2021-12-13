@@ -2,6 +2,7 @@
 #include "sampler.hlsl"
 #include "bxdf.hlsl"
 #include "light.hlsl"
+#include "distributions.hlsl"
 
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel CSMain
@@ -16,25 +17,25 @@ RWStructuredBuffer<ShadowRay>  ShadowRays;
 StructuredBuffer<Light> lights;
 StructuredBuffer<Material> materials;
 StructuredBuffer<int>    pathStates;
+//x pdf y cdf
+StructuredBuffer<float2> Distributions1D;
 //RWTexture2D<half4> outputTexture;
 
-Light SampleLightSource(out float pdf, uint threadId, int lightCount, out int index)
-{
-	index = SampleDistribution1DDiscrete(rs.Get1D(threadId), 0, lightCount, pdf);
-	return lights[index];
-}
+
 
 
 
 ShadowRay SampleShadowRay(uint threadId, Light light, Interaction isect)
 {
 	ShadowRay shadowRay = (ShadowRay)0;
-	int distributionAddress = light.distributeAddress;
+	int discriptIndex = light.distributionDiscriptIndex;
+	DistributionDiscript lightDistributionDiscript = DistributionDiscripts[discriptIndex];
 	float u = rs.Get1D(threadId);
 	float triPdf = 0;
 	float lightPdf = 0;
 	MeshInstance meshInstance = MeshInstances[light.meshInstanceID];
-	int triangleIndex = (SampleLightTriangle(distributionAddress, light.trianglesNum, u, lightPdf) - lightsNum) * 3 + meshInstance.triangleStartOffset;
+	int triangleIndex = SampleLightTriangle(u, lightDistributionDiscript, Distributions1D, lightPdf) * 3 + meshInstance.triangleStartOffset;
+
 	int vertexStart = triangleIndex;
 	int vIndex0 = TriangleIndices[vertexStart];
 	int vIndex1 = TriangleIndices[vertexStart + 1];
@@ -52,6 +53,7 @@ ShadowRay SampleShadowRay(uint threadId, Light light, Interaction isect)
 	float3 trianglePoint;
 	//SampleTrianglePoint(p0, p1, p2, rs.Get2D(threadId), lightPointNormal, trianglePoint, triPdf);
 	float3 wi;
+	
 	float3 Li = SampleTriangleLight(p0, p1, p2, rs.Get2D(threadId), isect, light, wi, trianglePoint, triPdf);
 	lightPdf *= triPdf;
 
@@ -73,6 +75,7 @@ ShadowRay SampleShadowRay(uint threadId, Light light, Interaction isect)
 		float scatteringPdf = LambertPDF(woLocal, wiLocal);
 		int meshInstanceIndex = -1;
 		float hitT = 0;
+		
 		bool shadowRayVisible = ShadowRayVisibilityTest(shadowRay, isect.normal, hitT, meshInstanceIndex);
 
 		if (shadowRayVisible)
@@ -101,9 +104,10 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 	if (pathState == 1)
 	{
 		float lightSourcePdf = 1.0;
-		int lightIndex = 0;
 		//some error happen in SampleLightSource
-		Light light = SampleLightSource(lightSourcePdf, threadId, lightsNum, lightIndex);
+		float u = rs.Get1D(threadId);
+		int lightIndex = SampleLightSource(u, lightsNum, Distributions1D, lightSourcePdf);
+		Light light = lights[lightIndex];
 		//float testD = Distributions1D[0].y;
 		Interaction isect = Intersections[threadId];
 		ShadowRay shadowRay = SampleShadowRay(threadId, light, isect);
@@ -116,8 +120,8 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 		//else
 		//	outputTexture[id.xy] = half4(shadowRay.radiance, 1);
 	}
-	else
-	{
-		//outputTexture[id.xy] = half4(1, 0, 0, 1);
-	}
+	//else
+	//{
+	//	outputTexture[id.xy] = half4(0, 0, 0, 1);
+	//}
 }

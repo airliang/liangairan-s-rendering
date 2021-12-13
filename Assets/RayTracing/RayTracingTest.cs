@@ -81,6 +81,7 @@ public class RayTracingTest
         return (f * f) / (f * f + g * g);
     }
 
+    /*
     static int FindIntervalSmall(List<Vector2> Distributions1D, int start, int size, float u)
     {
         int first = 0, len = size;
@@ -107,21 +108,15 @@ public class RayTracingTest
         pdf = Distributions1D[start + offset].x;
         return offset;
     }
+    */
 
     public static void SampleLightTest(List<Vector2> Distributions1D, List<GPULight> gpuLights, List<MeshInstance> meshInstances, 
-        List<int> triangles, List<GPUVertex> gpuVertices)
+        List<int> triangles, List<GPUVertex> gpuVertices, List<GPUDistributionDiscript> gpuDistributionDiscripts)
     {
         GPULight SampleLightSource(float u, out float pdf, out int index)
         {
-            index = SampleDistribution1DDiscrete(Distributions1D, u, 0, gpuLights.Count, out pdf);
+            index = GPUDistributionTest.Sample1DDiscrete(u, gpuDistributionDiscripts[0], Distributions1D, out pdf); //SampleDistribution1DDiscrete(Distributions1D, u, 0, gpuLights.Count, out pdf);
             return gpuLights[index];
-        }
-
-        int SampleLightTriangle(int start, int count, float u, out float pdf)
-        {
-            //get light mesh triangle index
-            int index = SampleDistribution1DDiscrete(Distributions1D, u, start, count, out pdf);
-            return index;
         }
 
         Vector3 SampleTrianglePoint(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 u, out Vector3 normal, out float pdf)
@@ -168,7 +163,9 @@ public class RayTracingTest
         u = UnityEngine.Random.Range(0.0f, 1.0f);
         MeshInstance meshInstance = meshInstances[gpuLight.meshInstanceID];
         float lightPdf = 0;
-        int triangleIndex = (SampleLightTriangle(gpuLight.distributeAddress, gpuLight.trianglesNum, u, out lightPdf) - gpuLights.Count) * 3 + meshInstance.triangleStartOffset;
+        int triangleIndex = GPUDistributionTest.Sample1DDiscrete(u, gpuDistributionDiscripts[gpuLight.distributionDiscriptIndex], 
+            Distributions1D, out lightPdf) * 3 + meshInstance.triangleStartOffset;
+        //(SampleLightTriangle(gpuLight.distributeAddress, gpuLight.trianglesNum, u, out lightPdf) - gpuLights.Count) * 3 + meshInstance.triangleStartOffset;
 
         int vertexStart = triangleIndex;
         int vIndex0 = triangles[vertexStart];
@@ -194,12 +191,12 @@ public class RayTracingTest
     }
 
 	public static GPUShadowRay SampleShadowRayTest(BVHAccel bvhAccel, int instBVHOffset, List<Vector2> Distributions1D, List<GPULight> gpuLights, GPUInteraction isect, 
-        List<MeshInstance> meshInstances, GPULight light, List<int> TriangleIndices, List<GPUVertex> Vertices, List<GPUMaterial> materials)
+        List<MeshInstance> meshInstances, GPULight light, List<int> TriangleIndices, List<GPUVertex> Vertices, List<GPUMaterial> materials, List<GPUDistributionDiscript> gpuDistributionDiscripts)
     {
-        int SampleLightTriangle(int start, int count, float u, out float pdf)
+        int SampleLightTriangle(float u, GPUDistributionDiscript discript, List<Vector2> Distributions1D, out float pdf)
         {
             //get light mesh triangle index
-            int index = SampleDistribution1DDiscrete(Distributions1D, u, start, count, out pdf);
+            int index = GPUDistributionTest.Sample1DDiscrete(u, discript, Distributions1D, out pdf);//SampleDistribution1DDiscrete(Distributions1D, u, start, count, out pdf);
             return index;
         }
 
@@ -242,13 +239,15 @@ public class RayTracingTest
 
         GPUShadowRay shadowRay = new GPUShadowRay();
 
-		int distributionAddress = light.distributeAddress;
+		//int distributionAddress = light.distributeAddress;
 		float u = UnityEngine.Random.Range(0.0f, 1.0f);
 		float triPdf = 0;
 		float lightPdf = 0;
 		MeshInstance meshInstance = meshInstances[light.meshInstanceID];
-		int triangleIndex = (SampleLightTriangle(distributionAddress, light.trianglesNum, u, out lightPdf) - gpuLights.Count) * 3 + meshInstance.triangleStartOffset;
-		int vertexStart = triangleIndex;
+        int triangleIndex = GPUDistributionTest.Sample1DDiscrete(u, gpuDistributionDiscripts[light.distributionDiscriptIndex], 
+            Distributions1D, out lightPdf) * 3 + meshInstance.triangleStartOffset;
+        //int triangleIndex = (SampleLightTriangle(distributionAddress, light.trianglesNum, u, out lightPdf) - gpuLights.Count) * 3 + meshInstance.triangleStartOffset;
+        int vertexStart = triangleIndex;
 		int vIndex0 = TriangleIndices[vertexStart];
 		int vIndex1 = TriangleIndices[vertexStart + 1];
 		int vIndex2 = TriangleIndices[vertexStart + 2];
@@ -431,41 +430,4 @@ public class RayTracingTest
 
         return !bvhAccel.IntersectInstTestP(ray, meshInstances, instBVHOffset, out hitT, out meshInstanceIndex);
 	}
-
-    public static float Sample1DContinuous(float u, GPUDistributionDiscript discript, List<Vector2> distribution, out float pdf, out int offset)
-    {
-        offset = FindIntervalSmall(distribution, discript.start, discript.num, u);
-        // Compute offset along CDF segment
-        float du = u - distribution[offset].y;
-        if ((distribution[offset + 1].y - distribution[offset].y) > 0)
-        {
-            du /= (distribution[offset + 1].y - distribution[offset].y);
-        }
-
-        // Compute PDF for sampled offset
-        pdf = distribution[offset].x;//(distribution.funcInt > 0) ? funcs[offset].x / distribution.funcInt : 0;
-
-        // Return $x\in{}[0,1)$ corresponding to sample
-        return (offset + du) / discript.num;
-    }
-
-    public static Vector2 Sample2DContinuous(Vector2 u, GPUDistributionDiscript discript, List<Vector2> distribution, out float pdf)
-    {
-        float pdfMarginal;
-        int v;
-        float d1 = Sample1DContinuous(u.y, discript, distribution, out pdfMarginal, out v);
-        int nu;
-        float pdfCondition;
-        GPUDistributionDiscript dCondition;
-        dCondition.start = discript.num + 1 + v * (discript.unum + 1);
-        dCondition.num = discript.unum;
-        dCondition.unum = 0;
-        dCondition.c = 0;
-        float d0 = Sample1DContinuous(u.x, dCondition, distribution, out pdfCondition, out nu);
-        //p(v|u) = p(u,v) / pv(u)
-        //so 
-        //p(u,v) = p(v|u) * pv(u)
-        pdf = pdfCondition * pdfMarginal;
-        return new Vector2(d0, d1);
-    }
 }

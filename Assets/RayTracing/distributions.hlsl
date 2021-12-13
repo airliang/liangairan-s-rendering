@@ -1,6 +1,8 @@
 #ifndef DISTRIBUTIONS_HLSL
 #define DISTRIBUTIONS_HLSL
 
+StructuredBuffer<DistributionDiscript> DistributionDiscripts;
+
 //binary search
 int FindIntervalSmall(int start, int size, float u, StructuredBuffer<float2> funcs)
 {
@@ -39,7 +41,7 @@ int Sample1DDiscrete(float u, DistributionDiscript discript, StructuredBuffer<fl
     pdf = funcs[offset].x;
 
 
-    return (int)(offset + du) / discript.num;
+    return offset - discript.start; //(int)(offset - discript.start + du) / discript.num;
 }
 
 float Sample1DContinuous(float u, DistributionDiscript discript, StructuredBuffer<float2> funcs, out float pdf, out int off)
@@ -58,20 +60,25 @@ float Sample1DContinuous(float u, DistributionDiscript discript, StructuredBuffe
     pdf = funcs[offset].x;//(distribution.funcInt > 0) ? funcs[offset].x / distribution.funcInt : 0;
 
     // Return $x\in{}[0,1)$ corresponding to sample
-    return (offset + du) / discript.num;
+    return (offset - discript.start + du) / discript.num;
 }
 
-float2 Sample2DContinuous(float2 u, DistributionDiscript dMargin, StructuredBuffer<float2> distributions, out float pdf)
+float DiscretePdf(int index, StructuredBuffer<float2> funcs)
+{
+    return funcs[index].x;
+}
+
+float2 Sample2DContinuous(float2 u, DistributionDiscript dMargin, StructuredBuffer<float2> marginal, StructuredBuffer<float2> conditions, out float pdf)
 {
     float pdfMarginal;
     int v;
-    float d1 = Sample1DContinuous(u.y, dMargin, distributions, pdfMarginal, v);
+    float d1 = Sample1DContinuous(u.y, dMargin, marginal, pdfMarginal, v);
     int nu;
     float pdfCondition;
     DistributionDiscript dCondition = (DistributionDiscript)0;
     dCondition.start = dMargin.num + v * dMargin.unum;
     dCondition.num = dMargin.unum;
-    float d0 = Sample1DContinuous(u.x, dCondition, distributions, pdfCondition, nu);
+    float d0 = Sample1DContinuous(u.x, dCondition, conditions, pdfCondition, nu);
     //p(v|u) = p(u,v) / pv(u)
     //so 
     //p(u,v) = p(v|u) * pv(u)

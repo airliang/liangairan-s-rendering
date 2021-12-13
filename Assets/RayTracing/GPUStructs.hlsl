@@ -29,8 +29,8 @@ struct Light
 {
 	int type;
 	int meshInstanceID;
-	int distributeAddress;   //triangle area distribution
-	int trianglesNum;
+	int distributionDiscriptIndex;   //triangle area distribution
+	//int trianglesNum;
 	float  radius;  //for point light
 	float  intensity;
 	float3 radiance;

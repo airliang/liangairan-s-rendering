@@ -45,7 +45,7 @@ public class Distribution1D
 
         for (int i = 1; i < count + 1; ++i)
         {
-            cdf.Add(cdf[i - 1] + distributions[i - 1] / count);
+            cdf.Add(cdf[i - 1] + distributions[i - 1]/* / count*/);
         }
         distributionInt = cdf[count];
 
@@ -222,6 +222,11 @@ public class Filter
     {
         return null;
     }
+
+    virtual public Vector2Int GetDistributionSize()
+    {
+        return Vector2Int.zero;
+    }
 }
 
 public class GaussianFilter : Filter
@@ -281,5 +286,10 @@ public class GaussianFilter : Filter
     public override List<Vector2> GetGPUDistributions()
     {
         return samples.GetGPUDistributions();
+    }
+
+    public override Vector2Int GetDistributionSize()
+    {
+        return new Vector2Int(64, 64);
     }
 }

@@ -3,6 +3,7 @@
 #include "sampler.hlsl"
 #include "bxdf.hlsl"
 #include "bvhaccel.hlsl"
+#include "distributions.hlsl"
 
 cbuffer cb
 {
@@ -17,6 +18,8 @@ StructuredBuffer<Light> lights;
 StructuredBuffer<Material> materials;
 RWStructuredBuffer<PathRadiance> pathRadiances;
 StructuredBuffer<int>    pathStates;
+//x pdf y cdf
+StructuredBuffer<float2> Distributions1D;
 //RWTexture2D<half4> outputTexture;
 
 float AreaLightPdf(Ray ray, Light light, float3 orig, float3 wi)
@@ -25,7 +28,8 @@ float AreaLightPdf(Ray ray, Light light, float3 orig, float3 wi)
     float bvhHit = ray.tmax;
     int meshHitTriangleIndex;  //wood triangle addr
     float lightPdf = 0;
-    int distributionIndex = lightsNum;
+    DistributionDiscript discript = DistributionDiscripts[light.distributionDiscriptIndex];
+    int distributionIndex = discript.start;
     //getting the mesh of the light
     MeshInstance meshInstance = MeshInstances[light.meshInstanceID];
 
@@ -51,7 +55,7 @@ float AreaLightPdf(Ray ray, Light light, float3 orig, float3 wi)
 
         distributionIndex += vIndex0 / 3;
 
-        lightPdf *= DiscretePdf(distributionIndex);
+        lightPdf *= DiscretePdf(distributionIndex, Distributions1D);
     }
 
     return lightPdf;

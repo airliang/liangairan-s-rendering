@@ -1,30 +1,21 @@
 #ifndef FILTER_HLSL
 #define FILTER_HLSL
-#include ""distributions.hlsl"
+#include "distributions.hlsl"
 
 StructuredBuffer<float2> FilterMarginals;
-StructuredBuffer<float2> FilterDistributions;
-uniform int MarginalCount;
-uniform int ConditionalVCount;
+StructuredBuffer<float2> FilterConditions;
+uniform int MarginalNum;
+uniform int ConditionNum;
 
-class GaussianFilter
+float2 ImportanceFilterSample(float2 u)
 {
-	float ReverseSampleMarginal(float2 u, out int offset)
-	{
-        //offset = FindInterval<float>(MarginalCount, index = > (cdf[index] <= u));
-
-        //// Compute offset along CDF segment
-        //float du = u - cdf[offset];
-        //if ((cdf[offset + 1] - cdf[offset]) > 0)
-        //{
-        //    du /= (cdf[offset + 1] - cdf[offset]);
-        //}
-
-        //return Mathf.Lerp(cdf[offset], cdf[offset + 1], du);
-
-        return 
-	}
-};
+	DistributionDiscript discript = (DistributionDiscript)0;
+	discript.start = 0;
+	discript.num = ConditionNum;
+	discript.unum = MarginalNum;
+	float pdf = 0;
+	return Sample2DContinuous(u, discript, FilterMarginals, FilterConditions, pdf);
+}
 
 
 #endif

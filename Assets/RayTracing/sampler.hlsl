@@ -105,29 +105,21 @@ float3 CosineSampleHemisphere(float2 u)
 
 
 RWStructuredBuffer<RNG>    RNGs;
-//x pdf y cdf
-StructuredBuffer<float2> Distributions1D;
+
+
+//int SampleDistribution1DDiscrete(float u, int start, int num, out float pdf)
+//{
+//    int offset = FindIntervalSmall(start, num, u, Distributions1D);
+//    pdf = Distributions1D[start + offset].x;
+//    return offset;
+//}
 
 
 
-int SampleDistribution1DDiscrete(float u, int start, int num, out float pdf)
-{
-    int offset = FindIntervalSmall(start, num, u, Distributions1D);
-    pdf = Distributions1D[start + offset].x;
-    return offset;
-}
-
-int SampleLightTriangle(int start, int count, float u, out float pdf)
-{
-    //get light mesh triangle index
-    int index = SampleDistribution1DDiscrete(u, start, count, pdf);
-    return index;
-}
-
-float DiscretePdf(int index)
-{
-    return Distributions1D[index].x;
-}
+//float DiscretePdf(int index)
+//{
+//    return Distributions1D[index].x;
+//}
 
 float PowerHeuristic(int nf, float fPdf, int ng, float gPdf)
 {
