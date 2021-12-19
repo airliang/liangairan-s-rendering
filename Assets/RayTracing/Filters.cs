@@ -14,6 +14,7 @@ public class Distribution1D
     //p(v|u) = p(u, v) / pv(u)
     public List<float> cdf = new List<float>();
     public float distributionInt = 0;
+    public Vector2 size;
     int FindInterval<T>(int size, MatchFunc<T> match)
     {
         int first = 0, len = size;
@@ -34,7 +35,7 @@ public class Distribution1D
         return Mathf.Clamp(first - 1, 0, size - 2);
     }
 
-    public Distribution1D(float[] distribution, int start, int count)
+    public Distribution1D(float[] distribution, int start, int count, float min = 0, float max = 1)
     {
         for (int i = start; i < start + count; ++i)
         {
@@ -45,7 +46,7 @@ public class Distribution1D
 
         for (int i = 1; i < count + 1; ++i)
         {
-            cdf.Add(cdf[i - 1] + distributions[i - 1]/* / count*/);
+            cdf.Add(cdf[i - 1] + distributions[i - 1] * (max - min) / count);
         }
         distributionInt = cdf[count];
 
@@ -66,6 +67,9 @@ public class Distribution1D
                 pdfs[i - 1] = distributions[i - 1] / distributionInt;
             }
         }
+
+        size.x = min;
+        size.y = max;
     }
 
     public int Count() 
@@ -88,7 +92,7 @@ public class Distribution1D
         pdf = (distributionInt > 0) ? distributions[offset] / distributionInt : 0;
 
         
-        return (offset + du) / Count();
+        return Mathf.Lerp(size.x, size.y, (offset + du) / Count());
     }
     public int SampleDiscrete(float u, out float pdf, out float uRemapped)  
     {
@@ -132,15 +136,21 @@ public class Distribution1D
     }
 }
 
+public struct Bounds2D
+{
+    public Vector2 min;
+    public Vector2 max;
+}
+
 public class Distribution2D
 {
     //float[] distributions is the 2D distributions value
-    public Distribution2D(float[] distributions, int nu, int nv)
+    public Distribution2D(float[] distributions, int nu, int nv, Bounds2D domain)
     {
         for (int v = 0; v < nv; ++v)
         {
-            //conditionalV store the all distributions p(u,v) of the 2d distributions
-            pConditionalV.Add(new Distribution1D(distributions, v * nu, nu));
+            //conditionalV store the all distributions func(u,v) of the 2d distributions
+            pConditionalV.Add(new Distribution1D(distributions, v * nu, nu, domain.min[0], domain.max[0]));
         }
 
         //caculate the marginal pdf
@@ -151,13 +161,13 @@ public class Distribution2D
             //distributionInt = ¡Æ[v=1,nv]p(u,v)
             marginals.Add(pConditionalV[u].distributionInt);
         }
-        pMarginal = new Distribution1D(marginals.ToArray(), 0, nv);
+        pMarginal = new Distribution1D(marginals.ToArray(), 0, nv, domain.min[1], domain.max[1]);
     }
     public List<Distribution1D> pConditionalV = new List<Distribution1D>();
     public Distribution1D pMarginal;
 
 
-    public Vector2 SampleContinuous(Vector2 u, out float pdf) 
+    public Vector2 SampleContinuous(Vector2 u, out float pdf, out Vector2Int position) 
     {
         float[] pdfs = new float[2];
         int v;
@@ -168,6 +178,7 @@ public class Distribution2D
         //so 
         //p(u,v) = p(v|u) * pv(u)
         pdf = pdfs[0] * pdfs[1];
+        position = new Vector2Int(nu, v);
         return new Vector2(d0, d1);
     }
     public float Pdf(Vector2 p) 
@@ -186,7 +197,27 @@ public class Distribution2D
     //    int nv = 0;
     //    return new Vector2(r1, pConditionalV[nu].ReverseSample(u.y, out nv));
     //}
+    public List<Vector2> GetGPUMarginalDistributions()
+    {
+        return pMarginal.GetGPUDistributions();
+    }
 
+    public List<Vector2> GetGPUConditionalDistributions()
+    {
+        List<Vector2> gpuDistributions = new List<Vector2>();
+
+        for (int v = 0; v < pConditionalV.Count; ++v)
+        {
+            gpuDistributions.AddRange(pConditionalV[v].GetGPUDistributions());
+            //for (int vu = 0; vu < pConditionalV[v].Count(); ++vu)
+            //{
+            //    //gpuDistributions.Add(new Vector2(pConditionalV[v].pdfs[vu], pConditionalV[v].cdf[vu]));
+            //    gpuDistributions.AddRange(pConditionalV[v].GetGPUDistributions());
+            //}
+        }
+
+        return gpuDistributions;
+    }
     public List<Vector2> GetGPUDistributions()
     {
         List<Vector2> gpuDistributions = pMarginal.GetGPUDistributions();
@@ -213,8 +244,10 @@ public class Filter
         return 0;
     }
 
-    virtual public Vector2 GetSample(Vector2 u)
+    virtual public Vector2 GetSample(Vector2 u, out float pdf, out Vector2Int position)
     {
+        pdf = 0;
+        position = Vector2Int.zero;
         return Vector2.zero;
     }
 
@@ -226,6 +259,26 @@ public class Filter
     virtual public Vector2Int GetDistributionSize()
     {
         return Vector2Int.zero;
+    }
+
+    virtual public List<Vector2> GetGPUMarginalDistributions()
+    {
+        return null;
+    }
+
+    virtual public List<Vector2> GetGPUConditionalDistributions()
+    {
+        return null;
+    }
+
+    virtual public GPUFilterSample Sample(Vector2 u)
+    {
+        return new GPUFilterSample();
+    }
+
+    virtual public Bounds2D GetDomain()
+    {
+        return new Bounds2D();
     }
 }
 
@@ -245,24 +298,30 @@ public class GaussianFilter : Filter
         expX = MathUtil.Gaussian(radius.x, 0, sigma);
         expY = MathUtil.Gaussian(radius.y, 0, sigma);
 
-        filterValues = new float[64, 64];
-        float[] funcs = new float[64 * 64];
+        filterValues = new float[48, 48];
+        float[] funcs = new float[48 * 48];
         //pdfUVs = new float[64, 64];
         Vector2 domainMin = -radius;
         Vector2 domainMax = radius;
-        for (int v = 0; v < 64; ++v)
+        for (int v = 0; v < 48; ++v)
         {
-            for (int u = 0; u < 64; ++u)
+            for (int u = 0; u < 48; ++u)
             {
-                Vector2 t = new Vector2((float)u / 64, (float)v / 64);
+                Vector2 t = new Vector2((float)u / 48, (float)v / 48);
                 Vector2 point = MathUtil.Lerp(domainMin, domainMax, t);
                 filterValues[u, v] = Evaluate(point);
-                int index = u + v * 64;
+                int index = u + v * 48;
                 funcs[index] = filterValues[u, v];
             }
         }
 
-        samples = new Distribution2D(funcs, 64, 64);
+        Bounds2D bounds = new Bounds2D
+        {
+            min = domainMin,
+            max = domainMax
+        };
+
+        samples = new Distribution2D(funcs, 48, 48, bounds);
     }
 
     public override float Evaluate(Vector2 p)  
@@ -271,10 +330,9 @@ public class GaussianFilter : Filter
                 Mathf.Max(0.0f, MathUtil.Gaussian(p.y, 0, sigma) - expY));
     }
 
-    public override Vector2 GetSample(Vector2 u)
+    public override Vector2 GetSample(Vector2 u, out float pdf, out Vector2Int position)
     {
-        float pdf = 0;
-        return samples.SampleContinuous(u, out pdf);
+        return samples.SampleContinuous(u, out pdf, out position);
     }
 
     public float Integral()
@@ -290,6 +348,106 @@ public class GaussianFilter : Filter
 
     public override Vector2Int GetDistributionSize()
     {
-        return new Vector2Int(64, 64);
+        return new Vector2Int(48, 48);
+    }
+
+    public override List<Vector2> GetGPUMarginalDistributions()
+    {
+        return samples.GetGPUMarginalDistributions();
+    }
+
+    public override List<Vector2> GetGPUConditionalDistributions()
+    {
+        return samples.GetGPUConditionalDistributions();
+    }
+
+    public override GPUFilterSample Sample(Vector2 u)
+    {
+        float pdf = 0;
+        Vector2Int position;
+        Vector2 sample = GetSample(u, out pdf, out position);
+        return new GPUFilterSample()
+        {
+            p = sample,
+            weight = filterValues[position.x, position.y] / pdf
+        };
+    }
+
+    public override Bounds2D GetDomain()
+    {
+        return new Bounds2D()
+        {
+            min = -radius,
+            max = radius
+        };
     }
 }
+
+public class BoxFilter : Filter
+{
+    public Vector2 radius;
+
+    public BoxFilter(Vector2 radius)
+    {
+        this.radius = radius;
+    }
+
+    public override float Evaluate(Vector2 p)
+    {
+        return (Mathf.Abs(p.x) <= radius.x && Mathf.Abs(p.y) <= radius.y) ? 1 : 0;
+    }
+
+    public override Vector2 GetSample(Vector2 u, out float pdf, out Vector2Int position)
+    {
+        pdf = 1.0f / Integral();
+        position = Vector2Int.one;  //all the position is the same
+        return new Vector2(Mathf.Lerp(-radius.x, radius.x, u.x), Mathf.Lerp(-radius.y, radius.y, u.y));
+    }
+
+    public float Integral()
+    {
+        return 2 * radius.x * 2 * radius.y;
+    }
+
+    public override List<Vector2> GetGPUDistributions()
+    {
+        return null;
+    }
+
+    public override Vector2Int GetDistributionSize()
+    {
+        return Vector2Int.zero;
+    }
+
+    public override List<Vector2> GetGPUMarginalDistributions()
+    {
+        return null;
+    }
+
+    public override List<Vector2> GetGPUConditionalDistributions()
+    {
+        return null;
+    }
+
+    public override GPUFilterSample Sample(Vector2 u)
+    {
+        float pdf = 0;
+        Vector2Int position;
+        Vector2 sample = GetSample(u, out pdf, out position);
+        return new GPUFilterSample()
+        {
+            p = sample,
+            weight = filterValues[position.x, position.y] / pdf
+        };
+    }
+
+    public override Bounds2D GetDomain()
+    {
+        return new Bounds2D()
+        {
+            min = -radius,
+            max = radius
+        };
+    }
+}
+

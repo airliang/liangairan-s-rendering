@@ -1,6 +1,7 @@
 #include "sampler.hlsl"
 #include "GPUStructs.hlsl"
 #include "bxdf.hlsl"
+#include "filters.hlsl"
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel GeneratePrimary
 
@@ -16,6 +17,15 @@ float2 rasterSize;
 RWStructuredBuffer<Ray>    Rays;
 RWStructuredBuffer<PathRadiance> pathRadiances;
 RWStructuredBuffer<int>    pathStates;
+
+CameraSample GetCameraSample(float2 pRaster, float2 u)
+{
+    CameraSample camSample;
+    float2 filter = ImportanceFilterSample(u);
+    camSample.pFilm = pRaster + float2(0.5, 0.5) + filter; // *0.5 - float2(0.5, 0.5);
+    return camSample;
+}
+
 [numthreads(8,8,1)]
 void GeneratePrimary(uint3 id : SV_DispatchThreadID)
 {
@@ -25,7 +35,9 @@ void GeneratePrimary(uint3 id : SV_DispatchThreadID)
     uint threadId = id.x + id.y * rasterSize.x;
 
     //Result[id.xy] = float4(id.x & id.y, (id.x & 15)/15.0, (id.y & 15)/15.0, 0.0);
-    CameraSample cSample = rs.GetCameraSample(float2(id.x, id.y), threadId); //rs.GetCameraSample(float2(id.x, id.y), _time);
+    float2 u = rs.Get2D(threadId);
+    
+    CameraSample cSample = GetCameraSample(float2(id.x, id.y), u); //rs.GetCameraSample(float2(id.x, id.y), _time);
     float3 pFilm = float3(cSample.pFilm, 0);
     float4 nearplanePoint = mul(RasterToCamera, float4(pFilm, 1));
     nearplanePoint /= nearplanePoint.w;

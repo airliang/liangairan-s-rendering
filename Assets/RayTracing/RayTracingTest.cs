@@ -72,7 +72,7 @@ public class RayTracingTest
         wi = CosineSampleHemisphere(u);
         if (wo.z < 0)
             wi.z *= -1;
-        pdf = LambertPDF(wo, wi);
+        pdf = LambertPDF(wi, wo);
         return LambertBRDF(wi, wo, material.kd.LinearToVector3());
     }
     static float PowerHeuristic(int nf, float fPdf, int ng, float gPdf)
@@ -230,11 +230,12 @@ public class RayTracingTest
                 return Vector3.zero;
             }
             wi = Vector3.Normalize(wi);
-            pdf *= wiLength * wiLength / Mathf.Abs(Vector3.Dot(lightPointNormal, -wi));
+            float cos = Vector3.Dot(lightPointNormal, -wi);
+            pdf *= wiLength * wiLength / Mathf.Abs(cos);
             if (float.IsInfinity(pdf))
                 pdf = 0.0f;
 
-            return Li;
+            return cos <= 0 ? Vector3.zero : Li;
         }
 
         GPUShadowRay shadowRay = new GPUShadowRay();
@@ -284,7 +285,7 @@ public class RayTracingTest
             float cos = Vector3.Dot(wi, isect.normal);
 
             Vector3 f = LambertBRDF(woLocal, wiLocal, new Vector3(material.kd.r, material.kd.g, material.kd.b)) * Mathf.Abs(Vector3.Dot(wi, isect.normal));
-            float scatteringPdf = LambertPDF(woLocal, wiLocal);
+            float scatteringPdf = LambertPDF(wiLocal, woLocal);
             int meshInstanceIndex = -1;
             float hitT = 0;
             if (ShadowRayVisibilityTest(shadowRay, isect.normal, bvhAccel, meshInstances, instBVHOffset, out hitT, out meshInstanceIndex))
@@ -347,7 +348,7 @@ public class RayTracingTest
     }
 
     public static Vector3 EstimateDirect(BVHAccel bvhaccel, GPUShadowRay shadowRay, GPUInteraction isect, Vector2 u, 
-        List<GPUMaterial> materials, List<GPULight> lights, List<MeshInstance> meshInstances, List<int> TriangleIndices, List<GPUVertex> Vertices, List<Vector2> distributions1D)
+        List<GPUMaterial> materials, List<GPULight> lights, List<MeshInstance> meshInstances, List<int> TriangleIndices, List<GPUVertex> Vertices, List<Vector2> distributions1D, out float pdf)
     {
         Vector3 Ld = shadowRay.radiance;
         GPUMaterial material = materials[(int)isect.materialID];
@@ -379,17 +380,17 @@ public class RayTracingTest
                 Ld += f.Mul(light.radiance) * weight / scatteringPdf;
             }
         }
-
+        pdf = scatteringPdf;
 
         return Ld;
     }
 
-    public static GPURay GeneratePath(ref GPUInteraction isect, ref GPUPathRadiance pathRadiance, List<GPUMaterial> materials, out bool breakLoop)
+    public static GPURay GeneratePath(ref GPUInteraction isect, ref GPUPathRadiance pathRadiance, GPURay ray, List<GPUMaterial> materials, out bool breakLoop, out float pdf)
     {
         breakLoop = false;
         Vector3 beta = pathRadiance.beta;
         GPUMaterial material = materials[(int)isect.materialID];
-        Vector3 woLocal = isect.WorldToLocal(isect.wo);
+        Vector3 woLocal = isect.WorldToLocal(/*isect.wo*/-ray.direction);
         Vector3 wi;
         float scatteringPdf = 0;
         Vector3 wiLocal;
@@ -400,13 +401,14 @@ public class RayTracingTest
             //terminate the path tracing
             breakLoop = true;
         }
+        pdf = scatteringPdf;
         wi = isect.LocalToWorld(wiLocal);
         beta = beta.Mul(f * Mathf.Abs(Vector3.Dot(wi, isect.normal)) / scatteringPdf);
         pathRadiance.beta = beta;
 
-        GPURay ray = SpawnRay(isect.p, wi, isect.normal, float.MaxValue);
+        GPURay rayNew = SpawnRay(isect.p, wi, isect.normal, float.MaxValue);
 
-        return ray;
+        return rayNew;
     }
 
     public static GPURay SpawnRay(Vector3 p, Vector3 direction, Vector3 normal, float tMax)
@@ -430,4 +432,35 @@ public class RayTracingTest
 
         return !bvhAccel.IntersectInstTestP(ray, meshInstances, instBVHOffset, out hitT, out meshInstanceIndex);
 	}
+
+    public static GPURay GenerateRay(int x, int y, Matrix4x4 RasterToCamera, Matrix4x4 CameraToWorld, Filter filter)
+    {
+        Vector2 u = MathUtil.GetRandom01();
+        GPUDistributionDiscript discript = new GPUDistributionDiscript();
+        discript.start = 0;
+        Vector2Int size = filter.GetDistributionSize();
+        discript.num = size.y;
+        discript.unum = size.x;
+        Bounds2D domain = filter.GetDomain();
+        discript.domain = new Vector4(domain.min[0], domain.max[0], domain.min[1], domain.max[1]);
+        float pdf = 0;
+        Vector2 sample = GPUDistributionTest.Sample2DContinuous(u, discript, 
+            filter.GetGPUMarginalDistributions(), filter.GetGPUConditionalDistributions(), out pdf);
+
+        sample += new Vector2(x, y) + new Vector2(0.5f, 0.5f);
+
+        Vector3 pFilm = new Vector3(sample.x, sample.y, 0);
+        Vector3 nearplanePoint = RasterToCamera.MultiplyPoint(pFilm);
+        nearplanePoint.Normalize();
+        //nearplanePoint /= nearplanePoint.w;
+
+        GPURay ray = new GPURay();
+        ray.orig = CameraToWorld.MultiplyPoint(Vector3.zero);
+        ray.direction = CameraToWorld.MultiplyVector(nearplanePoint);
+        ray.tmax = float.MaxValue;
+        ray.tmin = 0;
+        return ray;
+    }
+
+    
 }

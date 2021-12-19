@@ -44,7 +44,7 @@ int Sample1DDiscrete(float u, DistributionDiscript discript, StructuredBuffer<fl
     return offset - discript.start; //(int)(offset - discript.start + du) / discript.num;
 }
 
-float Sample1DContinuous(float u, DistributionDiscript discript, StructuredBuffer<float2> funcs, out float pdf, out int off)
+float Sample1DContinuous(float u, DistributionDiscript discript, float2 domain, StructuredBuffer<float2> funcs, out float pdf, out int off)
 {
     // Find surrounding CDF segments and _offset_
     int offset = FindIntervalSmall(discript.start, discript.num, u, funcs);
@@ -60,7 +60,7 @@ float Sample1DContinuous(float u, DistributionDiscript discript, StructuredBuffe
     pdf = funcs[offset].x;//(distribution.funcInt > 0) ? funcs[offset].x / distribution.funcInt : 0;
 
     // Return $x\in{}[0,1)$ corresponding to sample
-    return (offset - discript.start + du) / discript.num;
+    return lerp(domain.x, domain.y, (offset - discript.start + du) / discript.num);
 }
 
 float DiscretePdf(int index, StructuredBuffer<float2> funcs)
@@ -68,17 +68,17 @@ float DiscretePdf(int index, StructuredBuffer<float2> funcs)
     return funcs[index].x;
 }
 
-float2 Sample2DContinuous(float2 u, DistributionDiscript dMargin, StructuredBuffer<float2> marginal, StructuredBuffer<float2> conditions, out float pdf)
+float2 Sample2DContinuous(float2 u, DistributionDiscript discript, StructuredBuffer<float2> marginal, StructuredBuffer<float2> conditions, out float pdf)
 {
     float pdfMarginal;
     int v;
-    float d1 = Sample1DContinuous(u.y, dMargin, marginal, pdfMarginal, v);
+    float d1 = Sample1DContinuous(u.y, discript, discript.domain.xy, marginal, pdfMarginal, v);
     int nu;
     float pdfCondition;
     DistributionDiscript dCondition = (DistributionDiscript)0;
-    dCondition.start = dMargin.num + v * dMargin.unum;
-    dCondition.num = dMargin.unum;
-    float d0 = Sample1DContinuous(u.x, dCondition, conditions, pdfCondition, nu);
+    dCondition.start = discript.num + v * discript.unum;
+    dCondition.num = discript.unum;
+    float d0 = Sample1DContinuous(u.x, dCondition, discript.domain.zw, conditions, pdfCondition, nu);
     //p(v|u) = p(u,v) / pv(u)
     //so 
     //p(u,v) = p(v|u) * pv(u)

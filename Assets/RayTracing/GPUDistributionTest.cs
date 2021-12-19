@@ -23,7 +23,7 @@ public class GPUDistributionTest
         }
         return Mathf.Clamp(first - 1, 0, Mathf.Max(size - 2, 0)) + start;
     }
-    public static float Sample1DContinuous(float u, GPUDistributionDiscript discript, List<Vector2> gpuDistributions, out float pdf, out int offset)
+    public static float Sample1DContinuous(float u, GPUDistributionDiscript discript, Vector2 domain, List<Vector2> gpuDistributions, out float pdf, out int offset)
     {
         offset = FindInterval<float>(discript.start, discript.num, index => (gpuDistributions[index].y <= u));
         float du = u - gpuDistributions[offset].y;
@@ -36,7 +36,7 @@ public class GPUDistributionTest
         pdf = gpuDistributions[offset].x;
 
 
-        return (int)(offset - discript.start + du) / discript.num;
+        return Mathf.Lerp(domain.x, domain.y, (float)(offset - discript.start + du) / discript.num);
     }
 
     public static int Sample1DDiscrete(float u, GPUDistributionDiscript discript, List<Vector2> gpuDistributions, out float pdf)
@@ -58,7 +58,7 @@ public class GPUDistributionTest
     {
         float pdfMarginal;
         int v;
-        float d1 = Sample1DContinuous(u.y, discript, marginal, out pdfMarginal, out v);
+        float d1 = Sample1DContinuous(u.y, discript, new Vector2(discript.domain.x, discript.domain.y), marginal, out pdfMarginal, out v);
         int nu;
         float pdfCondition;
         GPUDistributionDiscript dCondition;
@@ -66,8 +66,9 @@ public class GPUDistributionTest
         dCondition.num = discript.unum;
         dCondition.unum = 0;
         dCondition.c = 0;
+        dCondition.domain = Vector4.zero;
         int cOffset = 0;
-        float d0 = Sample1DContinuous(u.x, dCondition, condition, out pdfCondition, out cOffset);
+        float d0 = Sample1DContinuous(u.x, dCondition, new Vector2(discript.domain.z, discript.domain.w), condition, out pdfCondition, out cOffset);
         //p(v|u) = p(u,v) / pv(u)
         //so 
         //p(u,v) = p(v|u) * pv(u)

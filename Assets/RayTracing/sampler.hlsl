@@ -187,20 +187,6 @@ class RandomSampler
         RNGs[rngIndex] = rng;
         return u;
     }
-
-    //CameraSample GetCameraSample(float2 pRaster, float t)
-    //{
-    //    CameraSample camSample;
-    //    camSample.pFilm = pRaster + Get2D(pRaster, t);
-    //    return camSample;
-    //}
-
-    CameraSample GetCameraSample(float2 pRaster, int rngIndex)
-    {
-        CameraSample camSample;
-        camSample.pFilm = pRaster + Get2D(rngIndex) - 0.5; // *0.5 - float2(0.5, 0.5);
-        return camSample;
-    }
 };
 
 RandomSampler rs;

@@ -72,7 +72,7 @@ ShadowRay SampleShadowRay(uint threadId, Light light, Interaction isect)
 		float3 wiLocal = isect.WorldToLocal(wi);
 		float3 woLocal = isect.WorldToLocal(isect.wo.xyz);
 		float3 f = LambertBRDF(woLocal, wiLocal, material.kd.xyz) * abs(dot(wi, isect.normal));
-		float scatteringPdf = LambertPDF(woLocal, wiLocal);
+		float scatteringPdf = LambertPDF(wiLocal, woLocal);
 		int meshInstanceIndex = -1;
 		float hitT = 0;
 		
@@ -118,7 +118,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 		//if (bounces >= 1)
 		//	outputTexture[id.xy] = half4(isect.normal.xyz, 1);
 		//else
-		//	outputTexture[id.xy] = half4(shadowRay.radiance, 1);
+		//outputTexture[id.xy] = half4(shadowRay.radiance * 10, 1);
 	}
 	//else
 	//{

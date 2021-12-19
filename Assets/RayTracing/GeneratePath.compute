@@ -36,9 +36,10 @@ void GeneratePath(uint3 id : SV_DispatchThreadID)
 	{
 		Interaction isect = Intersections[threadId];
 		PathRadiance pathRadiance = pathRadiances[threadId];
+		Ray ray = Rays[threadId];
 		float3 beta = pathRadiance.beta;
 		Material material = materials[isect.materialID];
-		float3 woLocal = isect.WorldToLocal(isect.wo.xyz);
+		float3 woLocal = isect.WorldToLocal(-ray.direction/*isect.wo.xyz*/);
 		float scatteringPdf = 0;
 		float3 wiLocal;
 		float2 u = rs.Get2D(threadId);
@@ -51,7 +52,7 @@ void GeneratePath(uint3 id : SV_DispatchThreadID)
 		float3 wi = isect.LocalToWorld(wiLocal);
 		beta *= f * abs(dot(wi, isect.normal)) / scatteringPdf;
 		pathRadiance.beta = beta;
-		Ray ray = SpawnRay(isect.p.xyz, wi, isect.normal, FLT_MAX);
+		ray = SpawnRay(isect.p.xyz, wi, isect.normal, FLT_MAX);
 		//ray.orig = float4(isect.p.xyz, FLT_MAX);
 		//ray.direction = float4(wi, 0);
 		//outputTexture[id.xy] = float4(0, 1, 0, 1);
@@ -60,10 +61,10 @@ void GeneratePath(uint3 id : SV_DispatchThreadID)
 
 		if (bounces > 3)
 		{
-			float q = max(0.05, 1 - beta.y);
+			float q = max(0.05, 1 - MaxComponent(beta));
 			if (rs.Get1D(threadId) < q)
 			{
-				pathRadiance.beta = 0;
+				//pathRadiance.beta = 0;
 				pathStates[threadId] = 0;
 			}
 			else

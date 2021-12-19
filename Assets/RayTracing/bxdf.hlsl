@@ -65,7 +65,7 @@ float3 SampleLambert(Material material, float3 wo, out float3 wi, float2 u, out 
 	wi = CosineSampleHemisphere(u);
 	if (wo.z < 0)
 		wi.z *= -1;
-	pdf = LambertPDF(wo, wi);
+	pdf = LambertPDF(wi, wo);
 	return LambertBRDF(wi, wo, material.kd.rgb);
 }
 

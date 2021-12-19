@@ -121,7 +121,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 
             pathRadiance.li += Li * pathRadiance.beta;
             pathRadiances[threadId] = pathRadiance;
-            //outputTexture[id.xy] = half4(Li, 1);
+            //outputTexture[id.xy] = half4(pathRadiance.li * 5, 1);
 
             //int lightIndex = asint(shadowRay.lightIndex);
             //Light light = lights[lightIndex];

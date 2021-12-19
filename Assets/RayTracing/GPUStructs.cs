@@ -365,6 +365,14 @@ public struct GPUDistributionDiscript
     public int num;
     public int unum; //2D distribution
     public int c;
+    //discript function domain, x as min y as max if 1D distribution, xy-domain of marginal zw-domain of conditional if 2D distribution
+    public Vector4 domain; 
+}
+
+public struct GPUFilterSample
+{
+    public Vector2 p;
+    public float weight;
 }
 
 

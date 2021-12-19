@@ -72,6 +72,7 @@ struct DistributionDiscript
 	//number of 2D distribution
 	int unum;
 	int c;
+	float4 domain;  //discript function domain, x as min y as max if 1D distribution, xy-domain of marginal zw-domain of conditional if 2D distribution
 };
 
 
