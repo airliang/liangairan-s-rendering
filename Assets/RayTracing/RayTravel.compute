@@ -7,13 +7,16 @@
 
 float2 rasterSize;
 uniform int    bounces;
+uniform int   queueSizeIndex;
 
 //use the matrix to calculate the world space ray
 StructuredBuffer<Ray>    Rays;
 StructuredBuffer<Light>  lights;
 RWStructuredBuffer<Interaction>       Intersections;
 RWStructuredBuffer<PathRadiance> pathRadiances;
-RWStructuredBuffer<int>    pathStates;
+//RWStructuredBuffer<int>    pathStates;
+RWStructuredBuffer<uint> _RayQueueSizeBuffer;
+RWStructuredBuffer<uint> _RayQueue;
 //RWTexture2D<half4> outputTexture;
 
 [numthreads(8,8,1)]
@@ -24,22 +27,20 @@ void RayTraversal(uint3 id : SV_DispatchThreadID)
         return;
 
     int threadId = id.x + id.y * rasterSize.x;
-    int pathState = pathStates[threadId];
-    if (pathState > 0)
-    {
-        Ray ray = Rays[threadId];
+    uint queueSize = _RayQueueSizeBuffer[queueSizeIndex];
+    if (threadId >= queueSize)
+        return;
+    uint workIndex = _RayQueue[threadId];
+    //int pathState = pathStates[threadId];
+    //if (pathState > 0)
+    //{
+        Ray ray = Rays[workIndex];
         Interaction isect = (Interaction)0;//Intersections[threadId];
         //if (IntersectBVHandTriangles(ray, 0, isect))
         bool foundIntersect = IntersectBVH(ray, isect);
-        PathRadiance pathRadiance = pathRadiances[threadId];
+        PathRadiance pathRadiance = pathRadiances[workIndex];
         if (foundIntersect)
         {
-            //int triIndex = asint(isect.primitive.x);
-            //float3 color = (float)(triIndex / 3) / 50.0;
-            //float3 color = isect.normal.xyz * 0.5 + 0.5f;
-            //RNG rng = RNGs[threadId];
-            //color.xy = Get2D(rng);
-            //RNGs[threadId] = rng;
             int meshInstanceIndex = isect.meshInstanceID;
             MeshInstance meshInstance = MeshInstances[meshInstanceIndex];
             int lightIndex = meshInstance.GetLightIndex();
@@ -56,19 +57,21 @@ void RayTraversal(uint3 id : SV_DispatchThreadID)
             //outputTexture[id.xy] = half4(color, 1);//abs(ray.direction);
             //if (bounces == 1)
             //    outputTexture[id.xy] = half4(abs(ray.direction), 1);
-            Intersections[threadId] = isect;
-            pathStates[threadId] = 1;
+            Intersections[workIndex] = isect;
+            pathRadiances[workIndex] = pathRadiance;
+            //pathStates[threadId] = 1;
+            uint index;
+            InterlockedAdd(_RayQueueSizeBuffer[queueSizeIndex + 1], 1, index);
+            _RayQueue[index] = workIndex;
         }
-        else
-        {
-            //sample enviroment map
-            pathRadiance.li += pathRadiance.beta * float3(0, 0, 0);
-            isect.p.w = -1;
-            pathStates[threadId] = 0;
-            //outputTexture[id.xy] = half4(0, 0, 0, 1);
-        }
-
-        pathRadiances[threadId] = pathRadiance;
-    }
+        //else
+        //{
+        //    //sample enviroment map
+        //    pathRadiance.li += pathRadiance.beta * float3(0, 0, 0);
+        //    isect.p.w = -1;
+        //    pathStates[threadId] = 0;
+        //    //outputTexture[id.xy] = half4(0, 0, 0, 1);
+        //}
+    //}
     
 }

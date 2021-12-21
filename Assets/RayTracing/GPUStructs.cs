@@ -376,4 +376,9 @@ public struct GPUFilterSample
 }
 
 
+public struct GPURayWorkItem
+{
+    public GPURay ray;
+}
+
 

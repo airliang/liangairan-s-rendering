@@ -16,7 +16,9 @@ float2 rasterSize;
 
 RWStructuredBuffer<Ray>    Rays;
 RWStructuredBuffer<PathRadiance> pathRadiances;
-RWStructuredBuffer<int>    pathStates;
+//RWStructuredBuffer<int>    pathStates;
+RWStructuredBuffer<uint> _RayQueueSizeBuffer;
+RWStructuredBuffer<uint> _RayQueue;
 
 CameraSample GetCameraSample(float2 pRaster, float2 u)
 {
@@ -33,9 +35,9 @@ void GeneratePrimary(uint3 id : SV_DispatchThreadID)
     if (id.x >= rasterSize.x || id.y >= rasterSize.y)
         return;
     uint threadId = id.x + id.y * rasterSize.x;
-
+    uint workIndex = _RayQueue[threadId];
     //Result[id.xy] = float4(id.x & id.y, (id.x & 15)/15.0, (id.y & 15)/15.0, 0.0);
-    float2 u = rs.Get2D(threadId);
+    float2 u = rs.Get2D(workIndex);
     
     CameraSample cSample = GetCameraSample(float2(id.x, id.y), u); //rs.GetCameraSample(float2(id.x, id.y), _time);
     float3 pFilm = float3(cSample.pFilm, 0);
@@ -52,6 +54,9 @@ void GeneratePrimary(uint3 id : SV_DispatchThreadID)
     bounceRadiance.li = 0;
     bounceRadiance.beta = 1.0;
     pathRadiances[threadId] = bounceRadiance;
-    pathStates[threadId] = 1;
+    //pathStates[threadId] = 1;
+    uint index;
+    InterlockedAdd(_RayQueueSizeBuffer[0], 1, index);
+    _RayQueue[index] = threadId;
 }
 

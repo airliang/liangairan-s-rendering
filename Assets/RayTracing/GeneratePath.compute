@@ -10,6 +10,7 @@ cbuffer cb
 {
 	int bounces;
 	float2 rasterSize;
+	int   queueSizeIndex;
 };
 // Create a RenderTexture with enableRandomWrite flag and set it
 // with cs.SetTexture
@@ -19,7 +20,9 @@ RWStructuredBuffer<Ray>   Rays;
 StructuredBuffer<Interaction>  Intersections;
 RWStructuredBuffer<PathRadiance> pathRadiances;
 StructuredBuffer<Material> materials;
-RWStructuredBuffer<int>    pathStates;
+RWStructuredBuffer<uint> _RayQueueSizeBuffer;
+RWStructuredBuffer<uint> _RayQueue;
+//RWStructuredBuffer<int>    pathStates;
 //RWTexture2D<half4> outputTexture;
 
 [numthreads(8, 8, 1)]
@@ -30,23 +33,27 @@ void GeneratePath(uint3 id : SV_DispatchThreadID)
 		return;
 
 	uint threadId = id.x + id.y * rasterSize.x;
+	uint queueSize = _RayQueueSizeBuffer[queueSizeIndex];
+	if (threadId >= queueSize)
+		return;
+	uint workIndex = _RayQueue[threadId];
 	
-	int pathState = pathStates[threadId];
-	if (pathState > 0)
+	//int pathState = pathStates[threadId];
+	//if (pathState > 0)
 	{
-		Interaction isect = Intersections[threadId];
-		PathRadiance pathRadiance = pathRadiances[threadId];
-		Ray ray = Rays[threadId];
+		Interaction isect = Intersections[workIndex];
+		PathRadiance pathRadiance = pathRadiances[workIndex];
+		Ray ray = Rays[workIndex];
 		float3 beta = pathRadiance.beta;
 		Material material = materials[isect.materialID];
 		float3 woLocal = isect.WorldToLocal(-ray.direction/*isect.wo.xyz*/);
 		float scatteringPdf = 0;
 		float3 wiLocal;
-		float2 u = rs.Get2D(threadId);
+		float2 u = rs.Get2D(workIndex);
 		float3 f = SampleLambert(material, woLocal, wiLocal, u, scatteringPdf);
-		if (/*f.rgb == 0 || */scatteringPdf == 0)
+		if (scatteringPdf == 0)
 		{
-			pathStates[threadId] = 0;
+			//pathStates[threadId] = 0;
 			return;
 		}
 		float3 wi = isect.LocalToWorld(wiLocal);
@@ -57,25 +64,29 @@ void GeneratePath(uint3 id : SV_DispatchThreadID)
 		//ray.direction = float4(wi, 0);
 		//outputTexture[id.xy] = float4(0, 1, 0, 1);
 
-		Rays[threadId] = ray;
+		Rays[workIndex] = ray;
 
 		if (bounces > 3)
 		{
 			float q = max(0.05, 1 - MaxComponent(beta));
-			if (rs.Get1D(threadId) < q)
+			if (rs.Get1D(workIndex) < q)
 			{
 				//pathRadiance.beta = 0;
-				pathStates[threadId] = 0;
+				//pathStates[threadId] = 0;
+				return;
 			}
 			else
 				pathRadiance.beta /= 1 - q;
 		}
 
-		pathRadiances[threadId] = pathRadiance;
+		pathRadiances[workIndex] = pathRadiance;
+		uint index;
+		InterlockedAdd(_RayQueueSizeBuffer[queueSizeIndex + 1], 1, index);
+		_RayQueue[index] = workIndex;
 	}
-	else
-	{
-		//outputTexture[id.xy] = float4(1, 0, 0, 1);
-	}
+	//else
+	//{
+	//	//outputTexture[id.xy] = float4(1, 0, 0, 1);
+	//}
 
 }

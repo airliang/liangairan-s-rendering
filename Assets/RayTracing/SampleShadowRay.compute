@@ -10,15 +10,17 @@
 uniform int    lightsNum;
 uniform int    bounces;
 uniform float2 rasterSize;
-
+uniform int    queueSizeIndex;
 
 StructuredBuffer<Interaction>  Intersections;
 RWStructuredBuffer<ShadowRay>  ShadowRays;
 StructuredBuffer<Light> lights;
 StructuredBuffer<Material> materials;
-StructuredBuffer<int>    pathStates;
+//StructuredBuffer<int>    pathStates;
 //x pdf y cdf
 StructuredBuffer<float2> Distributions1D;
+StructuredBuffer<uint> _RayQueueSizeBuffer;
+StructuredBuffer<uint> _RayQueue;
 //RWTexture2D<half4> outputTexture;
 
 
@@ -99,21 +101,24 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 		return;
 
 	uint threadId = id.x + id.y * rasterSize.x;
-	
-	int pathState = pathStates[threadId];
-	if (pathState == 1)
+	uint queueSize = _RayQueueSizeBuffer[queueSizeIndex];
+	if (threadId >= queueSize)
+		return;
+	uint workIndex = _RayQueue[threadId];
+	//int pathState = pathStates[threadId];
+	//if (pathState == 1)
 	{
 		float lightSourcePdf = 1.0;
 		//some error happen in SampleLightSource
-		float u = rs.Get1D(threadId);
+		float u = rs.Get1D(workIndex);
 		int lightIndex = SampleLightSource(u, lightsNum, Distributions1D, lightSourcePdf);
 		Light light = lights[lightIndex];
 		//float testD = Distributions1D[0].y;
-		Interaction isect = Intersections[threadId];
-		ShadowRay shadowRay = SampleShadowRay(threadId, light, isect);
+		Interaction isect = Intersections[workIndex];
+		ShadowRay shadowRay = SampleShadowRay(workIndex, light, isect);
 		shadowRay.lightSourcePdf = lightSourcePdf;
 		shadowRay.lightIndex = asfloat(lightIndex);
-		ShadowRays[threadId] = shadowRay;
+		ShadowRays[workIndex] = shadowRay;
 		//outputTexture[id.xy] = half4(shadowRay.radiance, 1);
 		//if (bounces >= 1)
 		//	outputTexture[id.xy] = half4(isect.normal.xyz, 1);

@@ -8,8 +8,9 @@
 cbuffer cb
 {
     int    bounces;
-    int    lightsNum;
+    //int    lightsNum;
     float2 rasterSize;
+    int    queueSizeIndex;
 };
 
 StructuredBuffer<Interaction>  Intersections;
@@ -17,9 +18,11 @@ StructuredBuffer<ShadowRay>  ShadowRays;
 StructuredBuffer<Light> lights;
 StructuredBuffer<Material> materials;
 RWStructuredBuffer<PathRadiance> pathRadiances;
-StructuredBuffer<int>    pathStates;
+//StructuredBuffer<int>    pathStates;
 //x pdf y cdf
 StructuredBuffer<float2> Distributions1D;
+StructuredBuffer<uint> _RayQueueSizeBuffer;
+StructuredBuffer<uint> _RayQueue;
 //RWTexture2D<half4> outputTexture;
 
 float AreaLightPdf(Ray ray, Light light, float3 orig, float3 wi)
@@ -100,27 +103,31 @@ float3 EstimateDirect(ShadowRay shadowRay, Interaction isect, float2 u)
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
     // TODO: insert actual code here!
-    if (id.x >= rasterSize.x || id.y >= rasterSize.y)
-        return;
+    //if (id.x >= rasterSize.x || id.y >= rasterSize.y)
+    //    return;
 
     uint threadId = id.x + id.y * rasterSize.x;
-    int pathState = pathStates[threadId];
-    if (pathState == 1)
+    uint queueSize = _RayQueueSizeBuffer[queueSizeIndex];
+    if (threadId >= queueSize)
+        return;
+    uint workIndex = _RayQueue[threadId];
+    //int pathState = pathStates[threadId];
+    //if (pathState == 1)
     {
-        ShadowRay shadowRay = ShadowRays[threadId];
-        Interaction isect = Intersections[threadId];
+        ShadowRay shadowRay = ShadowRays[workIndex];
+        Interaction isect = Intersections[workIndex];
 
         //if (isect.IsHit())
         {
-            PathRadiance pathRadiance = pathRadiances[threadId];
-            float2 u = rs.Get2D(threadId);
+            PathRadiance pathRadiance = pathRadiances[workIndex];
+            float2 u = rs.Get2D(workIndex);
 
             float3 Li = EstimateDirect(shadowRay, isect, u);
 
             Li /= shadowRay.lightSourcePdf;
 
             pathRadiance.li += Li * pathRadiance.beta;
-            pathRadiances[threadId] = pathRadiance;
+            pathRadiances[workIndex] = pathRadiance;
             //outputTexture[id.xy] = half4(pathRadiance.li * 5, 1);
 
             //int lightIndex = asint(shadowRay.lightIndex);

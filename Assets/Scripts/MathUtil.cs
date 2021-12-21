@@ -3,184 +3,210 @@ using System.Collections.Generic;
 using UnityEngine;
 
 
-    public static class MathUtil
+public static class MathUtil
+{
+    public enum TestPlanesResults
     {
-        public enum TestPlanesResults
-        {
-            /// <summary>
-            /// The AABB is completely in the frustrum.
-            /// </summary>
-            Inside = 0,
-            /// <summary>
-            /// The AABB is partially in the frustrum.
-            /// </summary>
-            Intersect,
-            /// <summary>
-            /// The AABB is completely outside the frustrum.
-            /// </summary>
-            Outside
-        }
-
         /// <summary>
-        /// This is a faster AABB cull than brute force that also gives additional info on intersections.
-        /// Calling Bounds.Min/Max is actually quite expensive so as an optimization you can precalculate these.
-        /// http://www.lighthouse3d.com/tutorials/view-frustum-culling/geometric-approach-testing-boxes-ii/
+        /// The AABB is completely in the frustrum.
         /// </summary>
-        /// <param name="planes"></param>
-        /// <param name="boundsMin"></param>
-        /// <param name="boundsMax"></param>
-        /// <returns></returns>
-        public static int TestPlanesAABBFast(Plane[] planes, ref Vector3 boundsMin, ref Vector3 boundsMax, bool testIntersection = false)
+        Inside = 0,
+        /// <summary>
+        /// The AABB is partially in the frustrum.
+        /// </summary>
+        Intersect,
+        /// <summary>
+        /// The AABB is completely outside the frustrum.
+        /// </summary>
+        Outside
+    }
+
+    /// <summary>
+    /// This is a faster AABB cull than brute force that also gives additional info on intersections.
+    /// Calling Bounds.Min/Max is actually quite expensive so as an optimization you can precalculate these.
+    /// http://www.lighthouse3d.com/tutorials/view-frustum-culling/geometric-approach-testing-boxes-ii/
+    /// </summary>
+    /// <param name="planes"></param>
+    /// <param name="boundsMin"></param>
+    /// <param name="boundsMax"></param>
+    /// <returns></returns>
+    public static int TestPlanesAABBFast(Plane[] planes, ref Vector3 boundsMin, ref Vector3 boundsMax, bool testIntersection = false)
+    {
+        Vector3 vmin, vmax;
+        var testResult = (int)TestPlanesResults.Inside;
+
+        for (int planeIndex = 0; planeIndex < planes.Length; planeIndex++)
         {
-            Vector3 vmin, vmax;
-            var testResult = (int)TestPlanesResults.Inside;
+            var normal = planes[planeIndex].normal;
+            var planeDistance = planes[planeIndex].distance;
 
-            for (int planeIndex = 0; planeIndex < planes.Length; planeIndex++)
+            // X axis
+            if (normal.x < 0)
             {
-                var normal = planes[planeIndex].normal;
-                var planeDistance = planes[planeIndex].distance;
-
-                // X axis
-                if (normal.x < 0)
-                {
-                    vmin.x = boundsMin.x;
-                    vmax.x = boundsMax.x;
-                }
-                else
-                {
-                    vmin.x = boundsMax.x;
-                    vmax.x = boundsMin.x;
-                }
-
-                // Y axis
-                if (normal.y < 0)
-                {
-                    vmin.y = boundsMin.y;
-                    vmax.y = boundsMax.y;
-                }
-                else
-                {
-                    vmin.y = boundsMax.y;
-                    vmax.y = boundsMin.y;
-                }
-
-                // Z axis
-                if (normal.z < 0)
-                {
-                    vmin.z = boundsMin.z;
-                    vmax.z = boundsMax.z;
-                }
-                else
-                {
-                    vmin.z = boundsMax.z;
-                    vmax.z = boundsMin.z;
-                }
-
-                var dot1 = normal.x * vmin.x + normal.y * vmin.y + normal.z * vmin.z;
-                if (dot1 + planeDistance < 0)
-                    return (int)TestPlanesResults.Outside;
-
-                if (testIntersection)
-                {
-                    var dot2 = normal.x * vmax.x + normal.y * vmax.y + normal.z * vmax.z;
-                    if (dot2 + planeDistance <= 0)
-                        testResult = (int)TestPlanesResults.Intersect;
-                }
+                vmin.x = boundsMin.x;
+                vmax.x = boundsMax.x;
+            }
+            else
+            {
+                vmin.x = boundsMax.x;
+                vmax.x = boundsMin.x;
             }
 
-            return testResult;
+            // Y axis
+            if (normal.y < 0)
+            {
+                vmin.y = boundsMin.y;
+                vmax.y = boundsMax.y;
+            }
+            else
+            {
+                vmin.y = boundsMax.y;
+                vmax.y = boundsMin.y;
+            }
+
+            // Z axis
+            if (normal.z < 0)
+            {
+                vmin.z = boundsMin.z;
+                vmax.z = boundsMax.z;
+            }
+            else
+            {
+                vmin.z = boundsMax.z;
+                vmax.z = boundsMin.z;
+            }
+
+            var dot1 = normal.x * vmin.x + normal.y * vmin.y + normal.z * vmin.z;
+            if (dot1 + planeDistance < 0)
+                return (int)TestPlanesResults.Outside;
+
+            if (testIntersection)
+            {
+                var dot2 = normal.x * vmax.x + normal.y * vmax.y + normal.z * vmax.z;
+                if (dot2 + planeDistance <= 0)
+                    testResult = (int)TestPlanesResults.Intersect;
+            }
         }
 
-        public static int FloorPowerOf2(int n)
-        {
-            n |= (n >> 1);
-            n |= (n >> 2);
-            n |= (n >> 4);
-            n |= (n >> 8);
-            n |= (n >> 16);
-            return n - (n >> 1);
-        }
+        return testResult;
+    }
 
-        public static int CeilPowerOf2(int n)
-        {
-            --n;
-            n |= (n >> 1);
-            n |= (n >> 2);
-            n |= (n >> 4);
-            n |= (n >> 8);
-            n |= (n >> 16);
-            return ++n;
-        }
+    public static int FloorPowerOf2(int n)
+    {
+        n |= (n >> 1);
+        n |= (n >> 2);
+        n |= (n >> 4);
+        n |= (n >> 8);
+        n |= (n >> 16);
+        return n - (n >> 1);
+    }
 
-        public static int CeilOf(int n, int b)
-        {
-            return (n / b + ((n % b) > 0 ? 1 : 0)) * b;
-        }
+    public static int CeilPowerOf2(int n)
+    {
+        --n;
+        n |= (n >> 1);
+        n |= (n >> 2);
+        n |= (n >> 4);
+        n |= (n >> 8);
+        n |= (n >> 16);
+        return ++n;
+    }
 
-        public static int IndexPowerOf2(int n)
-        {
-            int i = 1;
-            while ((n = n >> 1) != 0)
-                i++;
-            return i;
-        }
+    public static int CeilOf(int n, int b)
+    {
+        return (n / b + ((n % b) > 0 ? 1 : 0)) * b;
+    }
 
-        public static float Max(this Vector3 v)
-        {
-            return Mathf.Max(v.x, Mathf.Max(v.y, v.z));
-        }
+    public static int IndexPowerOf2(int n)
+    {
+        int i = 1;
+        while ((n = n >> 1) != 0)
+            i++;
+        return i;
+    }
 
-        public static int Max(this Vector3Int v)
-        {
-            return Mathf.Max(v.x, Mathf.Max(v.y, v.z));
-        }
+    public static float Max(this Vector3 v)
+    {
+        return Mathf.Max(v.x, Mathf.Max(v.y, v.z));
+    }
+
+    public static int Max(this Vector3Int v)
+    {
+        return Mathf.Max(v.x, Mathf.Max(v.y, v.z));
+    }
+
+    public static Vector2 Lerp(Vector2 a, Vector2 b, Vector2 t)
+    {
+        return new Vector2(Mathf.Lerp(a.x, b.x, t.x), Mathf.Lerp(a.y, b.y, t.y));
+    }
         
-        public static Vector3 Mul(this Vector3 v, Vector3 c)
-        {
-            return new Vector3(v.x * c.x, v.y * c.y, v.z * c.z);
-        }
+    public static Vector3 Mul(this Vector3 v, Vector3 c)
+    {
+        return new Vector3(v.x * c.x, v.y * c.y, v.z * c.z);
+    }
 
-        public static Vector3 Invert(this Vector3 v)
-        {
-            return new Vector3(1.0f / v.x, 1.0f / v.y, 1.0f / v.z);
-        }
+    public static Vector3 Invert(this Vector3 v)
+    {
+        return new Vector3(1.0f / v.x, 1.0f / v.y, 1.0f / v.z);
+    }
 
-        public static Vector3 Invert(this Vector3Int v)
-        {
-            return new Vector3(1.0f / v.x, 1.0f / v.y, 1.0f / v.z);
-        }
+    public static Vector3 Invert(this Vector3Int v)
+    {
+        return new Vector3(1.0f / v.x, 1.0f / v.y, 1.0f / v.z);
+    }
 
-        public static Vector3 ToVetor3(this Vector4 v)
-        {
-            return new Vector3(v.x, v.y, v.z);
-        }
+    public static Vector3 ToVetor3(this Vector4 v)
+    {
+        return new Vector3(v.x, v.y, v.z);
+    }
+
+    public static float MaxComponent(this Vector3 v)
+    {
+        return Mathf.Max(Mathf.Max(v.x, v.y), v.z);
+    }
+
+    public static float MinComponent(this Vector3 v)
+    {
+        return Mathf.Min(Mathf.Min(v.x, v.y), v.z);
+    }
+
+    public static Color ToColorGamma(this Vector3 v)
+    {
+        return new Color(v.x, v.y, v.z).gamma;
+    }
+
+    public static string ToDetailString(this Vector3 v)
+    {
+        string s = "(" + v.x + "," + v.y + "," + v.z + ")";
+        return s;
+    }
         
-        public static Vector4 ToVector4(this Vector4 v, float w)
-        {
-            return new Vector4(v.x, v.y, v.z, w);
-        }
+    public static Vector4 ToVector4(this Vector4 v, float w)
+    {
+        return new Vector4(v.x, v.y, v.z, w);
+    }
 
-        public static Vector4 ToVector4(this Vector3 v, float w)
-        {
-            return new Vector4(v.x, v.y, v.z, w);
-        }
+    public static Vector4 ToVector4(this Vector3 v, float w)
+    {
+        return new Vector4(v.x, v.y, v.z, w);
+    }
 
-        public static Vector3 ToVector3(this Color c)
-        {
-            return new Vector3(c.r, c.g, c.b);
-        }
+    public static Vector3 ToVector3(this Color c)
+    {
+        return new Vector3(c.r, c.g, c.b);
+    }
 
-        public static Vector3 LinearToVector3(this Color c)
+    public static Vector3 LinearToVector3(this Color c)
     {
         return new Vector3(c.linear.r, c.linear.g, c.linear.b);
     }
 
-        public static int Pow2(int d)
-        {
-            return d * d;
-        }
+    public static float Pow2(float d)
+    {
+        return d * d;
+    }
 
-        public static int Pow3(int d)
+        public static float Pow3(float d)
         {
             return d * d * d;
         }
@@ -541,4 +567,67 @@ using UnityEngine;
     public static float fmin_fmax(float a, float b, float c) { return Int32BitsToSingle(min_max(SingleToInt32Bits(a), SingleToInt32Bits(b), SingleToInt32Bits(c))); }
     public static float fmax_fmin(float a, float b, float c) { return Int32BitsToSingle(max_min(SingleToInt32Bits(a), SingleToInt32Bits(b), SingleToInt32Bits(c))); }
     public static float fmax_fmax(float a, float b, float c) { return Int32BitsToSingle(max_max(SingleToInt32Bits(a), SingleToInt32Bits(b), SingleToInt32Bits(c))); }
+
+    public static double Erf(double x)
+    {
+        // constants
+        double a1 = 0.254829592;
+        double a2 = -0.284496736;
+        double a3 = 1.421413741;
+        double a4 = -1.453152027;
+        double a5 = 1.061405429;
+        double p = 0.3275911;
+
+        // Save the sign of x
+        int sign = 1;
+        if (x < 0)
+            sign = -1;
+        x = Math.Abs(x);
+
+        // A&S formula 7.1.26
+        double t = 1.0 / (1.0 + p * x);
+        double y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.Exp(-x * x);
+
+        return sign * y;
+    }
+    public static float Gaussian(float x, float mu = 0, float sigma = 1)
+    {
+        return 1.0f / Mathf.Sqrt(2.0f * Mathf.PI * sigma * sigma) *
+               Mathf.Exp(-Pow2(x - mu) / (2 * sigma * sigma));
+    }
+
+    public static float GaussianIntegral(float x0, float x1, float mu = 0,
+                                           float sigma = 1)
+    {
+        float sigmaRoot2 = sigma * 1.414213562373095f;
+        
+        return 0.5f * ((float)Erf((mu - x0) / sigmaRoot2) - (float)Erf((mu - x1) / sigmaRoot2));
+    }
+
+    public static Vector2 GetRandom01()
+    {
+        return new Vector2(UnityEngine.Random.Range(0.0f, 1.0f), UnityEngine.Random.Range(0.0f, 1.0f));
+    }
+
+    private static uint random_seed = 0;
+
+    public static float UniformFloat()
+    {
+        if (random_seed == 0)
+        {
+            uint s0 = 0;
+            uint v0 = 1;
+            uint v1 = 1;
+            for (int n = 0; n < 4; ++n)
+            {
+                s0 += 0x9e3779b9u;
+                v0 += ((v1 << 4) + 0xa341316c) ^ (v1 + s0) ^ ((v1 >> 5) + 0xc8013ea4);
+                v1 += ((v0 << 4) + 0xad90777d) ^ (v0 + s0) ^ ((v0 >> 5) + 0x7e95761e);
+            }
+        }
+        uint lcg_a = 1664525u;
+        uint lcg_c = 1013904223u;
+        random_seed = lcg_a * random_seed + lcg_c;
+        return (random_seed & 0x00ffffffu) * (1.0f / (0x01000000u));
+    }
 }

@@ -64,6 +64,7 @@ public class Raytracing : MonoBehaviour
     //Dictionary<Mesh, Distribution1D<Vector2>> meshTriangleDistribution = new Dictionary<Mesh, Distribution1D<Vector2>>();
     Dictionary<Mesh, AreaLightResource> meshDistributions = new Dictionary<Mesh, AreaLightResource>();
     List<AreaLightInstance> areaLightInstances = new List<AreaLightInstance>();
+    uint[] RayQueueSizeArray;
 
     BVHAccel bvhAccel = new BVHAccel();
 
@@ -101,9 +102,11 @@ public class Raytracing : MonoBehaviour
     ComputeBuffer distributionDiscriptBuffer;
     ComputeBuffer shadowRayBuffer;
     ComputeBuffer imageSpectrumsBuffer;
-    ComputeBuffer pathStatesBuffer;
+    //ComputeBuffer pathStatesBuffer;
     ComputeBuffer filterMarginalBuffer;
     ComputeBuffer filterConditionBuffer;
+    ComputeBuffer rayQueueSizeBuffer;
+    ComputeBuffer rayQueueBuffer;
     //ComputeBuffer transformBuffer;
 
     RenderTexture outputTexture;
@@ -133,7 +136,13 @@ public class Raytracing : MonoBehaviour
     void Start()
     {
         BVHAccel.TestPartition();
-        
+
+        RayQueueSizeArray = new uint[MAX_PATH * 5];
+        for (int i = 0; i < RayQueueSizeArray.Length; ++i)
+        {
+            RayQueueSizeArray[i] = 0;
+        }
+
         InitScene();
         SampleLightTest();
 
@@ -160,10 +169,14 @@ public class Raytracing : MonoBehaviour
             return;
         }
 
+        rayQueueSizeBuffer.SetData(RayQueueSizeArray);
+
         int rasterWidth = Screen.width;
         int rasterHeight = Screen.height;
         if (generateRay != null)
             generateRay.SetFloat("_time", Time.time);
+
+        int queueSizeIndex = 0;
 
         generateRay.SetMatrix("RasterToCamera", RasterToCamera);
         generateRay.SetMatrix("CameraToWorld", cameraComponent.cameraToWorldMatrix);
@@ -183,16 +196,20 @@ public class Raytracing : MonoBehaviour
             //RayTravel.SetVector("testBoundMax", bvhAccel.linearNodes[0].bounds.max);
             //RayTravel.SetVector("testBoundMin", bvhAccel.linearNodes[0].bounds.min);
             RayTravel.SetInt("bounces", i);
+            RayTravel.SetInt("queueSizeIndex", queueSizeIndex++);
             RayTravel.Dispatch(kRayTraversal, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
 
             SampleShadowRay.SetInt("bounces", i);
             SampleShadowRay.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
             SampleShadowRay.SetInt("lightsNum", gpuLights.Count);
+            SampleShadowRay.SetInt("queueSizeIndex", queueSizeIndex);
             SampleShadowRay.Dispatch(kSampleShadowRay, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
-            
+
+            EstimateDirect.SetInt("queueSizeIndex", queueSizeIndex);
             EstimateDirect.Dispatch(kEstimateDirect, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
             
             generatePath.SetInt("bounces", i);
+            generatePath.SetInt("queueSizeIndex", queueSizeIndex++);
             generatePath.Dispatch(kGeneratePath, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
         }
 
@@ -719,9 +736,19 @@ public class Raytracing : MonoBehaviour
             pathRadianceBuffer = new ComputeBuffer(Screen.width * Screen.height, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUPathRadiance)), ComputeBufferType.Structured);
         }
 
-        if (pathStatesBuffer == null)
+        //if (pathStatesBuffer == null)
+        //{
+        //    pathStatesBuffer = new ComputeBuffer(Screen.width * Screen.height, sizeof(int), ComputeBufferType.Structured);
+        //}
+
+        if (rayQueueBuffer == null)
         {
-            pathStatesBuffer = new ComputeBuffer(Screen.width * Screen.height, sizeof(int), ComputeBufferType.Structured);
+            rayQueueBuffer = new ComputeBuffer(Screen.width * Screen.height, sizeof(int), ComputeBufferType.Structured);
+        }
+
+        if (rayQueueSizeBuffer == null)
+        {
+            rayQueueSizeBuffer = new ComputeBuffer(RayQueueSizeArray.Length, sizeof(uint), ComputeBufferType.Structured);
         }
 
         if (gpuRays == null)
@@ -759,9 +786,11 @@ public class Raytracing : MonoBehaviour
         generateRay.SetFloat("_time", Time.time);
         generateRay.SetBuffer(kGeneratePrimaryRay, "RNGs", samplerBuffer);
         generateRay.SetBuffer(kGeneratePrimaryRay, "pathRadiances", pathRadianceBuffer);
-        generateRay.SetBuffer(kGeneratePrimaryRay, "pathStates", pathStatesBuffer);
+        //generateRay.SetBuffer(kGeneratePrimaryRay, "pathStates", pathStatesBuffer);
         generateRay.SetBuffer(kGeneratePrimaryRay, "FilterMarginals", filterMarginalBuffer);
         generateRay.SetBuffer(kGeneratePrimaryRay, "FilterConditions", filterConditionBuffer);
+        generateRay.SetBuffer(kGeneratePrimaryRay, "_RayQueueSizeBuffer", rayQueueSizeBuffer);
+        generateRay.SetBuffer(kGeneratePrimaryRay, "_RayQueue", rayQueueBuffer);
         generateRay.SetInt("MarginalNum", filterSize.x);
         generateRay.SetInt("ConditionNum", filterSize.y);
         Bounds2D domain = filter.GetDomain();
@@ -795,7 +824,9 @@ public class Raytracing : MonoBehaviour
         SetComputeBuffer(SampleShadowRay, kSampleShadowRay, "WoodTriangleIndices", woodTriIndexBuffer);
         SetComputeBuffer(SampleShadowRay, kSampleShadowRay, "Distributions1D", distribution1DBuffer);
         SetComputeBuffer(SampleShadowRay, kSampleShadowRay, "DistributionDiscripts", distributionDiscriptBuffer);
-        SetComputeBuffer(SampleShadowRay, kSampleShadowRay, "pathStates", pathStatesBuffer);
+        //SetComputeBuffer(SampleShadowRay, kSampleShadowRay, "pathStates", pathStatesBuffer);
+        SetComputeBuffer(SampleShadowRay, kSampleShadowRay, "_RayQueueSizeBuffer", rayQueueSizeBuffer);
+        SetComputeBuffer(SampleShadowRay, kSampleShadowRay, "_RayQueue", rayQueueBuffer);
         SampleShadowRay.SetVector("rasterSize", new Vector4(Screen.width, Screen.height, 0, 0));
         SampleShadowRay.SetInt("instBVHAddr", instBVHNodeAddr);
         SampleShadowRay.SetInt("bvhNodesNum", bvhAccel.m_nodes.Count);
@@ -824,7 +855,9 @@ public class Raytracing : MonoBehaviour
         SetComputeBuffer(EstimateDirect, kEstimateDirect, "Distributions1D", distribution1DBuffer);
         SetComputeBuffer(EstimateDirect, kEstimateDirect, "DistributionDiscripts", distributionDiscriptBuffer);
         SetComputeBuffer(EstimateDirect, kEstimateDirect, "pathRadiances", pathRadianceBuffer);
-        SetComputeBuffer(EstimateDirect, kEstimateDirect, "pathStates", pathStatesBuffer);
+        //SetComputeBuffer(EstimateDirect, kEstimateDirect, "pathStates", pathStatesBuffer);
+        SetComputeBuffer(EstimateDirect, kEstimateDirect, "_RayQueueSizeBuffer", rayQueueSizeBuffer);
+        SetComputeBuffer(EstimateDirect, kEstimateDirect, "_RayQueue", rayQueueBuffer);
         EstimateDirect.SetVector("rasterSize", new Vector4(Screen.width, Screen.height, 0, 0));
         EstimateDirect.SetInt("lightsNum", gpuLights.Count);
         EstimateDirect.SetTexture(kSampleShadowRay, "outputTexture", outputTexture);
@@ -843,7 +876,9 @@ public class Raytracing : MonoBehaviour
         SetComputeBuffer(generatePath, kGeneratePath, "lights", lightBuffer);
         //generatePath.SetBuffer(kGeneratePath, "Distributions1D", distribution1DBuffer);
         //SetComputeBuffer(generatePath, kGeneratePath, "Distributions1D", distribution1DBuffer);
-        SetComputeBuffer(generatePath, kGeneratePath, "pathStates", pathStatesBuffer);
+        //SetComputeBuffer(generatePath, kGeneratePath, "pathStates", pathStatesBuffer);
+        SetComputeBuffer(generatePath, kGeneratePath, "_RayQueueSizeBuffer", rayQueueSizeBuffer);
+        SetComputeBuffer(generatePath, kGeneratePath, "_RayQueue", rayQueueBuffer);
         generatePath.SetVector("rasterSize", new Vector4(Screen.width, Screen.height, 0, 0));
     }
 
@@ -894,7 +929,9 @@ public class Raytracing : MonoBehaviour
         RayTravel.SetBuffer(kRayTraversal, "pathRadiances", pathRadianceBuffer);
         SetComputeBuffer(RayTravel, kRayTraversal, "lights", lightBuffer);
         SetComputeBuffer(RayTravel, kRayTraversal, "WoodTriangleIndices", woodTriIndexBuffer);
-        SetComputeBuffer(RayTravel, kRayTraversal, "pathStates", pathStatesBuffer);
+        //SetComputeBuffer(RayTravel, kRayTraversal, "pathStates", pathStatesBuffer);
+        SetComputeBuffer(RayTravel, kRayTraversal, "_RayQueueSizeBuffer", rayQueueSizeBuffer);
+        SetComputeBuffer(RayTravel, kRayTraversal, "_RayQueue", rayQueueBuffer);
         RayTravel.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
         RayTravel.SetInt("instBVHAddr", instBVHNodeAddr);
         RayTravel.SetInt("bvhNodesNum", bvhAccel.m_nodes.Count);
@@ -989,9 +1026,11 @@ public class Raytracing : MonoBehaviour
         ReleaseComputeBuffer(meshInstanceBuffer);
         ReleaseComputeBuffer(BVHBuffer);
         ReleaseComputeBuffer(imageSpectrumsBuffer);
-        ReleaseComputeBuffer(pathStatesBuffer);
+        //ReleaseComputeBuffer(pathStatesBuffer);
         ReleaseComputeBuffer(filterMarginalBuffer);
         ReleaseComputeBuffer(filterConditionBuffer);
+        ReleaseComputeBuffer(rayQueueBuffer);
+        ReleaseComputeBuffer(rayQueueSizeBuffer);
 
         if (outputTexture != null)
         {
