@@ -75,6 +75,9 @@ public class Raytracing : MonoBehaviour
     public ComputeShader SampleShadowRay;
     public ComputeShader EstimateDirect;
     public ComputeShader ImageReconstruction;
+    public bool useInstanceBVH = true;
+    public FilterType filterType = FilterType.Gaussian;
+    public Vector2 fiterRadius = Vector2.one;
     int kGeneratePrimaryRay = -1;
     //generate path ray
     int kGeneratePath = -1;
@@ -118,14 +121,14 @@ public class Raytracing : MonoBehaviour
     Camera cameraComponent = null;
 
     const int MAX_PATH = 5;
-    int samplesPerPixel = 64;
+    int samplesPerPixel = 1024;
 
     //for test
     //IndepententSampler indepententSampler = new IndepententSampler();
     //IndepententSampler indepententSampler2 = new IndepententSampler();
     int kTestSampler;
 
-    public bool useInstanceBVH = true;
+    
     //toplevel bvh在bvh buffer中的位置
     int instBVHNodeAddr = -1;
     int framesNum = 0;
@@ -161,7 +164,7 @@ public class Raytracing : MonoBehaviour
             //Debug.Log(Input.mousePosition); 
             OnePathTracing((int)Input.mousePosition.x, (int)Input.mousePosition.y, (int)Screen.width, 1);
         }
-        //bvhAccel.DrawDebug(meshInstances, useInstanceBVH);
+
         if (framesNum >= samplesPerPixel)
         {
             //GPUFilterSample uv = filter.Sample(MathUtil.GetRandom01());
@@ -181,20 +184,13 @@ public class Raytracing : MonoBehaviour
         generateRay.SetMatrix("RasterToCamera", RasterToCamera);
         generateRay.SetMatrix("CameraToWorld", cameraComponent.cameraToWorldMatrix);
         generateRay.Dispatch(kGeneratePrimaryRay, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
-        //SampleShadowRay.SetTexture(kSampleShadowRay, "outputTexture", outputTexture);
-        //RayTravel.SetTexture(kSampleShadowRay, "outputTexture", outputTexture);
-        //generatePath.SetTexture(kGeneratePath, "outputTexture", outputTexture);
-        //Camera camera = GetComponent<Camera>();
-        //TestRay(cameraComponent, 0);
+
         
         for (int i = 0; i < MAX_PATH; ++i)
         {
-            //RayTravel.SetBuffer(kRayTraversal, "Rays", rayBuffer);
             RayTravel.SetFloat("_time", Time.time);
             RayTravel.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
 
-            //RayTravel.SetVector("testBoundMax", bvhAccel.linearNodes[0].bounds.max);
-            //RayTravel.SetVector("testBoundMin", bvhAccel.linearNodes[0].bounds.min);
             RayTravel.SetInt("bounces", i);
             RayTravel.SetInt("queueSizeIndex", queueSizeIndex++);
             RayTravel.Dispatch(kRayTraversal, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
@@ -236,11 +232,6 @@ public class Raytracing : MonoBehaviour
             return;
 
         int renderObjectsNum = 0;
-        
-
-        //use area as the distribution
-        //List<Vector2> lightsDistribution = new List<Vector2>();
-        //List<float> lightAreas = new List<float>();
 
         if (useInstanceBVH)
         {
@@ -402,30 +393,7 @@ public class Raytracing : MonoBehaviour
                 }
             }
 
-            /*
-            //构建light的分布
-            
-            List<Vector2> lightObjectDistribution = new List<Vector2>();
-            float allLightsTotalArea = 0;
-            for (int i = 0; i < areaLightInstances.Count; ++i)
-            {
-                allLightsTotalArea += areaLightInstances[i].light.area;
-            }
-            float cdf = 0;
-            for (int i = 0; i < areaLightInstances.Count; ++i)
-            {
-                float pdf = areaLightInstances[i].light.area / allLightsTotalArea;
-                cdf += pdf;
-                lightObjectDistribution.Add(new Vector2(pdf, cdf));
-            }
-
-            //构建Distribution1D
-            Distributions1D.AddRange(lightObjectDistribution);
-            Distributions1D.AddRange(lightTriangleDistributions);
-            */
-
             //创建bvh
-
             instBVHNodeAddr = bvhAccel.Build(meshTransforms, meshInstances, meshHandles, gpuVertices, triangles);
 
 
@@ -531,15 +499,6 @@ public class Raytracing : MonoBehaviour
                 }
             }
 
-            //for (int j = 0; j < positions.Count; ++j)
-            //{
-            //    GPUVertex vertex = new GPUVertex();
-            //    vertex.position = positions[j];
-            //    vertex.uv = uvs[j];
-            //    gpuVertices.Add(vertex);
-            //}
-
-            //List<Primitive> orderedPrims = new List<Primitive>();
             bvhAccel.Build(primitives, gpuVertices, triangles);
         }
 

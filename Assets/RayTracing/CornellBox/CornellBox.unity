@@ -1987,7 +1987,7 @@ MonoBehaviour:
   shapeType: 2
   isAreaLight: 1
   lightSpectrum: {r: 1, g: 1, b: 1, a: 1}
-  spectrumScale: {x: 3, y: 3, z: 3}
+  spectrumScale: {x: 17, y: 12, z: 4}
   lightIntensity: 1
 --- !u!114 &60
 MonoBehaviour:

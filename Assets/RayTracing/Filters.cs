@@ -235,6 +235,12 @@ public class Distribution2D
     }
 }
 
+public enum FilterType
+{
+    Box,
+    Gaussian,
+}
+
 public class Filter
 {
     public float[,] filterValues;

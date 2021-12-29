@@ -376,9 +376,17 @@ public struct GPUFilterSample
 }
 
 
-public struct GPURayWorkItem
+struct GPUDisneyMaterial
 {
-    public GPURay ray;
-}
-
+    Vector3 baseColor;
+    float metallic;
+    float eta;
+    float roughness;
+    float specularTint;
+    float anisotropic;
+    float sheen;
+    float sheenTint;
+    float clearcoat;
+    float clearcoatGloss;
+};
 
