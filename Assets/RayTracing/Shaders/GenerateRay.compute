@@ -37,7 +37,8 @@ void GeneratePrimary(uint3 id : SV_DispatchThreadID)
     uint threadId = id.x + id.y * rasterSize.x;
     uint workIndex = _RayQueue[threadId];
     //Result[id.xy] = float4(id.x & id.y, (id.x & 15)/15.0, (id.y & 15)/15.0, 0.0);
-    float2 u = rs.Get2D(workIndex);
+    RNG rng = GetRNG(threadId);
+    float2 u = Get2D(rng);
     
     CameraSample cSample = GetCameraSample(float2(id.x, id.y), u); //rs.GetCameraSample(float2(id.x, id.y), _time);
     float3 pFilm = float3(cSample.pFilm, 0);
@@ -58,5 +59,6 @@ void GeneratePrimary(uint3 id : SV_DispatchThreadID)
     uint index;
     InterlockedAdd(_RayQueueSizeBuffer[0], 1, index);
     _RayQueue[index] = threadId;
+    WriteRNG(threadId, rng);
 }
 

@@ -43,4 +43,13 @@ float InverseGammaCorrect(float value) {
 	return pow((value + 0.055f) * 1.f / 1.055f, 2.4f);
 }
 
+float Pow2(float x)
+{
+	return x * x;
+}
+
+float Luminance(in const float3 c) {
+	return 0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b;
+}
+
 #endif

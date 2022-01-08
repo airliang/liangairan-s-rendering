@@ -1,7 +1,7 @@
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel CSMain
 #include "sampler.hlsl"
-#include "bxdf.hlsl"
+#include "materials.hlsl"
 #include "bvhaccel.hlsl"
 #include "distributions.hlsl"
 
@@ -65,7 +65,7 @@ float AreaLightPdf(Ray ray, Light light, float3 orig, float3 wi)
 }
 
 
-float3 EstimateDirect(ShadowRay shadowRay, Interaction isect, float2 u)
+float3 EstimateDirect(ShadowRay shadowRay, Interaction isect, inout RNG rng)
 {
     float3 Ld = shadowRay.radiance;
     Material material = materials[isect.materialID];
@@ -73,7 +73,8 @@ float3 EstimateDirect(ShadowRay shadowRay, Interaction isect, float2 u)
     float3 wi;
     float scatteringPdf = 0;
     float3 wiLocal;
-    float3 f = SampleLambert(material, woLocal, wiLocal, u, scatteringPdf);
+    float2 u = Get2D(rng);
+    float3 f = SampleMaterialBRDF(material, isect.uv.xy, woLocal, wiLocal, scatteringPdf, rng);
     
     wi = isect.LocalToWorld(wiLocal);
     f *= abs(dot(wi, isect.normal));
@@ -81,10 +82,7 @@ float3 EstimateDirect(ShadowRay shadowRay, Interaction isect, float2 u)
     if (scatteringPdf > 0)
     {
         Light light = lights[asint(shadowRay.lightIndex)];
-        //for test
-        //float3 lightPos = float3(-2.750401, 5.5, -6.640179);
-        //wi = normalize(lightPos - isect.p.xyz);
-        //test end
+
         Ray ray = SpawnRay(isect.p.xyz, wi, isect.normal, FLT_MAX);
 
         float lightPdf = AreaLightPdf(ray, light, isect.p, wi);
@@ -111,37 +109,23 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     if (threadId >= queueSize)
         return;
     uint workIndex = _RayQueue[threadId];
-    //int pathState = pathStates[threadId];
-    //if (pathState == 1)
-    {
-        ShadowRay shadowRay = ShadowRays[workIndex];
-        Interaction isect = Intersections[workIndex];
+    RNG rng = GetRNG(threadId);
 
-        //if (isect.IsHit())
-        {
-            PathRadiance pathRadiance = pathRadiances[workIndex];
-            float2 u = rs.Get2D(workIndex);
+    ShadowRay shadowRay = ShadowRays[workIndex];
+    Interaction isect = Intersections[workIndex];
 
-            float3 Li = EstimateDirect(shadowRay, isect, u);
 
-            Li /= shadowRay.lightSourcePdf;
+    PathRadiance pathRadiance = pathRadiances[workIndex];
+    //float2 u = Get2D(rng);//rs.Get2D(workIndex);
 
-            pathRadiance.li += Li * pathRadiance.beta;
-            pathRadiances[workIndex] = pathRadiance;
-            //outputTexture[id.xy] = half4(pathRadiance.li * 5, 1);
+    float3 Li = EstimateDirect(shadowRay, isect, rng);
 
-            //int lightIndex = asint(shadowRay.lightIndex);
-            //Light light = lights[lightIndex];
-            //MeshInstance meshInstance = MeshInstances[light.meshInstanceID];
-            //if (light.meshInstanceID == 5)
-            //{
-            //    outputTexture[id.xy] = half4(1, 1, 1, 1);
-            //}
-        }
-        //else
-        //{
-            //outputTexture[id.xy] = half4(1, 0, 0, 1);
-        //}
-    }
-    
+    Li /= shadowRay.lightSourcePdf;
+
+    pathRadiance.li += Li * pathRadiance.beta;
+    pathRadiances[workIndex] = pathRadiance;
+    //outputTexture[id.xy] = half4(pathRadiance.li * 5, 1);
+
+
+    WriteRNG(threadId, rng);
 }

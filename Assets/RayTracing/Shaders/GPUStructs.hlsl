@@ -48,14 +48,16 @@ struct DisneyMaterial
 {
 	float3 baseColor;
 	float  metallic;
-	float  eta;
+	float  specular;
 	float  roughness;
 	float  specularTint;
-	float  anisotropic;
+	float  anisotropy;
 	float  sheen;
 	float  sheenTint;
 	float  clearcoat;
 	float  clearcoatGloss;
+	float  ior;
+	float  specularTransmission;
 };
 
 struct CameraSample

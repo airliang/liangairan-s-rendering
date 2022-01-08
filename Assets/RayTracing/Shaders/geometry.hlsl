@@ -93,10 +93,11 @@ struct Interaction  //64byte
 
 	float3 LocalToWorld(float3 v)
 	{
-		return float3(tangent.x * v.x + bitangent.x * v.y + normal.x * v.z,
-			tangent.y * v.x + bitangent.y * v.y + normal.y * v.z,
-			tangent.z * v.x + bitangent.z * v.y + normal.z * v.z
-			);
+		//return float3(tangent.x * v.x + bitangent.x * v.y + normal.x * v.z,
+		//	tangent.y * v.x + bitangent.y * v.y + normal.y * v.z,
+		//	tangent.z * v.x + bitangent.z * v.y + normal.z * v.z
+		//	);
+		return tangent * v.x + bitangent * v.y + normal * v.z;
 	}
 };
 

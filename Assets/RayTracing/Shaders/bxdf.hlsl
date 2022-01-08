@@ -26,27 +26,6 @@ struct BSDF
 
 };
 
-void ComputeScatteringFunctions(Interaction isect)
-{
-	//int material = asint(isect.primitive.y);
-	//if (material == Matte)
-	//{
-
-	//}
-	//不用区分材质类型，直接处理diffuse和specular的
-
-}
-
-float Pdf(float3 wi, float3 wo)
-{
-	return 0;
-}
-
-float Reflection(float3 wi, float3 wo)
-{
-	return 0;
-}
-
 
 float3 LambertBRDF(float3 wi, float3 wo, float3 R)
 {
@@ -56,7 +35,7 @@ float3 LambertBRDF(float3 wi, float3 wo, float3 R)
 //wi and wo must in local space
 float LambertPDF(float3 wi, float3 wo)
 {
-	return SameHemisphere(wo, wi) ? AbsCosTheta(wi) * INV_PI : 0;;
+	return SameHemisphere(wo, wi) ? AbsCosTheta(wi) * INV_PI : 0;
 }
 
 

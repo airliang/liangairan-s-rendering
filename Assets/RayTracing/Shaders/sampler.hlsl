@@ -136,42 +136,37 @@ float UniformFloat(inout RNG rng)
     return (rng.state & 0x00ffffffu) * (1.0f / (0x01000000u));
 }
 
-float2 Get2D(uint threadId)
+float2 Get2D(inout RNG rng)
 {
-    RNG rng = RNGs[threadId];
-    float2 u = float2(UniformFloat(rng), UniformFloat(rng));
-    RNGs[threadId] = rng;
-    return u;
+    //RNG rng = RNGs[threadId];
+    //float2 u = float2(UniformFloat(rng), UniformFloat(rng));
+    //RNGs[threadId] = rng;
+    //return u;
+    return float2(UniformFloat(rng), UniformFloat(rng));
 }
 
-float Get1D(uint threadId)
+float Get1D(inout RNG rng)
 {
-    RNG rng = RNGs[threadId];
-    float u = UniformFloat(rng);
-    RNGs[threadId] = rng;
-    return u;
+    //RNG rng = RNGs[threadId];
+    //float u = UniformFloat(rng);
+    //RNGs[threadId] = rng;
+    //return u;
+    return UniformFloat(rng);
 }
 
+RNG GetRNG(uint threadId)
+{
+    return RNGs[threadId];
+}
+
+void WriteRNG(uint threadId, in RNG rng)
+{
+    RNGs[threadId] = rng;
+}
+
+/*
 class RandomSampler
 {
-    /*
-    float2 Get2D(float2 p, float t)
-    {
-        float v = .152;
-        float2 pos = (p * v + frac(t) * 1500. + 50.0);
-
-        return hash22(pos);
-    }
-
-    float Get1D(float p, float t)
-    {
-        float v = .152;
-        float pos = (p * v + frac(t) * 1500. + 50.0);
-
-        return hash11(pos);
-    }
-    */
-
     float Get1D(uint threadId)
     {
         RNG rng = RNGs[threadId];
@@ -187,9 +182,12 @@ class RandomSampler
         RNGs[rngIndex] = rng;
         return u;
     }
+
+
 };
 
 RandomSampler rs;
+*/
 
 #endif
 
