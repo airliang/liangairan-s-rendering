@@ -4,6 +4,7 @@ using UnityEngine;
 
 public struct MeshHandle
 {
+    //public int index;   //index in array
     public int vertexOffset;
     public int triangleOffset;
     public int vertexCount;
@@ -11,12 +12,15 @@ public struct MeshHandle
     public int bvhOffset;
     public GPUBounds localBounds;
 
-    public MeshHandle(int _vertexOff, 
+    public MeshHandle(
+        //int _index,
+        int _vertexOff, 
         int _triangleOff,
         int _vertexCount,
         int _triangleCount,
         Bounds bounds)
     {
+        //index = _index;
         vertexOffset = _vertexOff;
         triangleOffset = _triangleOff;
         vertexCount = _vertexCount;

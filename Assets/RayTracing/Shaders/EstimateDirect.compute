@@ -21,8 +21,9 @@ RWStructuredBuffer<PathRadiance> pathRadiances;
 //StructuredBuffer<int>    pathStates;
 //x pdf y cdf
 StructuredBuffer<float2> Distributions1D;
-StructuredBuffer<uint> _RayQueueSizeBuffer;
-StructuredBuffer<uint> _RayQueue;
+RWStructuredBuffer<uint> _RayQueueSizeBuffer;
+RWStructuredBuffer<uint> _RayQueue;
+RWStructuredBuffer<Ray>   Rays;
 //RWTexture2D<half4> outputTexture;
 
 float AreaLightPdf(Ray ray, Light light, float3 orig, float3 wi)
@@ -65,44 +66,29 @@ float AreaLightPdf(Ray ray, Light light, float3 orig, float3 wi)
 }
 
 
-float3 EstimateDirect(ShadowRay shadowRay, Interaction isect, inout RNG rng)
+float3 EstimateDirect(Interaction isect, inout RNG rng, out float scatteringPdf, out float3 wi)
 {
-    float3 Ld = shadowRay.radiance;
+    //float3 Ld = shadowRay.radiance;
     Material material = materials[isect.materialID];
     float3 woLocal = isect.WorldToLocal(isect.wo);
-    float3 wi;
-    float scatteringPdf = 0;
+    //float3 wi;
+    //float scatteringPdf = 0;
     float3 wiLocal;
     float2 u = Get2D(rng);
     float3 f = SampleMaterialBRDF(material, isect.uv.xy, woLocal, wiLocal, scatteringPdf, rng);
     
     wi = isect.LocalToWorld(wiLocal);
-    f *= abs(dot(wi, isect.normal));
+    //f *= abs(dot(wi, isect.normal));
 
-    if (scatteringPdf > 0)
-    {
-        Light light = lights[asint(shadowRay.lightIndex)];
-
-        Ray ray = SpawnRay(isect.p.xyz, wi, isect.normal, FLT_MAX);
-
-        float lightPdf = AreaLightPdf(ray, light, isect.p, wi);
-        if (lightPdf > 0)
-        {
-            //caculate the mis weight
-            float weight = PowerHeuristic(1, lightPdf, 1, scatteringPdf);
-            Ld += f * light.radiance * weight / scatteringPdf;
-        }
-    }
-
-    return Ld;
+    return f;
 }
 
 [numthreads(8,8,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
     // TODO: insert actual code here!
-    //if (id.x >= rasterSize.x || id.y >= rasterSize.y)
-    //    return;
+    if (id.x >= rasterSize.x || id.y >= rasterSize.y)
+        return;
 
     uint threadId = id.x + id.y * rasterSize.x;
     uint queueSize = _RayQueueSizeBuffer[queueSizeIndex];
@@ -117,15 +103,56 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 
     PathRadiance pathRadiance = pathRadiances[workIndex];
     //float2 u = Get2D(rng);//rs.Get2D(workIndex);
+    float3 beta = 1; // = pathRadiance.beta;
+    float scatteringPdf = 0;
+    float3 wi;
+    float3 f = EstimateDirect(isect, rng, scatteringPdf, wi);
+    float3 Li = shadowRay.radiance;  
+    Ray ray;
+    if (scatteringPdf > 0)
+    {
+        beta = f * abs(dot(wi, isect.normal)) / scatteringPdf;
+        Light light = lights[asint(shadowRay.lightIndex)];
 
-    float3 Li = EstimateDirect(shadowRay, isect, rng);
+        ray = SpawnRay(isect.p.xyz, wi, isect.normal, FLT_MAX);
 
+        float lightPdf = AreaLightPdf(ray, light, isect.p, wi);
+        if (lightPdf > 0)
+        {
+            //caculate the mis weight
+            float weight = PowerHeuristic(1, lightPdf, 1, scatteringPdf);
+            Li += light.radiance * beta * weight;//f * light.radiance * weight / scatteringPdf;
+        }
+    }
+    
     Li /= shadowRay.lightSourcePdf;
-
     pathRadiance.li += Li * pathRadiance.beta;
-    pathRadiances[workIndex] = pathRadiance;
+
+    if (scatteringPdf > 0)
+    {
+        bool breakPath = false;
+        pathRadiance.beta *= beta;
+
+        if (bounces > 3)
+        {
+            float q = max(0.05, 1 - MaxComponent(pathRadiance.beta));
+            if (Get1D(rng) < q)
+            {
+                breakPath = true;
+            }
+            else
+                pathRadiance.beta /= 1 - q;
+        }
+
+        if (!breakPath)
+        {
+            Rays[workIndex] = ray;
+            uint index;
+            InterlockedAdd(_RayQueueSizeBuffer[queueSizeIndex + 1], 1, index);
+            _RayQueue[index] = workIndex;
+        }
+    }
     //outputTexture[id.xy] = half4(pathRadiance.li * 5, 1);
-
-
+    pathRadiances[workIndex] = pathRadiance;
     WriteRNG(threadId, rng);
 }

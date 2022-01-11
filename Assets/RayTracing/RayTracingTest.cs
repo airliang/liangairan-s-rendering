@@ -73,7 +73,7 @@ public class RayTracingTest
         if (wo.z < 0)
             wi.z *= -1;
         pdf = LambertPDF(wi, wo);
-        return LambertBRDF(wi, wo, material.kd.LinearToVector3());
+        return LambertBRDF(wi, wo, material.baseColor);
     }
     static float PowerHeuristic(int nf, float fPdf, int ng, float gPdf)
     {
@@ -284,7 +284,7 @@ public class RayTracingTest
             Vector3 woLocal = isect.WorldToLocal(isect.wo);
             float cos = Vector3.Dot(wi, isect.normal);
 
-            Vector3 f = LambertBRDF(woLocal, wiLocal, new Vector3(material.kd.r, material.kd.g, material.kd.b)) * Mathf.Abs(Vector3.Dot(wi, isect.normal));
+            Vector3 f = LambertBRDF(woLocal, wiLocal, new Vector3(material.baseColor.x, material.baseColor.y, material.baseColor.z)) * Mathf.Abs(Vector3.Dot(wi, isect.normal));
             float scatteringPdf = LambertPDF(wiLocal, woLocal);
             int meshInstanceIndex = -1;
             float hitT = 0;

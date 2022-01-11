@@ -40,8 +40,10 @@ struct Material
 {
 	float4 materialParams;  //x-materialtype, y-sigma, z-roughness
 	float4 kd;
-	float4 ks;
-	float4 kr;
+	float metallic;
+	float specular;
+	float roughness;
+	float anisotropy;
 };
 
 struct DisneyMaterial

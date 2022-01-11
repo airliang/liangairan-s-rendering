@@ -323,20 +323,25 @@ public struct GPUMaterial
 {
     //public BSDFMaterial.BSDFType materialType;
     public Vector4 materialParams;  //x-materialtype, y-sigma, z-roughness
-    public Color kd;
-    public Color ks;
-    public Color kr;
+    public Vector4 baseColor;       //a is texture mask
+    public float metallic;
+    public float specular;
+    public float roughness;
+    public float anisotropy;
 
-    public GPUMaterial(int type, float sigma, float roughness, Color kd, Color ks, Color kr)
-    {
-        this.kd = kd.linear;
-        this.ks = ks.linear;
-        this.kr = kr.linear;
-        materialParams.x = type;
-        materialParams.y = sigma;
-        materialParams.z = roughness;
-        materialParams.w = 0;
-    }
+    //public Color ks;
+    //public Color kr;
+
+    //public GPUMaterial(int type, float sigma, float roughness, Color kd, Color ks, Color kr)
+    //{
+    //    this.kd = kd.linear;
+    //    this.ks = ks.linear;
+    //    this.kr = kr.linear;
+    //    materialParams.x = type;
+    //    materialParams.y = sigma;
+    //    materialParams.z = roughness;
+    //    materialParams.w = 0;
+    //}
 }
 
 public struct GPUPathRadiance

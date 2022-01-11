@@ -10,13 +10,13 @@ public class Primitive
     public Vector3Int triIndices;
     //public int transformId; //the primitive belong to the transform
     //public int faceIndex;   //mesh triangle indice start
-    public Bounds worldBound = new Bounds();
+    public GPUBounds worldBound = GPUBounds.DefaultBounds();
     public int meshInstIndex = -1;
     public int meshIndex = -1;
 
-    Bounds BuildBounds(Vector3 p0, Vector3 p1, Vector3 p2)
+    GPUBounds BuildBounds(Vector3 p0, Vector3 p1, Vector3 p2)
     {
-        Bounds bounds = new Bounds();
+        GPUBounds bounds = new GPUBounds();
         //bounds.min = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
         //bounds.max = new Vector3(float.MinValue, float.MinValue, float.MinValue); ;
         Vector3 min = new Vector3(Mathf.Min(p0.x, p1.x), Mathf.Min(p0.y, p1.y), Mathf.Min(p0.z, p1.z));
@@ -46,7 +46,7 @@ public class Primitive
     }
 
     //专门给meshinstance的bvh使用
-    public Primitive(Bounds _worldBound, int meshInstIdx, int meshIdx)
+    public Primitive(GPUBounds _worldBound, int meshInstIdx, int meshIdx)
     {
         worldBound = _worldBound;
         meshInstIndex = meshInstIdx;

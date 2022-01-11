@@ -252,10 +252,10 @@ public class SplitBVHBuilder : BVHBuilder
 
         for (int i = 0; i < prims.Count; ++i)
         {
-            primitiveInfos.Add(new BVHPrimitiveInfo(i, GPUBounds.ConvertUnityBounds(prims[i].worldBound)));
+            primitiveInfos.Add(new BVHPrimitiveInfo(i, prims[i].worldBound));
             Reference reference = new Reference();
             reference.triIdx = i;  //reference's triIdx is the index in _primitives
-            reference.bounds = GPUBounds.ConvertUnityBounds(prims[i].worldBound);
+            reference.bounds = prims[i].worldBound;
             m_refStack.Add(reference);
         }
         for (int i = 0; i < prims.Count; ++i)

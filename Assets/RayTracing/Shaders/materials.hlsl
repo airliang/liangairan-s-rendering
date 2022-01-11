@@ -23,12 +23,12 @@ void UnpackMaterial(Material material, inout DisneyMaterial materialDisney, floa
 float3 SampleMaterialBRDF(Material material, float2 uv, float3 wo, out float3 wi, out float pdf, inout RNG rng)
 {
 //#ifdef DISNEY_BRDF
-	DisneyMaterial materialDisney;
-	UnpackMaterial(material, materialDisney, uv);
-	return SampleDisneyBRDF(wi, wo, materialDisney, pdf, rng);
+	//DisneyMaterial materialDisney;
+	//UnpackMaterial(material, materialDisney, uv);
+	//return SampleDisneyBRDF(wi, wo, materialDisney, pdf, rng);
 //#else
-	//float2 u = Get2D(rng);
-	//return SampleLambert(material, wo, wi, u, pdf);
+	float2 u = Get2D(rng);
+	return SampleLambert(material, wo, wi, u, pdf);
 //#endif
 }
 

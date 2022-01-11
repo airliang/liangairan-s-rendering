@@ -69,7 +69,7 @@ public class Raytracing : MonoBehaviour
     BVHAccel bvhAccel = new BVHAccel();
 
     public ComputeShader generateRay;
-    public ComputeShader generatePath;
+    //public ComputeShader generatePath;
     public ComputeShader RayTravel;
     public ComputeShader initRandom;
     public ComputeShader SampleShadowRay;
@@ -138,7 +138,7 @@ public class Raytracing : MonoBehaviour
     Filter filter;
     void Start()
     {
-        BVHAccel.TestPartition();
+        //BVHAccel.TestPartition();
 
         RayQueueSizeArray = new uint[MAX_PATH * 5];
         for (int i = 0; i < RayQueueSizeArray.Length; ++i)
@@ -147,12 +147,12 @@ public class Raytracing : MonoBehaviour
         }
 
         InitScene();
-        SampleLightTest();
+        //SampleLightTest();
 
-        GPUFilterSample uv = filter.Sample(MathUtil.GetRandom01());
-        Debug.Log(uv.p);
+        //GPUFilterSample uv = filter.Sample(MathUtil.GetRandom01());
+        //Debug.Log(uv.p);
 
-        IntersectionTest();
+        //IntersectionTest();
         //TestPath();
     }
 
@@ -164,6 +164,8 @@ public class Raytracing : MonoBehaviour
             //Debug.Log(Input.mousePosition); 
             OnePathTracing((int)Input.mousePosition.x, (int)Input.mousePosition.y, (int)Screen.width, 1);
         }
+
+        bvhAccel.DrawDebug(meshInstances, true);
 
         if (framesNum >= samplesPerPixel)
         {
@@ -201,24 +203,28 @@ public class Raytracing : MonoBehaviour
             SampleShadowRay.SetInt("queueSizeIndex", queueSizeIndex);
             SampleShadowRay.Dispatch(kSampleShadowRay, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
 
-            EstimateDirect.SetInt("queueSizeIndex", queueSizeIndex);
+            EstimateDirect.SetInt("bounces", i);
+            EstimateDirect.SetInt("queueSizeIndex", queueSizeIndex++);
             EstimateDirect.Dispatch(kEstimateDirect, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
             
-            generatePath.SetInt("bounces", i);
-            generatePath.SetInt("queueSizeIndex", queueSizeIndex++);
-            generatePath.Dispatch(kGeneratePath, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
+            //generatePath.SetInt("bounces", i);
+            //generatePath.SetInt("queueSizeIndex", queueSizeIndex++);
+            //generatePath.Dispatch(kGeneratePath, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
         }
 
         ImageReconstruction.SetInt("framesNum", ++framesNum);
         ImageReconstruction.Dispatch(kImageReconstruction, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
     }
 
-    void SetupMaterials(Shape shape, BSDFMaterial bsdfMaterial)
+    void SetupMaterials(Shape shape, BSDFMaterial bsdfMaterial, int subMeshIndex)
     {
         Renderer renderer = shape.GetComponent<MeshRenderer>();
-        Color _Color = renderer.sharedMaterial.GetColor("_Color");
+        if (renderer.sharedMaterial.HasProperty("_BaseColor"))
+        {
+            Color _Color = renderer.sharedMaterials[subMeshIndex].GetColor("_BaseColor");
+        }
         GPUMaterial gpuMtl = new GPUMaterial();
-        gpuMtl.kd = bsdfMaterial.matte.kd.spectrum.linear; //_Color.linear;
+        gpuMtl.baseColor = bsdfMaterial.matte.kd.spectrum.LinearToVector4(); //_Color.linear;
 
 
         gpuMaterials.Add(gpuMtl);
@@ -237,11 +243,11 @@ public class Raytracing : MonoBehaviour
         {
             //Dictionary<Mesh, int> sharedMeshes = new Dictionary<Mesh, int>();
             List<Mesh> sharedMeshes = new List<Mesh>();
+            Dictionary<Mesh, List<int>> meshHandlesDict = new Dictionary<Mesh, List<int>>();
             int lightObjectsNum = 0;
-            //sharedMeshes.Find(s => s == this);
-            //List<Vector2> uvs = new List<Vector2>();
-            //int triangleOffset = 0;
+
             //先生成MeshHandle
+            int meshHandleIndex = 0;
             for (int i = 0; i < shapes.Length; ++i)
             {
                 //worldMatrices[i] = shapes[i].transform.localToWorldMatrix;
@@ -249,8 +255,7 @@ public class Raytracing : MonoBehaviour
                 BSDFMaterial bsdfMaterial = shapes[i].GetComponent<BSDFMaterial>();
                 if ((shapes[i].shapeType == Shape.ShapeType.triangleMesh || shapes[i].shapeType == Shape.ShapeType.rectangle) && bsdfMaterial != null)
                 {
-                    //material这部分暂时先不处理，写死成lambert diffuse
-                    SetupMaterials(shapes[i], bsdfMaterial);
+                    
 
                     if (shapes[i].isAreaLight)
                     {
@@ -259,6 +264,10 @@ public class Raytracing : MonoBehaviour
 
                     MeshFilter meshRenderer = shapes[i].GetComponent<MeshFilter>();
                     Mesh mesh = meshRenderer.sharedMesh;
+                    if (!mesh.isReadable)
+                    {
+                        continue;
+                    }
                     if (shapes[i].shapeType == Shape.ShapeType.rectangle)
                     {
                         mesh = GetRectangleMesh();
@@ -270,39 +279,54 @@ public class Raytracing : MonoBehaviour
                     }
 
                     sharedMeshes.Add(mesh);
+                    List<int> meshHandleIndices = new List<int>();
+                    meshHandlesDict.Add(mesh, meshHandleIndices);
+                    
 
-                    int meshId = i;
+                    //int meshId = i;
                     int vertexOffset = gpuVertices.Count;
-                    int triangleOffset = triangles.Count;
-                    int primitiveTriangleOffset = gpuVertices.Count;
-                    int primitiveVertexOffset = triangles.Count;
 
-
-                    MeshHandle meshHandle = new MeshHandle(vertexOffset, triangleOffset, mesh.vertexCount, mesh.triangles.Length, mesh.bounds);
-                    meshHandles.Add(meshHandle);
-                    //创建该meshHandle的bvh
-
-                    for (int j = 0; j < mesh.vertices.Length; ++j)
+                    for (int sm = 0; sm < mesh.subMeshCount; ++sm)
                     {
-                        GPUVertex vertex = new GPUVertex();
-                        vertex.position = mesh.vertices[j];
-                        vertex.uv = mesh.uv[j];
-                        gpuVertices.Add(vertex);
+                        int subMeshVertexOffset = gpuVertices.Count;
+                        int triangleOffset = triangles.Count;
+                        int primitiveTriangleOffset = gpuVertices.Count;
+                        int primitiveVertexOffset = triangles.Count;
+                        //material这部分暂时先不处理，写死成lambert diffuse
+                        SetupMaterials(shapes[i], bsdfMaterial, sm);
+                        SubMeshDescriptor subMeshDescriptor = mesh.GetSubMesh(sm);
+                        //MeshHandle meshHandle = new MeshHandle(vertexOffset, triangleOffset, mesh.vertexCount, mesh.triangles.Length, mesh.bounds);
+                        MeshHandle meshHandle = new MeshHandle(subMeshVertexOffset, triangleOffset, subMeshDescriptor.vertexCount, 
+                            subMeshDescriptor.indexCount, subMeshDescriptor.bounds);
+                        meshHandleIndices.Add(meshHandleIndex);
+                        meshHandleIndex++;
+                        meshHandles.Add(meshHandle);
+                        //创建该meshHandle的bvh
+
+                        for (int j = 0; j < subMeshDescriptor.vertexCount; ++j)
+                        {
+                            GPUVertex vertex = new GPUVertex();
+                            vertex.position = mesh.vertices[subMeshDescriptor.firstVertex + j];//mesh.vertices[j];
+                            vertex.uv = mesh.uv[subMeshDescriptor.firstVertex + j];
+                            gpuVertices.Add(vertex);
+                        }
+                        for (int j = 0; j < subMeshDescriptor.indexCount; ++j)
+                        {
+                            triangles.Add(mesh.triangles[j + subMeshDescriptor.indexStart] + vertexOffset);
+                        }
                     }
-                    for (int j = 0; j < mesh.triangles.Length; ++j)
-                    {
-                        triangles.Add(mesh.triangles[j] + vertexOffset);
-                    }
+                    
                 }
             }
 
-            float totalLightArea = 0;
+            //float totalLightArea = 0;
             
             List<Vector2> lightTriangleDistributions = new List<Vector2>();
            
-            List<Transform> meshTransforms = new List<Transform>();
-            
+            //List<Transform> meshTransforms = new List<Transform>();
+
             //生成meshinstance和对应的material
+            meshHandleIndex = 0;
             for (int i = 0; i < shapes.Length; ++i)
             {
                 BSDFMaterial bsdfMaterial = shapes[i].GetComponent<BSDFMaterial>();
@@ -317,7 +341,7 @@ public class Raytracing : MonoBehaviour
                     {
                         mesh = GetRectangleMesh();
                     }
-                    int meshIndex = sharedMeshes.FindIndex(s => s == mesh);
+                    //int meshIndex = sharedMeshes.FindIndex(s => s == mesh);
 
                     if (shapes[i].isAreaLight)
                     {
@@ -376,25 +400,25 @@ public class Raytracing : MonoBehaviour
 
                     }
 
-                    int materialIndex = i;
+                    List<int> meshHandleIndices = null;
+                    meshHandlesDict.TryGetValue(mesh, out meshHandleIndices);
 
-                    if (mesh.subMeshCount > 1)
+                    for (int sm = 0; sm < mesh.subMeshCount; ++sm)
                     {
-                    }
-                    else
-                    {
-                        MeshHandle meshHandle = meshHandles[meshIndex];
-                        MeshInstance meshInstance = new MeshInstance(transform.localToWorldMatrix, transform.worldToLocalMatrix, meshIndex, 
+                        meshHandleIndex = meshHandleIndices[sm];
+                        int materialIndex = meshHandleIndex;
+                        MeshHandle meshHandle = meshHandles[meshHandleIndex];
+                        MeshInstance meshInstance = new MeshInstance(transform.localToWorldMatrix, transform.worldToLocalMatrix, meshHandleIndex, 
                             materialIndex, lightIndex, meshHandle.triangleOffset, meshHandle.triangleCount);
                         meshInstances.Add(meshInstance);
                     }
+                    //meshTransforms.Add(transform);
 
-                    meshTransforms.Add(transform);
                 }
             }
 
             //创建bvh
-            instBVHNodeAddr = bvhAccel.Build(meshTransforms, meshInstances, meshHandles, gpuVertices, triangles);
+            instBVHNodeAddr = bvhAccel.Build(meshInstances, meshHandles, gpuVertices, triangles);
 
 
             //创建对应的computebuffer
@@ -549,24 +573,44 @@ public class Raytracing : MonoBehaviour
             outputTexture = new RenderTexture(Screen.width, Screen.height, 0);
             outputTexture.enableRandomWrite = true;
         }
+        float timeBegin = Time.realtimeSinceStartup;
         SetupSceneData();
+        float timeInterval = Time.realtimeSinceStartup - timeBegin;
+        Debug.Log("SetupSceneData function cost time:" + timeInterval);
 
+        timeBegin = Time.realtimeSinceStartup;
         SetupDistributions();
+        timeInterval = Time.realtimeSinceStartup - timeBegin;
+        Debug.Log("SetupDistributions function cost time:" + timeInterval);
 
+        timeBegin = Time.realtimeSinceStartup;
         SetupSamplers();
-
+        timeInterval = Time.realtimeSinceStartup - timeBegin;
+        Debug.Log("SetupSamplers function cost time:" + timeInterval);
         //generate ray
         //init the camera parameters
+        timeBegin = Time.realtimeSinceStartup;
         SetupGenerateRay();
+        timeInterval = Time.realtimeSinceStartup - timeBegin;
+        Debug.Log("SetupGenerateRay function cost time:" + timeInterval);
 
+        timeBegin = Time.realtimeSinceStartup;
         SetupRayTraversal();
+        timeInterval = Time.realtimeSinceStartup - timeBegin;
+        Debug.Log("SetupRayTraversal function cost time:" + timeInterval);
+
         //generateRay.Dispatch(kGeneratePrimaryRay, (int)rasterWidth / 8 + 1, (int)rasterHeight / 8 + 1, 1);
         //TestRay(camera, 0);
+        timeBegin = Time.realtimeSinceStartup;
         SetupEstimateNextEvent();
+        timeInterval = Time.realtimeSinceStartup - timeBegin;
+        Debug.Log("SetupEstimateNextEvent function cost time:" + timeInterval);
 
-        SetupGeneratePath();
-
+        //SetupGeneratePath();
+        timeBegin = Time.realtimeSinceStartup;
         SetupImageReconstruction();
+        timeInterval = Time.realtimeSinceStartup - timeBegin;
+        Debug.Log("SetupImageReconstruction function cost time:" + timeInterval);
     }
 
     void SetupDistributions()
@@ -795,6 +839,7 @@ public class Raytracing : MonoBehaviour
 
         kEstimateDirect = EstimateDirect.FindKernel("CSMain");
         EstimateDirect.SetBuffer(kEstimateDirect, "ShadowRays", shadowRayBuffer);
+        SetComputeBuffer(EstimateDirect, kEstimateDirect, "Rays", rayBuffer);
         EstimateDirect.SetBuffer(kEstimateDirect, "Intersections", intersectBuffer);
         //EstimateDirect.SetBuffer(kEstimateDirect, "lights", lightBuffer);
         SetComputeBuffer(EstimateDirect, kEstimateDirect, "lights", lightBuffer);
@@ -819,10 +864,11 @@ public class Raytracing : MonoBehaviour
         SetComputeBuffer(EstimateDirect, kEstimateDirect, "_RayQueue", rayQueueBuffer);
         EstimateDirect.SetVector("rasterSize", new Vector4(Screen.width, Screen.height, 0, 0));
         EstimateDirect.SetInt("lightsNum", gpuLights.Count);
-        EstimateDirect.SetTexture(kSampleShadowRay, "outputTexture", outputTexture);
+        //EstimateDirect.SetTexture(kSampleShadowRay, "outputTexture", outputTexture);
         //EstimateDirect.Dispatch(kEstimateDirect, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
     }
 
+    /*
     void SetupGeneratePath()
     {
         kGeneratePath = generatePath.FindKernel("GeneratePath");
@@ -840,6 +886,7 @@ public class Raytracing : MonoBehaviour
         SetComputeBuffer(generatePath, kGeneratePath, "_RayQueue", rayQueueBuffer);
         generatePath.SetVector("rasterSize", new Vector4(Screen.width, Screen.height, 0, 0));
     }
+    */
 
     void SetupImageReconstruction()
     {

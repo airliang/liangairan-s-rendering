@@ -200,7 +200,7 @@ public class BVHAccel
 			{
 				RenderDebug.DrawDebugBound(m_nodes[i].b0min, m_nodes[i].b0max, Color.white);
 			}
-
+			return;
 			for (int i = 0; i < instBVHNodeAddr; ++i)
             {
 				int nodeAddr = MathUtil.SingleToInt32Bits(m_nodes[i].cids.x);
@@ -258,52 +258,6 @@ public class BVHAccel
 				}
 			}
 		}
-		
-		//m_nodes全是inner node，找到对应的三角形画出来
-		/*
-		for (int i = 0; i < m_nodes.Count; ++i)
-		{
-			int nodeAddr = SingleToInt32Bits(m_nodes[i].cids.x);
-			if (nodeAddr >= instBVHNodeAddr)
-            {
-				RenderDebug.DrawDebugBound(m_nodes[i].b0xy.x, m_nodes[i].b0xy.y, m_nodes[i].b0xy.z, m_nodes[i].b0xy.w, m_nodes[i].b01z.x, m_nodes[i].b01z.y, Color.white);
-			}
-			else
-            {
-				//RenderDebug.DrawDebugBound(m_nodes[i].b0xy.x, m_nodes[i].b0xy.y, m_nodes[i].b0xy.z, m_nodes[i].b0xy.w, m_nodes[i].b01z.x, m_nodes[i].b01z.y, Color.white);
-
-				int triAddr = SingleToInt32Bits(m_nodes[i].cids.x);
-				int triNum = SingleToInt32Bits(m_nodes[i].cids.z);
-
-      //          for (int tri = ~triAddr; tri < ~triAddr + triNum * 3; tri += 3)
-      //          {
-      //              RenderDebug.DrawTriangle(sceneVertices[m_woodTriangleIndices[tri]].position,
-						//sceneVertices[m_woodTriangleIndices[tri + 1]].position,
-						//sceneVertices[m_woodTriangleIndices[tri + 2]].position, Color.red);
-      //          }
-                //RenderDebug.DrawDebugBound(m_nodes[i].b0xy.x, m_nodes[i].b0xy.y, m_nodes[i].b0xy.z, m_nodes[i].b0xy.w, m_nodes[i].b01z.x, m_nodes[i].b01z.y, Color.white);
-            }
-
-			nodeAddr = SingleToInt32Bits(m_nodes[i].cids.y);
-			if (nodeAddr >= instBVHNodeAddr)
-			{
-				RenderDebug.DrawDebugBound(m_nodes[i].b1xy.x, m_nodes[i].b1xy.y, m_nodes[i].b1xy.z, m_nodes[i].b1xy.w, m_nodes[i].b01z.z, m_nodes[i].b01z.w, Color.white);
-			}
-			else
-            {
-				//if (!drawBound)
-				//RenderDebug.DrawDebugBound(m_nodes[i].b1xy.x, m_nodes[i].b1xy.y, m_nodes[i].b1xy.z, m_nodes[i].b1xy.w, m_nodes[i].b01z.z, m_nodes[i].b01z.w, Color.gray);
-				int triAddr = SingleToInt32Bits(m_nodes[i].cids.y);
-				int triNum = SingleToInt32Bits(m_nodes[i].cids.w);
-
-				//for (int tri = ~triAddr; tri < ~triAddr + triNum * 3; tri += 3)
-				//{
-				//	RenderDebug.DrawTriangle(m_vertices[tri].position, m_vertices[tri + 1].position, m_vertices[tri + 2].position, Color.yellow);
-				//}
-				//RenderDebug.DrawDebugBound(m_nodes[i].b1xy.x, m_nodes[i].b1xy.y, m_nodes[i].b1xy.z, m_nodes[i].b1xy.w, m_nodes[i].b01z.z, m_nodes[i].b01z.w, Color.red);
-			}
-		}
-		*/
     }
 
 	public static void TestPartition()
@@ -320,69 +274,6 @@ public class BVHAccel
 			});
 
 		Debug.Log(numbers);
-	}
-
-	void CreateBasic(BVHBuildNode root, List<Vector3> positions, int totalNodes)
-    {
-		//m_nodes.resizeDiscard((root->getSubtreeSize(BVH_STAT_NODE_COUNT) * 64 + Align - 1) & -Align);
-		GPUBVHNode[] nodes = new GPUBVHNode[totalNodes];
-
-		int nextNodeIdx = 0;
-		List<StackEntry> stack = new List<StackEntry>();
-		stack.Add(new StackEntry(root, nextNodeIdx++));
-		GPUBounds b0 = new GPUBounds();
-		GPUBounds b1 = new GPUBounds();
-		int c0;
-		int c1;
-		while (stack.Count > 0)
-		{
-			StackEntry e = stack[stack.Count - 1];
-			stack.RemoveAt(stack.Count - 1);
-
-			GPUBVHNode gpuBVH = new GPUBVHNode();
-
-
-			// Leaf?
-			if (e.node.IsLeaf())
-			{
-				BVHBuildNode leaf = e.node;
-				//gpuBVH.b1 = leaf.bounds;
-				//gpuBVH.b2 = leaf.bounds;
-				//gpuBVH.idx1 = leaf.firstPrimOffset;
-				//gpuBVH.idx2 = leaf.nPrimitives;
-				b0 = leaf.bounds;
-				b1 = leaf.bounds;
-				c0 = leaf.firstPrimOffset;
-				c1 = leaf.nPrimitives;
-			}
-
-			// Internal node?
-
-			else
-			{
-				StackEntry e0 = new StackEntry(e.node.childrenLeft, nextNodeIdx++);
-				stack.Add(e0);
-				StackEntry e1 = new StackEntry(e.node.childrenRight, nextNodeIdx++);
-				stack.Add(e1);
-				//gpuBVH.b1 = e0.node.bounds;
-				//gpuBVH.b2 = e1.node.bounds;
-				//gpuBVH.idx1 = e0.EncodeIdx();
-				//gpuBVH.idx2 = e1.EncodeIdx();
-				b0 = e0.node.bounds;
-				b1 = e1.node.bounds;
-				c0 = e0.EncodeIdx();
-				c1 = e1.EncodeIdx();
-			}
-
-			gpuBVH.b0min = b0.min; //new Vector4(b0.min.x, b0.max.x, b0.min.y, b0.max.y);
-			gpuBVH.b0max = b0.max; //new Vector4(b1.min.x, b1.max.x, b1.min.y, b1.max.y);
-			gpuBVH.b1min = b1.min; //new Vector4(b0.min.z, b0.max.z, b1.min.z, b1.max.z);
-			gpuBVH.b1max = b1.max;
-			gpuBVH.cids = new Vector4(c0, c1, 0, 0);
-
-			nodes[e.idx] = gpuBVH;
-		}
-		m_nodes.AddRange(nodes);
 	}
 
 	//create the gpu bvh nodes
@@ -588,7 +479,7 @@ public class BVHAccel
 	//build 2 types bvh
 	//meshinstance bvh and mesh primitive bvh
 	//return toplevel bvh在bvhbuffer中的位置
-	public int Build(List<Transform> meshTransforms, List<MeshInstance> meshInstances, List<MeshHandle> meshHandles, List<GPUVertex> vertices, List<int> triangles)
+	public int Build(List<MeshInstance> meshInstances, List<MeshHandle> meshHandles, List<GPUVertex> vertices, List<int> triangles)
     {
 		instBVHNodeAddr = 0;
 		List<int> instBVHOffset = new List<int>();
@@ -606,7 +497,7 @@ public class BVHAccel
 			instBVHNodeAddr = nodesNum;
 		}
 		// build the instance bounding box bvh
-		BuildInstBVH(meshTransforms, meshInstances, vertices, triangles, instBVHOffset);
+		BuildInstBVH(meshHandles, meshInstances, vertices, triangles, instBVHOffset);
 
 		for (int i = 0; i < meshInstances.Count; ++i)
         {
@@ -624,15 +515,17 @@ public class BVHAccel
 		return instBVHNodeAddr;
 	}
 
-	public void BuildInstBVH(List<Transform> meshTransforms, List<MeshInstance> meshInstances, List<GPUVertex> vertices, List<int> triangles, List<int> instBVHOffset)
+	public void BuildInstBVH(List<MeshHandle> meshHandles, List<MeshInstance> meshInstances, List<GPUVertex> vertices, List<int> triangles, List<int> instBVHOffset)
     {
 		List<Primitive> primitives = new List<Primitive>();
-		for (int i = 0; i < meshTransforms.Count; ++i)
+		for (int i = 0; i < meshInstances.Count; ++i)
 		{
 			MeshInstance meshInst = meshInstances[i];
 			int meshHandleIndex = meshInst.meshHandleIndex;
-			Renderer renderer = meshTransforms[i].GetComponent<Renderer>();
-			Primitive meshInstPrim = new Primitive(renderer.bounds, meshHandleIndex, i);
+			MeshHandle meshHandle = meshHandles[meshHandleIndex];
+			GPUBounds worldBound = GPUBounds.TransformBounds(ref meshInst.localToWorld, ref meshHandle.localBounds);
+			//Renderer renderer = meshTransforms[i].GetComponent<Renderer>();
+			Primitive meshInstPrim = new Primitive(worldBound, meshHandleIndex, i);
 			primitives.Add(meshInstPrim);
 		}
 		List<Primitive> orderedPrims = new List<Primitive>();
@@ -727,40 +620,6 @@ public class BVHAccel
 		return (t1 >= t0);
 	}
 
-	bool RayBoundIntersect(GPURay ray, Vector3 invDir, Vector3Int signs, Vector4 bxy, Vector2 bz, out float tMin)
-    {
-		float gamma(int n)
-		{
-			float MachineEpsilon = 1.192092896e-07f;
-			return (n * MachineEpsilon) / (1 - n * MachineEpsilon);
-		}
-		tMin = (bxy[signs[0]] - ray.orig.x) * invDir.x;
-		float tMax = (bxy[1 - signs[0]] - ray.orig.x) * invDir.x;
-		float tyMin = (bxy[signs[1] + 2] - ray.orig.y) * invDir.y;
-		float tyMax = (bxy[1 - signs[1] + 2] - ray.orig.y) * invDir.y;
-
-		// Update _tMax_ and _tyMax_ to ensure robust bounds intersection
-		tMax *= 1 + 2 * gamma(3);
-		tyMax *= 1 + 2 * gamma(3);
-		if (tMin > tyMax || tyMin > tMax)
-			return false;
-		if (tyMin > tMin)
-			tMin = tyMin;
-		if (tyMax < tMax)
-			tMax = tyMax;
-
-		// Check for ray intersection against $z$ slab
-		float tzMin = (bz[signs[2]] - ray.orig.z) * invDir.z;
-		float tzMax = (bz[1 - signs[2]] - ray.orig.z) * invDir.z;
-
-		// Update _tzMax_ to ensure robust bounds intersection
-		tzMax *= 1 + 2 * gamma(3);
-		if (tMin > tzMax || tzMin > tMax)
-			return false;
-		if (tzMin > tMin) tMin = tzMin;
-		if (tzMax < tMax) tMax = tzMax;
-		return (tMin < ray.tMax) && (tMax > 0);
-	}
 
 	public static bool WoodTriangleRayIntersect(GPURay ray, Vector4 m0, Vector4 m1, Vector4 m2, ref Vector2 uv, out float hitT)
 	{
@@ -799,38 +658,9 @@ public class BVHAccel
 		return false;
 	}
 
-	/*
-	bool RayBoundIntersect(Vector3 rayOrig, Vector3 rayDirection, float tMin, float tMax, Vector3 invDir, Vector3 bMin, Vector3 bMax, out float hitT)
-	{
-		Vector3 f = (bMax - rayOrig);
-		f.Scale(invDir);
-		Vector3 n = (bMin - rayOrig);
-		n.Scale(invDir);
-
-		Vector3 tmax = Vector3.Max(f, n);
-		Vector3 tmin = Vector3.Min(f, n);
-
-		float t1 = Mathf.Min(Mathf.Min(tmax.x, Mathf.Min(tmax.y, tmax.z)), tMax);
-		float t0 = Mathf.Max(Mathf.Max(tmin.x, Mathf.Max(tmin.y, tmin.z)), tMin);
-		bool intersect = t0 < t1;
-		if (intersect)
-			hitT = t0;
-		else
-			hitT = 0;
-		return intersect;
-	}
-	*/
-
 	public Vector3 GetInverseDirection(Vector3 rayDir)
 	{
 		return rayDir.Invert();
-		float ooeps = Mathf.Pow(2, -80.0f);//exp2f(-80.0f); // Avoid div by zero, returns 1/2^80, an extremely small number
-
-		float idirx = 1.0f / (Mathf.Abs(rayDir.x) > ooeps ? rayDir.x : Mathf.Sign(rayDir.x) * ooeps); // inverse ray direction
-		float idiry = 1.0f / (Mathf.Abs(rayDir.y) > ooeps ? rayDir.y : Mathf.Sign(rayDir.y) * ooeps); // inverse ray direction
-		float idirz = 1.0f / (Mathf.Abs(rayDir.z) > ooeps ? rayDir.z : Mathf.Sign(rayDir.z) * ooeps); // inverse ray direction
-		Vector3 invDir = new Vector3(idirx, idiry, idirz);
-		return invDir;
 	}
 
 	public bool IntersectMeshBVH(GPURay ray, int bvhOffset, MeshInstance meshInstance, out float hitT, out int hitIndex, out GPUInteraction isect)
