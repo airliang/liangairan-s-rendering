@@ -44,6 +44,9 @@ struct Material
 	float specular;
 	float roughness;
 	float anisotropy;
+	float albedoMapMask;
+	float normalMapMask;
+	float metallicMapMask;
 };
 
 struct DisneyMaterial

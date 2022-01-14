@@ -2,8 +2,9 @@ Shader "RayTracing/Disney"
 {
     Properties
     {
-        [MainTexture] _MainTex("Texture", 2D) = "white" {}
+        [MainTexture] _MainTex("Albedo", 2D) = "white" {}
         [MainColor]   _BaseColor("Color", Color) = (1, 1, 1, 1)
+        _NormalTex("NormalMap", 2D) = "Bump" {}
         _metallic("Metallic", Range(0.0, 1.0)) = 0.0
         _specular("Specular", Range(0.0, 1.0)) = 0.0
         _roughness("Roughness", Range(0.0, 1.0)) = 0
@@ -38,6 +39,7 @@ Shader "RayTracing/Disney"
                 float4 vertex : POSITION;
                 float2 uv : TEXCOORD0;
                 float3 normal : NORMAL;
+                float4 tangent : TANGENT;
             };
 
             struct v2f
@@ -45,12 +47,16 @@ Shader "RayTracing/Disney"
                 float2 uv : TEXCOORD0;
                 float3 posWorld :TEXCOORD1;
                 float3 normalWorld : TEXCOORD2;
+                float3 tangentWorld : TEXCOORD3;
+                float3 bitangentWorld : TEXCOORD4;
                 //UNITY_FOG_COORDS(1)
                 float4 vertex : SV_POSITION;
             };
 
             sampler2D _MainTex;
             float4 _MainTex_ST;
+            sampler2D _NormalTex;
+            float4 _NormalTex_ST;
             half4  _BaseColor;
             float  _metallic;
             float  _specular;
@@ -71,6 +77,8 @@ Shader "RayTracing/Disney"
                 o.uv = TRANSFORM_TEX(v.uv, _MainTex);
                 o.posWorld = mul(unity_ObjectToWorld, v.vertex).xyz;
                 o.normalWorld = UnityObjectToWorldNormal(v.normal);
+                o.tangentWorld = normalize(mul(unity_ObjectToWorld, float4(v.tangent.xyz, 0.0)).xyz);
+                o.bitangentWorld = normalize(cross(o.normalWorld, o.tangentWorld) * v.tangent.w);
                 //UNITY_TRANSFER_FOG(o,o.vertex);
                 return o;
             }
@@ -82,6 +90,11 @@ Shader "RayTracing/Disney"
                 half4 baseColor = _BaseColor * tex2D(_MainTex, i.uv);
                 float3 posWorld = i.posWorld.xyz;
                 float3 normal = normalize(i.normalWorld);
+                float3 tangent = i.tangentWorld.xyz;
+                float3 binormal = i.bitangentWorld.xyz;
+                //half3 normal = i.normalDir.xyz;
+                float3 normaltex = UnpackNormal(tex2D(_NormalTex, TRANSFORM_TEX(i.uv, _NormalTex)));
+                normal = normalize(tangent * normaltex.x + binormal * normaltex.y + normal * normaltex.z);
                 float3 lightDir = normalize(_WorldSpaceLightPos0.xyz);
                 float nl = max(dot(normal, lightDir), 0);
                 float3 viewDir = normalize(_WorldSpaceCameraPos.xyz - posWorld);

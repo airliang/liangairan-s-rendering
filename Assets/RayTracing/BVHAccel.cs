@@ -525,7 +525,7 @@ public class BVHAccel
 			MeshHandle meshHandle = meshHandles[meshHandleIndex];
 			GPUBounds worldBound = GPUBounds.TransformBounds(ref meshInst.localToWorld, ref meshHandle.localBounds);
 			//Renderer renderer = meshTransforms[i].GetComponent<Renderer>();
-			Primitive meshInstPrim = new Primitive(worldBound, meshHandleIndex, i);
+			Primitive meshInstPrim = new Primitive(worldBound, i, meshHandleIndex);
 			primitives.Add(meshInstPrim);
 		}
 		List<Primitive> orderedPrims = new List<Primitive>();

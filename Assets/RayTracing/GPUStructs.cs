@@ -328,6 +328,9 @@ public struct GPUMaterial
     public float specular;
     public float roughness;
     public float anisotropy;
+    public float albedoMapMask;
+    public float normalMapMask;
+    public float metallicMapMask;
 
     //public Color ks;
     //public Color kr;

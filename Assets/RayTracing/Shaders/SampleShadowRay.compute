@@ -23,8 +23,8 @@ StructuredBuffer<uint> _RayQueueSizeBuffer;
 StructuredBuffer<uint> _RayQueue;
 //RWTexture2D<half4> outputTexture;
 
-
-
+Texture2D textures[] = {0};
+SamplerState texture_sampler;
 
 
 ShadowRay SampleShadowRay(uint threadId, Light light, Interaction isect, inout RNG rng)

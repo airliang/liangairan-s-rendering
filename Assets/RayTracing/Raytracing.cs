@@ -216,15 +216,16 @@ public class Raytracing : MonoBehaviour
         ImageReconstruction.Dispatch(kImageReconstruction, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
     }
 
-    void SetupMaterials(Shape shape, BSDFMaterial bsdfMaterial, int subMeshIndex)
+    void SetupMaterials(MeshRenderer renderer, int subMeshIndex)
     {
-        Renderer renderer = shape.GetComponent<MeshRenderer>();
-        if (renderer.sharedMaterial.HasProperty("_BaseColor"))
-        {
-            Color _Color = renderer.sharedMaterials[subMeshIndex].GetColor("_BaseColor");
-        }
-        GPUMaterial gpuMtl = new GPUMaterial();
-        gpuMtl.baseColor = bsdfMaterial.matte.kd.spectrum.LinearToVector4(); //_Color.linear;
+        //Renderer renderer = shape.GetComponent<MeshRenderer>();
+        //if (renderer.sharedMaterial.HasProperty("_BaseColor"))
+        //{
+        //    Color _Color = renderer.sharedMaterials[subMeshIndex].GetColor("_BaseColor");
+        //}
+        MaterialParam materialParam = MaterialParam.ConvertUnityMaterial(renderer.sharedMaterials[subMeshIndex]);
+        GPUMaterial gpuMtl = materialParam.ConvertToGPUMaterial();
+        //gpuMtl.baseColor = bsdfMaterial.matte.kd.spectrum.LinearToVector4(); //_Color.linear;
 
 
         gpuMaterials.Add(gpuMtl);
@@ -232,9 +233,10 @@ public class Raytracing : MonoBehaviour
 
     void SetupSceneData()
     {
-        Shape[] shapes = GameObject.FindObjectsOfType<Shape>();
+        MeshRenderer[] meshRenderers = GameObject.FindObjectsOfType<MeshRenderer>();
+        
         //worldMatrices = new Matrix4x4[shapes.Length];
-        if (shapes.Length == 0)
+        if (meshRenderers.Length == 0)
             return;
 
         int renderObjectsNum = 0;
@@ -248,30 +250,33 @@ public class Raytracing : MonoBehaviour
 
             //先生成MeshHandle
             int meshHandleIndex = 0;
-            for (int i = 0; i < shapes.Length; ++i)
+            for (int i = 0; i < meshRenderers.Length; ++i)
             {
+                MeshRenderer meshRenderer = meshRenderers[i];
                 //worldMatrices[i] = shapes[i].transform.localToWorldMatrix;
 
-                BSDFMaterial bsdfMaterial = shapes[i].GetComponent<BSDFMaterial>();
-                if ((shapes[i].shapeType == Shape.ShapeType.triangleMesh || shapes[i].shapeType == Shape.ShapeType.rectangle) && bsdfMaterial != null)
+                BSDFMaterial bsdfMaterial = meshRenderers[i].GetComponent<BSDFMaterial>();
+                //if ((meshRenderers[i].shapeType == Shape.ShapeType.triangleMesh || meshRenderers[i].shapeType == Shape.ShapeType.rectangle) && bsdfMaterial != null)
                 {
                     
 
-                    if (shapes[i].isAreaLight)
-                    {
-                        lightObjectsNum++;
-                    }
-
-                    MeshFilter meshRenderer = shapes[i].GetComponent<MeshFilter>();
-                    Mesh mesh = meshRenderer.sharedMesh;
+                    //MeshRenderer meshRenderer = meshRenderers[i];//shapes[i].GetComponent<MeshFilter>();
+                    MeshFilter meshFilter = meshRenderer.GetComponent<MeshFilter>();
+                    Mesh mesh = meshFilter.sharedMesh;
                     if (!mesh.isReadable)
                     {
                         continue;
                     }
-                    if (shapes[i].shapeType == Shape.ShapeType.rectangle)
+
+                    Light lightComponent = meshRenderer.GetComponent<Light>();
+                    if (lightComponent != null && lightComponent.type == LightType.Area)
                     {
-                        mesh = GetRectangleMesh();
+                        lightObjectsNum++;
                     }
+                    //if (shapes[i].shapeType == Shape.ShapeType.rectangle)
+                    //{
+                    //    mesh = GetRectangleMesh();
+                    //}
 
                     if (sharedMeshes.Contains(mesh))
                     {
@@ -293,7 +298,7 @@ public class Raytracing : MonoBehaviour
                         int primitiveTriangleOffset = gpuVertices.Count;
                         int primitiveVertexOffset = triangles.Count;
                         //material这部分暂时先不处理，写死成lambert diffuse
-                        SetupMaterials(shapes[i], bsdfMaterial, sm);
+                        SetupMaterials(meshRenderer, sm);
                         SubMeshDescriptor subMeshDescriptor = mesh.GetSubMesh(sm);
                         //MeshHandle meshHandle = new MeshHandle(vertexOffset, triangleOffset, mesh.vertexCount, mesh.triangles.Length, mesh.bounds);
                         MeshHandle meshHandle = new MeshHandle(subMeshVertexOffset, triangleOffset, subMeshDescriptor.vertexCount, 
@@ -327,23 +332,24 @@ public class Raytracing : MonoBehaviour
 
             //生成meshinstance和对应的material
             meshHandleIndex = 0;
-            for (int i = 0; i < shapes.Length; ++i)
+            for (int i = 0; i < meshRenderers.Length; ++i)
             {
-                BSDFMaterial bsdfMaterial = shapes[i].GetComponent<BSDFMaterial>();
-                Transform transform = shapes[i].transform;
+                MeshRenderer meshRenderer = meshRenderers[i];
+                //BSDFMaterial bsdfMaterial = shapes[i].GetComponent<BSDFMaterial>();
+                Transform transform = meshRenderer.transform;
                 int lightIndex = -1;
-                if ((shapes[i].shapeType == Shape.ShapeType.triangleMesh || shapes[i].shapeType == Shape.ShapeType.rectangle) && bsdfMaterial != null)
+                //if ((shapes[i].shapeType == Shape.ShapeType.triangleMesh || shapes[i].shapeType == Shape.ShapeType.rectangle) && bsdfMaterial != null)
                 {
 
-                    MeshFilter meshRenderer = shapes[i].GetComponent<MeshFilter>();
-                    Mesh mesh = meshRenderer.sharedMesh;
-                    if (shapes[i].shapeType == Shape.ShapeType.rectangle)
-                    {
-                        mesh = GetRectangleMesh();
-                    }
+                    MeshFilter meshFilter = meshRenderer.GetComponent<MeshFilter>();
+                    Mesh mesh = meshFilter.sharedMesh;
+                    //if (shapes[i].shapeType == Shape.ShapeType.rectangle)
+                    //{
+                    //    mesh = GetRectangleMesh();
+                    //}
                     //int meshIndex = sharedMeshes.FindIndex(s => s == mesh);
-
-                    if (shapes[i].isAreaLight)
+                    Light lightComponent = meshRenderer.GetComponent<Light>();
+                    if (lightComponent != null && lightComponent.type == LightType.Area)
                     {
                         AreaLightResource areaLight = null;
                         if (!meshDistributions.TryGetValue(mesh, out areaLight))
@@ -382,15 +388,17 @@ public class Raytracing : MonoBehaviour
                         areaLightInstance.light = areaLight;
                         areaLightInstance.meshInstanceID = meshInstances.Count;
                         areaLightInstance.area = lightArea;
-                        areaLightInstance.radiance = shapes[i].lightSpectrum.linear.ToVector3().Mul(shapes[i].spectrumScale);
+                        Shape shape = meshRenderer.GetComponent<Shape>();
+                        areaLightInstance.radiance = shape.lightSpectrum.linear.ToVector3().Mul(shape.spectrumScale);
+                        //areaLightInstance.radiance = lightComponent.color.linear.ToVector3() * lightComponent.intensity;
                         areaLightInstance.pointRadius = 0;
-                        areaLightInstance.intensity = shapes[i].lightIntensity;
+                        areaLightInstance.intensity = lightComponent.intensity; // shapes[i].lightIntensity;
                         areaLightInstances.Add(areaLightInstance);
 
                         lightIndex = gpuLights.Count;
                         GPULight gpuLight = new GPULight();
-                        gpuLight.radiance = shapes[i].lightSpectrum.linear.ToVector3().Mul(shapes[i].spectrumScale);
-                        gpuLight.intensity = shapes[i].lightIntensity;
+                        gpuLight.radiance = areaLightInstance.radiance;
+                        gpuLight.intensity = areaLightInstance.intensity;
                         //gpuLight.trianglesNum = mesh.triangles.Length / 3;
                         gpuLight.pointRadius = 0;
                         //why add 1? because the first discript is the light object distributions.
@@ -438,27 +446,18 @@ public class Raytracing : MonoBehaviour
                 lightBuffer = new ComputeBuffer(1, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPULight)), ComputeBufferType.Structured);
             }
             
-            //if (Distributions1D.Count > 0)
-            //{
-            //    distribution1DBuffer = new ComputeBuffer(Distributions1D.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(Vector2)), ComputeBufferType.Default);
-            //    distribution1DBuffer.SetData(Distributions1D.ToArray());
-            //}
-            //else
-            //{
-            //    distribution1DBuffer = new ComputeBuffer(1, sizeof(float) * 2, ComputeBufferType.Default);
-            //}
-            
         }
         else
         {
-            for (int i = 0; i < shapes.Length; ++i)
+            for (int i = 0; i < meshRenderers.Length; ++i)
             {
+                MeshRenderer meshRenderer = meshRenderers[i];
                 //worldMatrices[i] = shapes[i].transform.localToWorldMatrix;
-                BSDFMaterial bsdfMaterial = shapes[i].GetComponent<BSDFMaterial>();
-                if (shapes[i].shapeType == Shape.ShapeType.triangleMesh && bsdfMaterial != null)
+                //BSDFMaterial bsdfMaterial = shapes[i].GetComponent<BSDFMaterial>();
+                //if (shapes[i].shapeType == Shape.ShapeType.triangleMesh && bsdfMaterial != null)
                 {
-                    MeshFilter meshRenderer = shapes[i].GetComponent<MeshFilter>();
-                    Mesh mesh = meshRenderer.sharedMesh;
+                    MeshFilter meshFilter = meshRenderer.GetComponent<MeshFilter>();
+                    Mesh mesh = meshFilter.sharedMesh;
 
                     if (mesh.subMeshCount > 1)
                     {
@@ -470,7 +469,7 @@ public class Raytracing : MonoBehaviour
                             //positions.Add(shapes[i].transform.localToWorldMatrix.MultiplyPoint(mesh.vertices[j]));
                             //uvs.Add(mesh.uv[j]);
                             GPUVertex vertex = new GPUVertex();
-                            vertex.position = shapes[i].transform.localToWorldMatrix.MultiplyPoint(mesh.vertices[j]);
+                            vertex.position = meshRenderer.transform.localToWorldMatrix.MultiplyPoint(mesh.vertices[j]);
                             vertex.uv = mesh.uv[j];
                             gpuVertices.Add(vertex);
                         }
@@ -499,7 +498,7 @@ public class Raytracing : MonoBehaviour
                             //positions.Add(shapes[i].transform.localToWorldMatrix.MultiplyPoint(mesh.vertices[j]));
                             //uvs.Add(mesh.uv[j]);
                             GPUVertex vertex = new GPUVertex();
-                            vertex.position = shapes[i].transform.localToWorldMatrix.MultiplyPoint(mesh.vertices[j]);
+                            vertex.position = meshRenderer.transform.localToWorldMatrix.MultiplyPoint(mesh.vertices[j]);
                             vertex.uv = mesh.uv[j];
                             gpuVertices.Add(vertex);
                         }
