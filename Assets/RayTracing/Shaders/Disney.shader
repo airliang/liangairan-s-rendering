@@ -4,7 +4,7 @@ Shader "RayTracing/Disney"
     {
         [MainTexture] _MainTex("Albedo", 2D) = "white" {}
         [MainColor]   _BaseColor("Color", Color) = (1, 1, 1, 1)
-        _NormalTex("NormalMap", 2D) = "Bump" {}
+        _NormalTex("NormalMap", 2D) = "bump" {}
         _metallic("Metallic", Range(0.0, 1.0)) = 0.0
         _specular("Specular", Range(0.0, 1.0)) = 0.0
         _roughness("Roughness", Range(0.0, 1.0)) = 0
@@ -14,8 +14,9 @@ Shader "RayTracing/Disney"
         _sheenTint("SheenTint", Range(0.0, 1.0)) = 0
         _clearcoat("Clearcoat", Range(0.0, 1.0)) = 0
         _clearcoatGloss("ClearcoatGloss", Range(0.0, 1.0)) = 0
-        _ior("IOR", Float) = 1.0
+        _ior("IOR", Range(0.0, 2.0)) = 1.0
         _specularTransmission("SpecularTransmission", Range(0.0, 1.0)) = 0
+        _Cutoff("Alpha Cutoff", Range(0.0, 1.0)) = 0
     }
     SubShader
     {
@@ -69,6 +70,7 @@ Shader "RayTracing/Disney"
             float  _clearcoatGloss;
             float  _ior;
             float  _specularTransmission;
+            half _Cutoff;
 
             v2f vert (appdata v)
             {
@@ -88,6 +90,7 @@ Shader "RayTracing/Disney"
             {
                 // sample the texture
                 half4 baseColor = _BaseColor * tex2D(_MainTex, i.uv);
+                clip(baseColor.a - _Cutoff);
                 float3 posWorld = i.posWorld.xyz;
                 float3 normal = normalize(i.normalWorld);
                 float3 tangent = i.tangentWorld.xyz;

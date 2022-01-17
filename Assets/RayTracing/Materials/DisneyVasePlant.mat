@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: DisneyWhite
+  m_Name: DisneyVasePlant
   m_Shader: {fileID: 4800000, guid: 1eca9ecc9e2f3b44b8b3e861517161f5, type: 3}
   m_ShaderKeywords: 
   m_LightmapFlags: 4
@@ -40,7 +40,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MainTex:
-        m_Texture: {fileID: 2800000, guid: e8648f34a4ea5844685b57a415643da1, type: 3}
+        m_Texture: {fileID: 2800000, guid: cb3a1c7e907833441b1e7d0b435401f6, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MetallicGlossMap:
@@ -88,7 +88,7 @@ Material:
     - _specularTint: 0
     - _specularTransmission: 0
     m_Colors:
-    - _BaseColor: {r: 1, g: 0.8784314, b: 0.6627451, a: 1}
+    - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
   m_BuildTextureStacks: []

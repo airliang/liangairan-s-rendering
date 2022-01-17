@@ -322,7 +322,8 @@ public struct GPUBVHNode
 public struct GPUMaterial
 {
     //public BSDFMaterial.BSDFType materialType;
-    public Vector4 materialParams;  //x-materialtype, y-sigma, z-roughness
+    //public Vector4 materialParams;  //x-materialtype, y-sigma, z-roughness
+    public int materialType;
     public Vector4 baseColor;       //a is texture mask
     public float metallic;
     public float specular;

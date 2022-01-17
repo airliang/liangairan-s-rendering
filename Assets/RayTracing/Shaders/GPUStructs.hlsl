@@ -38,7 +38,7 @@ struct Light
 
 struct Material
 {
-	float4 materialParams;  //x-materialtype, y-sigma, z-roughness
+	int materialType; 
 	float4 kd;
 	float metallic;
 	float specular;

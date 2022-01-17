@@ -3,28 +3,13 @@
 #include "sampler.hlsl"
 #include "geometry.hlsl"
 
-#define Matte 0
-#define Plastic 1
-#define Mirror 2
-#define Metal 3
-#define Glass 4
+//#define Matte 0
+//#define Plastic 1
+//#define Mirror 2
+//#define Metal 3
+//#define Glass 4
 //gpu中只分两种，reflection和refraction
 
-
-//float AbsCosTheta(float3 w)
-//{
-//	return abs(w.z);
-//}
-
-
-struct BSDF
-{
-	float3 ng;  //geometry normal
-	float3 ns;  //shading  normal
-	float3 ss;  //tengent
-
-
-};
 
 
 float3 LambertBRDF(float3 wi, float3 wo, float3 R)
@@ -39,13 +24,5 @@ float LambertPDF(float3 wi, float3 wo)
 }
 
 
-float3 SampleLambert(Material material, float3 wo, out float3 wi, float2 u, out float pdf)
-{
-	wi = CosineSampleHemisphere(u);
-	if (wo.z < 0)
-		wi.z *= -1;
-	pdf = LambertPDF(wi, wo);
-	return LambertBRDF(wi, wo, material.kd.rgb);
-}
 
 #endif

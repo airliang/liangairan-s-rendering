@@ -1122,16 +1122,37 @@ bool IntersectP(Ray ray, out float hitT, out int meshInstanceIndex)
 	return hitIndex > -1;
 }
 
-
-bool ShadowRayVisibilityTest(ShadowRay shadowRay, float3 normal, out float hitT, out int meshInstanceIndex)
+bool ClosestHit(Ray ray, out Interaction interaction)
 {
-	meshInstanceIndex = -1;
+	bool hitted = true;
+	while (true)
+	{
+		hitted = IntersectBVH(ray, interaction);
+		if (!hitted)
+			break;
+		else
+		{
+			if (interaction.materialID == -1)
+			{
+				ray = SpawnRay(interaction.p, ray.direction, -interaction.normal, FLT_MAX);
+			}
+			else
+			{
+				//alphatest check must be implemented
+				break;
+			}
+		}
+	}
+	return hitted;
+}
+
+bool ShadowRayVisibilityTest(ShadowRay shadowRay, float3 normal)
+{
 	Ray ray = SpawnRay(shadowRay.p0, shadowRay.p1 - shadowRay.p0, normal, 1.0 - ShadowEpsilon);
-	//ray.orig.xyz = shadowRay.p0;
-	//ray.orig.w = 1.0 - ShadowEpsilon;
-	//ray.direction.xyz = shadowRay.p1 - shadowRay.p0;
-	//ray.direction.w = 0;
-	return !IntersectP(ray, hitT, meshInstanceIndex);
+	Interaction isect = (Interaction)0;
+	return !ClosestHit(ray, isect);
+
+	//!IntersectP(ray, hitT, meshInstanceIndex);
 }
 
 #endif

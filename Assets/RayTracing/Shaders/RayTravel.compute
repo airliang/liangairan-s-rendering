@@ -34,44 +34,44 @@ void RayTraversal(uint3 id : SV_DispatchThreadID)
     //int pathState = pathStates[threadId];
     //if (pathState > 0)
     //{
-        Ray ray = Rays[workIndex];
-        Interaction isect = (Interaction)0;//Intersections[threadId];
-        //if (IntersectBVHandTriangles(ray, 0, isect))
-        bool foundIntersect = IntersectBVH(ray, isect);
-        PathRadiance pathRadiance = pathRadiances[workIndex];
-        if (foundIntersect)
+    Ray ray = Rays[workIndex];
+    Interaction isect = (Interaction)0;//Intersections[threadId];
+    //if (IntersectBVHandTriangles(ray, 0, isect))
+    bool foundIntersect = ClosestHit(ray, isect);//IntersectBVH(ray, isect);
+    PathRadiance pathRadiance = pathRadiances[workIndex];
+    if (foundIntersect)
+    {
+        int meshInstanceIndex = isect.meshInstanceID;
+        MeshInstance meshInstance = MeshInstances[meshInstanceIndex];
+        int lightIndex = meshInstance.GetLightIndex();
+
+        //isect.p.w = 1;
+        if (lightIndex >= 0 && bounces == 0)
         {
-            int meshInstanceIndex = isect.meshInstanceID;
-            MeshInstance meshInstance = MeshInstances[meshInstanceIndex];
-            int lightIndex = meshInstance.GetLightIndex();
-
-            //isect.p.w = 1;
-            if (lightIndex >= 0 && bounces == 0)
-            {
-                Light light = lights[lightIndex];
-                pathRadiance.li += pathRadiance.beta * light.radiance;
-                //color = light.radiance;
-                //isect.p.w = 0;
-            }
-
-            //outputTexture[id.xy] = half4(color, 1);//abs(ray.direction);
-            //if (bounces == 1)
-            //    outputTexture[id.xy] = half4(abs(ray.direction), 1);
-            Intersections[workIndex] = isect;
-            pathRadiances[workIndex] = pathRadiance;
-            //pathStates[threadId] = 1;
-            uint index;
-            InterlockedAdd(_RayQueueSizeBuffer[queueSizeIndex + 1], 1, index);
-            _RayQueue[index] = workIndex;
+            Light light = lights[lightIndex];
+            pathRadiance.li += pathRadiance.beta * light.radiance;
+            //color = light.radiance;
+            //isect.p.w = 0;
         }
-        //else
-        //{
-        //    //sample enviroment map
-        //    pathRadiance.li += pathRadiance.beta * float3(0, 0, 0);
-        //    isect.p.w = -1;
-        //    pathStates[threadId] = 0;
-        //    //outputTexture[id.xy] = half4(0, 0, 0, 1);
-        //}
+
+        //outputTexture[id.xy] = half4(color, 1);//abs(ray.direction);
+        //if (bounces == 1)
+        //    outputTexture[id.xy] = half4(abs(ray.direction), 1);
+        Intersections[workIndex] = isect;
+        pathRadiances[workIndex] = pathRadiance;
+        //pathStates[threadId] = 1;
+        uint index;
+        InterlockedAdd(_RayQueueSizeBuffer[queueSizeIndex + 1], 1, index);
+        _RayQueue[index] = workIndex;
+    }
+    //else
+    //{
+    //    //sample enviroment map
+    //    pathRadiance.li += pathRadiance.beta * float3(0, 0, 0);
+    //    isect.p.w = -1;
+    //    pathStates[threadId] = 0;
+    //    //outputTexture[id.xy] = half4(0, 0, 0, 1);
     //}
+//}
     
 }

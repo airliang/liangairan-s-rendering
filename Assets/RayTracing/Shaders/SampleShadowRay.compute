@@ -1,6 +1,6 @@
 #include "bvhaccel.hlsl"
 #include "sampler.hlsl"
-#include "bxdf.hlsl"
+#include "materials.hlsl"
 #include "light.hlsl"
 #include "distributions.hlsl"
 
@@ -73,12 +73,13 @@ ShadowRay SampleShadowRay(uint threadId, Light light, Interaction isect, inout R
 		Material material = materials[isect.materialID];
 		float3 wiLocal = isect.WorldToLocal(wi);
 		float3 woLocal = isect.WorldToLocal(isect.wo.xyz);
-		float3 f = LambertBRDF(woLocal, wiLocal, material.kd.xyz) * abs(dot(wi, isect.normal));
-		float scatteringPdf = LambertPDF(wiLocal, woLocal);
-		int meshInstanceIndex = -1;
-		float hitT = 0;
-		
-		bool shadowRayVisible = ShadowRayVisibilityTest(shadowRay, isect.normal, hitT, meshInstanceIndex);
+		float scatteringPdf = 0;
+		float3 f = MaterialBRDF(material, woLocal, wiLocal, isect.uv.xy, scatteringPdf);
+		f *= abs(dot(wi, isect.normal));
+		//float3 f = LambertBRDF(wiLocal, woLocal, material.kd.xyz) * abs(dot(wi, isect.normal));
+		//float scatteringPdf = LambertPDF(wiLocal, woLocal);
+
+		bool shadowRayVisible = ShadowRayVisibilityTest(shadowRay, isect.normal);
 
 		if (shadowRayVisible)
 		{
