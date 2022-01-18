@@ -79,8 +79,8 @@ public class Raytracing : MonoBehaviour
     public bool useInstanceBVH = true;
     public FilterType filterType = FilterType.Gaussian;
     public Vector2 fiterRadius = Vector2.one;
-
     public Texture2D testTexture;
+
     int kGeneratePrimaryRay = -1;
     //generate path ray
     int kGeneratePath = -1;
@@ -126,12 +126,7 @@ public class Raytracing : MonoBehaviour
     const int MAX_PATH = 5;
     int samplesPerPixel = 1024;
 
-    //for test
-    //IndepententSampler indepententSampler = new IndepententSampler();
-    //IndepententSampler indepententSampler2 = new IndepententSampler();
-    int kTestSampler;
 
-    
     //toplevel bvh在bvh buffer中的位置
     int instBVHNodeAddr = -1;
     int framesNum = 0;
@@ -915,17 +910,18 @@ public class Raytracing : MonoBehaviour
 
     void SetTextures(ComputeShader cs, int kernel)
     {
-        RayTracingTextures.Instance.AddAlbedoTexture(testTexture);
-        cs.SetTexture(kernel, "albedoTexArray128", RayTracingTextures.Instance.GetAlbedo2DArray(128));
-        cs.SetTexture(kernel, "albedoTexArray256", RayTracingTextures.Instance.GetAlbedo2DArray(256));
-        cs.SetTexture(kernel, "albedoTexArray512", RayTracingTextures.Instance.GetAlbedo2DArray(512));
-        cs.SetTexture(kernel, "albedoTexArray1024", RayTracingTextures.Instance.GetAlbedo2DArray(1024));
+        //cs.SetTexture(kernel, "albedoTexArray128", RayTracingTextures.Instance.GetAlbedo2DArray(128));
+        //cs.SetTexture(kernel, "albedoTexArray256", RayTracingTextures.Instance.GetAlbedo2DArray(256));
+        //cs.SetTexture(kernel, "albedoTexArray512", RayTracingTextures.Instance.GetAlbedo2DArray(512));
+        //cs.SetTexture(kernel, "albedoTexArray1024", RayTracingTextures.Instance.GetAlbedo2DArray(1024));
 
-        cs.SetTexture(kernel, "normalTexArray128", RayTracingTextures.Instance.GetNormal2DArray(128));
-        cs.SetTexture(kernel, "normalTexArray256", RayTracingTextures.Instance.GetNormal2DArray(256));
-        cs.SetTexture(kernel, "normalTexArray512", RayTracingTextures.Instance.GetNormal2DArray(512));
-        cs.SetTexture(kernel, "normalTexArray1024", RayTracingTextures.Instance.GetNormal2DArray(1024));
-        cs.SetTexture(kernel, "testTexture", testTexture);
+        //cs.SetTexture(kernel, "normalTexArray128", RayTracingTextures.Instance.GetNormal2DArray(128));
+        //cs.SetTexture(kernel, "normalTexArray256", RayTracingTextures.Instance.GetNormal2DArray(256));
+        //cs.SetTexture(kernel, "normalTexArray512", RayTracingTextures.Instance.GetNormal2DArray(512));
+        //cs.SetTexture(kernel, "normalTexArray1024", RayTracingTextures.Instance.GetNormal2DArray(1024));
+
+        cs.SetTexture(kernel, "albedoTexArray", RayTracingTextures.Instance.GetAlbedo2DArray(128));
+        cs.SetTexture(kernel, "normalTexArray", RayTracingTextures.Instance.GetNormal2DArray(128));
     }
 
     void SetupRayTraversal()

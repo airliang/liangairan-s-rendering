@@ -16,37 +16,25 @@
 #define GET_TEXTUREARRAY_INDEX(x) ((x) & 0x000000ff)
 
 
-Texture2DArray albedoTexArray128;
-Texture2DArray albedoTexArray256;
-Texture2DArray albedoTexArray512;
-Texture2DArray albedoTexArray1024;
-
-Texture2DArray normalTexArray128;
-Texture2DArray normalTexArray256;
-Texture2DArray normalTexArray512;
-Texture2DArray normalTexArray1024;
+//Texture2DArray albedoTexArray128;
+//Texture2DArray albedoTexArray256;
+//Texture2DArray albedoTexArray512;
+//Texture2DArray albedoTexArray1024;
+//
+//Texture2DArray normalTexArray128;
+//Texture2DArray normalTexArray256;
+//Texture2DArray normalTexArray512;
+//Texture2DArray normalTexArray1024;
+Texture2DArray albedoTexArray;
+Texture2DArray normalTexArray;
 SamplerState Albedo_linear_repeat_sampler;
 SamplerState Albedo_linear_clamp_sampler;
 SamplerState Normal_linear_repeat_sampler;
-Texture2D<float4> testTexture;
 SamplerState linearRepeatSampler;
 
-float4 SampleAlbedoTexture(float2 uv, int texArrayId, int texIndex)
+float4 SampleAlbedoTexture(float2 uv, int texIndex)
 {
-	switch (texArrayId)
-	{
-	case 0: 
-		return albedoTexArray128.SampleLevel(Albedo_linear_repeat_sampler, float3(uv, texIndex), 0);
-	case 1: 
-		return albedoTexArray256.SampleLevel(Albedo_linear_repeat_sampler, float3(uv, texIndex), 0);
-	case 2: 
-		return albedoTexArray512.SampleLevel(Albedo_linear_repeat_sampler, float3(uv, texIndex), 0);
-	case 3: 
-		return albedoTexArray1024.SampleLevel(Albedo_linear_repeat_sampler, float3(uv, texIndex), 0);
-	case 4:
-		return testTexture.SampleLevel(linearRepeatSampler, uv, 0);
-	}
-	return float4(1, 1, 1, 1);
+	return albedoTexArray.SampleLevel(Albedo_linear_repeat_sampler, float3(uv, texIndex), 0);
 }
 
 struct ShadingMaterial
@@ -71,9 +59,9 @@ void UnpackShadingMaterial(Material material, inout ShadingMaterial shadingMater
 	if (IS_TEXTURED_PARAM(mask))
 	{
 		textureIndex = GET_TEXTUREARRAY_INDEX(mask);
-		textureArrayId = GET_TEXTUREARRAY_ID(mask);
+		//textureArrayId = GET_TEXTUREARRAY_ID(mask);
 		//float4 albedo = testTexture.SampleLevel(linearRepeatSampler, uv, 0);
-		float4 albedo = SampleAlbedoTexture(uv, textureArrayId, textureIndex);
+		float4 albedo = SampleAlbedoTexture(uv, textureIndex);
 		shadingMaterial.reflectance *= albedo.rgb;
 	}
 

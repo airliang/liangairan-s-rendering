@@ -1,6 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Experimental.Rendering;
+using UnityEngine.Rendering;
 
 public enum BxDFType
 {
@@ -122,107 +124,70 @@ public class MaterialParam
 
 public class RayTracingTextures : Singleton<RayTracingTextures>
 {
-    public Texture2DArray m_albedos128;
-    public Texture2DArray m_albedos256;
-    public Texture2DArray m_albedos512;
-    public RenderTexture m_albedos1024;
-    public Texture2DArray m_albedos2048;
+    //public Texture2DArray m_albedos128;
+    //public Texture2DArray m_albedos256;
+    //public Texture2DArray m_albedos512;
+    //public Texture2DArray m_albedos1024;
+    ////public RenderTexture m_albedos1024;
+    //public Texture2DArray m_albedos2048;
 
-    public Texture2DArray m_normals128;
-    public Texture2DArray m_normals256;
-    public Texture2DArray m_normals512;
-    public Texture2DArray m_normals1024;
-    public Texture2DArray m_normals2048;
+    //public Texture2DArray m_normals128;
+    //public Texture2DArray m_normals256;
+    //public Texture2DArray m_normals512;
+    //public Texture2DArray m_normals1024;
+    //public Texture2DArray m_normals2048;
 
-    public Texture2DArray m_metallics128;
-    public Texture2DArray m_metallics256;
-    public Texture2DArray m_metallics512;
-    public Texture2DArray m_metallics1024;
-    public Texture2DArray m_metallics2048;
+    //public Texture2DArray m_metallics128;
+    //public Texture2DArray m_metallics256;
+    //public Texture2DArray m_metallics512;
+    //public Texture2DArray m_metallics1024;
+    //public Texture2DArray m_metallics2048;
+
+    public RenderTexture m_albedos;
+    public RenderTexture m_normals;
+    public RenderTexture m_metallics;
 
     private Dictionary<Texture, uint> albedoMapMasks = new Dictionary<Texture, uint>();
     private Dictionary<Texture, uint> normalMapMasks = new Dictionary<Texture, uint>();
     private Dictionary<Texture, uint> metallicMapMasks = new Dictionary<Texture, uint>();
-    private int[] m_textureArrayCounters = new int[5];
-    private int[] m_normalArrayCounters = new int[5];
-    private int[] m_metallicArrayCounters = new int[5];
+    private int m_albedoArrayCounters = 0;
+    private int m_normalArrayCounters = 0;
+    private int m_metallicArrayCounters = 0;
+
+    private int m_maxAlbedoSlice = 16;
+    private int m_maxNormalSlice = 16;
+    private int m_maxMetallicSlice = 16;
+
+    private static RenderTexture CreateRT(int width, int height, int depth, TextureDimension _dimension, int _volumeDepth, string _name)
+    {
+        return new RenderTexture(width, height, depth, GraphicsFormat.R8G8B8A8_UNorm)
+        {
+            name = _name,
+            dimension = _dimension,
+            volumeDepth = _volumeDepth,
+            useMipMap = true,
+        };
+    }
 
     public Texture GetAlbedo2DArray(int size)
     {
-        switch (size)
-        {
-            case 128:
-                if (m_albedos128 == null)
-                    m_albedos128 = new Texture2DArray(size, size, 16, TextureFormat.DXT1, true)
-                    {
-                        name = "albedoArray128"
-                    };
-                return m_albedos128;
-            case 256:
-                if (m_albedos256 == null)
-                    m_albedos256 = new Texture2DArray(size, size, 16, TextureFormat.DXT1, true)
-                    {
-                        name = "albedoArray256"
-                    };
-                return m_albedos256;
-            case 512:
-                if (m_albedos512 == null)
-                    m_albedos512 = new Texture2DArray(size, size, 16, TextureFormat.DXT1, true)
-                    {
-                        name = "albedoArray512"
-                    };
-                return m_albedos512;
-            case 1024:
-                if (m_albedos1024 == null)
-                    //m_albedos1024 = new Texture2DArray(size, size, 16, TextureFormat.DXT1, true)
-                    m_albedos1024 = new RenderTexture(size, size, 0, UnityEngine.Experimental.Rendering.GraphicsFormat.R8G8B8A8_UNorm)
-                    {
-                        name = "albedoArray1024",
-                        dimension = UnityEngine.Rendering.TextureDimension.Tex2DArray,
-                        volumeDepth = 16,
-                    };
-                return m_albedos1024;
-        }
         
+        if (m_albedos == null)
+        {
+            m_albedos = CreateRT(512, 512, 0, TextureDimension.Tex2DArray, m_maxAlbedoSlice, "albedoArray512");
+        }
 
-        return null;
+        return m_albedos;
     }
 
-    public Texture2DArray GetNormal2DArray(int size)
+    public Texture GetNormal2DArray(int size)
     {
-        switch (size)
+        if (m_normals == null)
         {
-            case 128:
-                if (m_normals128 == null)
-                    m_normals128 = new Texture2DArray(size, size, 16, TextureFormat.DXT1, true)
-                    {
-                        name = "normalArray128"
-                    };
-                return m_normals128;
-            case 256:
-                if (m_normals256 == null)
-                    m_normals256 = new Texture2DArray(size, size, 16, TextureFormat.DXT1, true)
-                    {
-                        name = "normalArray256"
-                    };
-                return m_normals256;
-            case 512:
-                if (m_normals512 == null)
-                    m_normals512 = new Texture2DArray(size, size, 16, TextureFormat.DXT1, true)
-                    {
-                        name = "normalArray512"
-                    };
-                return m_normals512;
-            case 1024:
-                if (m_normals1024 == null)
-                    m_normals1024 = new Texture2DArray(size, size, 16, TextureFormat.DXT1, true)
-                    {
-                        name = "normalArray1024"
-                    };
-                return m_normals1024;
+            m_normals = CreateRT(512, 512, 0, TextureDimension.Tex2DArray, m_maxNormalSlice, "normalArray512");
         }
 
-        return null;
+        return m_normals;
     }
 
     public uint AddAlbedoTexture(Texture2D texture)
@@ -232,90 +197,35 @@ public class RayTracingTextures : Singleton<RayTracingTextures>
         {
             return mask;
         }
+ 
+        if (m_albedos == null)
+        {
+            m_albedos = CreateRT(512, 512, 0, TextureDimension.Tex2DArray, m_maxAlbedoSlice, "albedoArray512");
+        }
 
+        if (m_albedoArrayCounters >= m_maxAlbedoSlice)
+        {
+            m_albedos.Release();
+            m_maxAlbedoSlice += 16;
+            m_albedos = CreateRT(512, 512, 0, TextureDimension.Tex2DArray, m_maxAlbedoSlice, "albedoArray512");
+            var enumerator = albedoMapMasks.GetEnumerator();
+            while (enumerator.MoveNext())
+            {
+                Texture albedo = enumerator.Current.Key;
+                uint textMask = enumerator.Current.Value;
+                int slice = (int)(textMask & 0x000000ff);
+                Graphics.Blit(texture, m_albedos, 0, slice);
+            }
+        }
+
+        Graphics.Blit(texture, m_albedos, 0, m_albedoArrayCounters);
+
+        //Graphics.CopyTexture(texture, 0, dstTextureArray, m_textureArrayCounters[textureArrayId]);
         int textureArrayId = 0;
-        Texture dstTextureArray = null;
-
-        if (texture.width == 128 && texture.height == 128)
-        {
-            textureArrayId = 0;
-            if (m_albedos128 == null)
-            {
-                m_albedos128 = new Texture2DArray(128, 128, 16, texture.format, true)
-                {
-                    name = "albedoArray128"
-                };
-            }
-            dstTextureArray = m_albedos128;
-        }
-
-        if (texture.width == 256 && texture.height == 256)
-        {
-            textureArrayId = 1;
-            if (m_albedos256 == null)
-            {
-                m_albedos256 = new Texture2DArray(256, 256, 16, texture.format, true)
-                {
-                    name = "albedoArray256"
-                };
-            }
-            dstTextureArray = m_albedos256;
-        }
-
-        if (texture.width == 512 && texture.height == 512)
-        {
-            textureArrayId = 2;
-            if (m_albedos512 == null)
-            {
-                m_albedos512 = new Texture2DArray(512, 512, 16, texture.format, true)
-                {
-                    name = "albedoArray512"
-                };
-            }
-            dstTextureArray = m_albedos512;
-        }
-
-        if (texture.width == 1024 && texture.height == 1024)
-        {
-            textureArrayId = 3;
-            if (m_albedos1024 == null)
-            {
-                //m_albedos1024 = new Texture2DArray(1024, 1024, 16, texture.format, true)
-                m_albedos1024 = new RenderTexture(1024, 1024, 0, UnityEngine.Experimental.Rendering.GraphicsFormat.R8G8B8A8_UNorm)
-                {
-                    name = "albedoArray1024",
-                    dimension = UnityEngine.Rendering.TextureDimension.Tex2DArray,
-                    volumeDepth = 16,
-                    useMipMap = true,
-                };
-            }
-            dstTextureArray = m_albedos1024;
-        }
-
-        if (texture.width == 2048 && texture.height == 2048)
-        {
-            textureArrayId = 4;
-            if (m_albedos2048 == null)
-            {
-                m_albedos2048 = new Texture2DArray(2048, 2048, 8, texture.format, true)
-                {
-                    name = "albedoArray2048"
-                };
-            }
-            dstTextureArray = m_albedos2048;
-        }
-        
-        if (dstTextureArray == m_albedos1024)
-        {
-            Graphics.Blit(texture, m_albedos1024, 0, m_textureArrayCounters[textureArrayId]);
-        }
-        else
-            Graphics.CopyTexture(texture, 0, dstTextureArray, m_textureArrayCounters[textureArrayId]);
         mask = 0x80000000;
-        mask |= (uint)((m_textureArrayCounters[textureArrayId] & 0x000000ff) | ((textureArrayId & 0xff) << 8));
+        mask |= (uint)((m_albedoArrayCounters & 0x000000ff) | ((textureArrayId & 0xff) << 8));
 
-        uint TextureArrayID = (mask & 0x0000ff00) >> 8;
-        m_textureArrayCounters[textureArrayId]++;
+        m_albedoArrayCounters++;
         albedoMapMasks.Add(texture, mask);
 
         return mask;
@@ -329,64 +239,32 @@ public class RayTracingTextures : Singleton<RayTracingTextures>
             return mask;
         }
 
+        if (m_normals == null)
+        {
+            m_normals = CreateRT(512, 512, 0, TextureDimension.Tex2DArray, m_maxNormalSlice, "normalArray512");
+        }
+
+        if (m_normalArrayCounters >= m_maxNormalSlice)
+        {
+            m_normals.Release();
+            m_maxNormalSlice += 16;
+            m_normals = CreateRT(512, 512, 0, TextureDimension.Tex2DArray, m_maxNormalSlice, "albedoArray512");
+            var enumerator = normalMapMasks.GetEnumerator();
+            while (enumerator.MoveNext())
+            {
+                Texture normal = enumerator.Current.Key;
+                uint textMask = enumerator.Current.Value;
+                int slice = (int)(textMask & 0x000000ff);
+                Graphics.Blit(texture, m_normals, 0, slice);
+            }
+        }
+
+        Graphics.Blit(texture, m_normals, 0, m_normalArrayCounters);
+
         int textureArrayId = 0;
-        Texture2DArray dstTextureArray = null;
-
-        if (texture.width == 128 && texture.height == 128)
-        {
-            textureArrayId = 0;
-            if (m_normals128 == null)
-            {
-                m_normals128 = new Texture2DArray(128, 128, 16, texture.format, true);
-            }
-            dstTextureArray = m_normals128;
-        }
-
-        if (texture.width == 256 && texture.height == 256)
-        {
-            textureArrayId = 1;
-            if (m_normals256 == null)
-            {
-                m_normals256 = new Texture2DArray(256, 256, 16, texture.format, true);
-            }
-            dstTextureArray = m_normals256;
-        }
-
-        if (texture.width == 512 && texture.height == 512)
-        {
-            textureArrayId = 2;
-            if (m_normals512 == null)
-            {
-                m_normals512 = new Texture2DArray(512, 512, 16, texture.format, true);
-            }
-            dstTextureArray = m_normals512;
-        }
-
-        if (texture.width == 1024 && texture.height == 1024)
-        {
-            textureArrayId = 3;
-            if (m_normals1024 == null)
-            {
-                m_normals1024 = new Texture2DArray(1024, 1024, 16, texture.format, true);
-            }
-            dstTextureArray = m_normals1024;
-        }
-
-        if (texture.width == 2048 && texture.height == 2048)
-        {
-            textureArrayId = 4;
-            if (m_normals2048 == null)
-            {
-                m_normals2048 = new Texture2DArray(2048, 2048, 8, texture.format, true);
-            }
-            dstTextureArray = m_normals2048;
-        }
-
-
-        Graphics.CopyTexture(texture, 0, dstTextureArray, m_normalArrayCounters[textureArrayId]);
         mask = 0x80000000;
-        mask |= (uint)((m_normalArrayCounters[textureArrayId] & 0x000000ff) | (textureArrayId & 0xff << 8));
-        m_normalArrayCounters[textureArrayId]++;
+        mask |= (uint)((m_normalArrayCounters & 0x000000ff) | (textureArrayId & 0xff << 8));
+        m_normalArrayCounters++;
         normalMapMasks.Add(texture, mask);
 
         return mask;
@@ -400,64 +278,32 @@ public class RayTracingTextures : Singleton<RayTracingTextures>
             return mask;
         }
 
-        int textureArrayId = 0;
-        Texture2DArray dstTextureArray = null;
-
-        if (texture.width == 128 && texture.height == 128)
+        if (m_metallics == null)
         {
-            textureArrayId = 0;
-            if (m_metallics128 == null)
-            {
-                m_metallics128 = new Texture2DArray(128, 128, 16, texture.format, true);
-            }
-            dstTextureArray = m_metallics128;
+            m_metallics = CreateRT(512, 512, 0, TextureDimension.Tex2DArray, m_maxMetallicSlice, "metallicArray512");
         }
 
-        if (texture.width == 256 && texture.height == 256)
+        if (m_metallicArrayCounters >= m_maxMetallicSlice)
         {
-            textureArrayId = 1;
-            if (m_metallics256 == null)
+            m_metallics.Release();
+            m_maxMetallicSlice += 16;
+            m_metallics = CreateRT(512, 512, 0, TextureDimension.Tex2DArray, m_maxMetallicSlice, "metallicArray512");
+            var enumerator = metallicMapMasks.GetEnumerator();
+            while (enumerator.MoveNext())
             {
-                m_metallics256 = new Texture2DArray(256, 256, 16, texture.format, true);
+                Texture metallic = enumerator.Current.Key;
+                uint textMask = enumerator.Current.Value;
+                int slice = (int)(textMask & 0x000000ff);
+                Graphics.Blit(metallic, m_metallics, 0, slice);
             }
-            dstTextureArray = m_metallics256;
         }
 
-        if (texture.width == 512 && texture.height == 512)
-        {
-            textureArrayId = 2;
-            if (m_metallics512 == null)
-            {
-                m_metallics512 = new Texture2DArray(512, 512, 16, texture.format, true);
-            }
-            dstTextureArray = m_metallics512;
-        }
+        Graphics.Blit(texture, m_normals, 0, m_normalArrayCounters);
 
-        if (texture.width == 1024 && texture.height == 1024)
-        {
-            textureArrayId = 3;
-            if (m_metallics1024 == null)
-            {
-                m_metallics1024 = new Texture2DArray(1024, 1024, 16, texture.format, true);
-            }
-            dstTextureArray = m_metallics1024;
-        }
-
-        if (texture.width == 2048 && texture.height == 2048)
-        {
-            textureArrayId = 4;
-            if (m_metallics2048 == null)
-            {
-                m_metallics2048 = new Texture2DArray(2048, 2048, 8, texture.format, true);
-            }
-            dstTextureArray = m_metallics2048;
-        }
-
-
-        Graphics.CopyTexture(texture, 0, dstTextureArray, m_metallicArrayCounters[textureArrayId]);
         mask = 0x80000000;
-        mask |= (uint)((m_metallicArrayCounters[textureArrayId] & 0x000000ff) | (textureArrayId & 0xff << 8));
-        m_metallicArrayCounters[textureArrayId]++;
+        int textureArrayId = 0;
+        mask |= (uint)((m_metallicArrayCounters & 0x000000ff) | (textureArrayId & 0xff << 8));
+        m_metallicArrayCounters++;
         metallicMapMasks.Add(texture, mask);
 
         return mask;
@@ -474,33 +320,18 @@ public class RayTracingTextures : Singleton<RayTracingTextures>
             texture2DArray = null;
         }
 
-        ReleaseTextureArray(m_albedos128);
-        ReleaseTextureArray(m_albedos256);
-        ReleaseTextureArray(m_albedos512);
-        ReleaseTextureArray(m_albedos1024);
-        ReleaseTextureArray(m_albedos2048);
-
-        ReleaseTextureArray(m_normals128);
-        ReleaseTextureArray(m_normals256);
-        ReleaseTextureArray(m_normals512);
-        ReleaseTextureArray(m_normals1024);
-        ReleaseTextureArray(m_normals2048);
-
-        ReleaseTextureArray(m_metallics128);
-        ReleaseTextureArray(m_metallics256);
-        ReleaseTextureArray(m_metallics512);
-        ReleaseTextureArray(m_metallics1024);
-        ReleaseTextureArray(m_metallics2048);
+        ReleaseTextureArray(m_albedos);
+        ReleaseTextureArray(m_normals);
+        ReleaseTextureArray(m_metallics);
 
         albedoMapMasks.Clear();
         normalMapMasks.Clear();
         metallicMapMasks.Clear();
 
-        for (int i = 0; i < 5; ++i)
-        {
-            m_textureArrayCounters[i] = 0;
-            m_normalArrayCounters[i] = 0;
-            m_metallicArrayCounters[i] = 0;
-        }
+
+        m_albedoArrayCounters = 0;
+        m_normalArrayCounters = 0;
+        m_metallicArrayCounters = 0;
+
     }
 }
