@@ -81,8 +81,8 @@ public class RayTracingTest
         return (f * f) / (f * f + g * g);
     }
 
-    /*
-    static int FindIntervalSmall(List<Vector2> Distributions1D, int start, int size, float u)
+    
+    static int FindIntervalSmall(int start, int size, float u, List<Vector2> func)
     {
         int first = 0, len = size;
         while (len > 0)
@@ -90,7 +90,7 @@ public class RayTracingTest
             int nHalf = len >> 1;
             int middle = first + nHalf;
             // Bisect range based on value of _pred_ at _middle_
-            Vector2 distrubution = Distributions1D[start + middle];
+            Vector2 distrubution = func[start + middle];
             if (distrubution.y <= u)
             {
                 first = middle + 1;
@@ -101,7 +101,7 @@ public class RayTracingTest
         }
         return Mathf.Clamp(first - 1, 0, size - 2) + start;
     }
-
+    /*
     static int SampleDistribution1DDiscrete(List<Vector2> Distributions1D, float u, int start, int num, out float pdf)
     {
         int offset = FindIntervalSmall(Distributions1D, start, num, u);
@@ -462,5 +462,40 @@ public class RayTracingTest
         return ray;
     }
 
-    
+    public static float SampleDistribution1DContinous(float u, GPUDistributionDiscript discript, Vector2 domain, List<Vector2> funcs, out float pdf, out int off)
+    {
+        // Find surrounding CDF segments and _offset_
+        int offset = FindIntervalSmall(discript.start, discript.num, u, funcs);
+        off = offset;
+        // Compute offset along CDF segment
+        float du = u - funcs[offset].y;
+        if ((funcs[offset + 1].y - funcs[offset].y) > 0)
+        {
+            du /= (funcs[offset + 1].y - funcs[offset].y);
+        }
+
+        // Compute PDF for sampled offset
+        pdf = funcs[offset].x;//(distribution.funcInt > 0) ? funcs[offset].x / distribution.funcInt : 0;
+
+        // Return $x\in{}[0,1)$ corresponding to sample
+        return Mathf.Lerp(domain.x, domain.y, (offset - discript.start + du) / discript.num);
+    }
+
+    public static Vector2 SampleDistribution2DContinous(Vector2 u, GPUDistributionDiscript discript, List<Vector2> marginal, List<Vector2> conditions, out float pdf)
+    {
+        float pdfMarginal;
+        int v;
+        float d1 = SampleDistribution1DContinous(u.y, discript, new Vector2(discript.domain.x, discript.domain.y), marginal, out pdfMarginal, out v);
+        int nu;
+        float pdfCondition;
+        GPUDistributionDiscript dCondition = new GPUDistributionDiscript();
+        dCondition.start = v * (discript.unum + 1);
+        dCondition.num = discript.unum;
+        float d0 = SampleDistribution1DContinous(u.x, dCondition, new Vector2(discript.domain.z, discript.domain.w), conditions, out pdfCondition, out nu);
+        //p(v|u) = p(u,v) / pv(u)
+        //so 
+        //p(u,v) = p(v|u) * pv(u)
+        pdf = pdfCondition * pdfMarginal;
+        return new Vector2(d0, d1);
+    }
 }

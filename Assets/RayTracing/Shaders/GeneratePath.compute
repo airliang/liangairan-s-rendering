@@ -28,6 +28,7 @@ RWStructuredBuffer<uint> _RayQueue;
 [numthreads(8, 8, 1)]
 void GeneratePath(uint3 id : SV_DispatchThreadID)
 {
+	/*
 	// TODO: insert actual code here!
 	if (id.x >= rasterSize.x || id.y >= rasterSize.y)
 		return;
@@ -47,11 +48,12 @@ void GeneratePath(uint3 id : SV_DispatchThreadID)
 		Ray ray = Rays[workIndex];
 		float3 beta = pathRadiance.beta;
 		Material material = materials[isect.materialID];
-		float3 woLocal = isect.WorldToLocal(-ray.direction/*isect.wo.xyz*/);
+		float3 woLocal = isect.WorldToLocal(-ray.direction);
 		float scatteringPdf = 0;
 		float3 wiLocal;
 		float2 u = Get2D(rng);
-		float3 f = SampleMaterialBRDF(material, isect.uv.xy, woLocal, wiLocal, scatteringPdf, rng);
+		float mipmapLevel = 0;
+		float3 f = SampleMaterialBRDF(material, isect.uv.xy, woLocal, wiLocal, scatteringPdf, rng, mipmapLevel);
 		if (scatteringPdf == 0)
 		{
 			//pathStates[threadId] = 0;
@@ -92,4 +94,5 @@ void GeneratePath(uint3 id : SV_DispatchThreadID)
 	//	//outputTexture[id.xy] = float4(1, 0, 0, 1);
 	//}
 	WriteRNG(threadId, rng);
+	*/
 }

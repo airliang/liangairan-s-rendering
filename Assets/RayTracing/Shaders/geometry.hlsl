@@ -63,27 +63,23 @@ struct BSDFSample
 
 struct Interaction  //64byte
 {
-	float4 p;   //交点
+	float3 p;   //交点
+	float  hitT;
 	//float time;        //应该是相交的ray的参数t
-	float4 wo;
+	float3 wo;
+	float2 uv;
 	float3 normal;
-	
-	//float4 primitive;   //0 is triangle index, y is material index
-	float4 uv;
-	//float4 row1;
-	//float4 row2;
-	//float4 row3;
-	//float4 ns;   
-	//float4 dpdu;
-	//float4 dpdv;
 	float3 tangent;  //the same as pbrt's ss(x)
 	float3 bitangent; //the same as pbrt's ts(y)
 	uint   materialID;
 	uint   meshInstanceID;
+	float  spreadAngle;   //ray cone angle use for mipmapping
+	float  coneWidth;     //ray cone width at this surface point
+	int3   vertexIndices;
 	//int    primitive; //intersect with primitives index, -1 represents no intersection
 	bool IsHit()
 	{
-		return p.w > 0;
+		return hitT > 0;
 	}
 
 	float3 WorldToLocal(float3 v)
@@ -172,7 +168,7 @@ struct BVHNode
 struct Vertex
 {
 	float4 position;
-	float4 uv;
+	float2 uv;
 };
 
 bool BoundIntersectP(Ray ray, Bounds bounds, float3 invDir, int dirIsNeg[3])

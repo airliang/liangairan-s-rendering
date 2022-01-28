@@ -2025,7 +2025,8 @@ MonoBehaviour:
   ImageReconstruction: {fileID: 7200000, guid: 0df577181ba92c140b93275cf6a21642, type: 3}
   useInstanceBVH: 1
   filterType: 1
-  fiterRadius: {x: 1, y: 1}
+  fiterRadius: {x: 1.5, y: 1.5}
+  gaussianSigma: 0.5
   testTexture: {fileID: 2800000, guid: e43d8a27ed9197a499c7b25c2065fdde, type: 3}
 --- !u!108 &62
 Light:

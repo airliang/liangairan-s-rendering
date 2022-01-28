@@ -71,12 +71,14 @@ public struct GPURandomSampler
 
 public struct GPUInteraction
 {
-    public Vector4 p;   //w is hitT
+    public Vector3 p;   //w is hitT
+    public float hitT;
     //float time;
     //Vector4 pError; //floating point error
-    public Vector4 wo;   //output direction
+    public Vector3 wo;   //output direction
+    
     //Vector4 primitive;
-    public Vector4 uv;
+    public Vector2 uv;
     //public Vector4 row1;
     //public Vector4 row2;
     //public Vector4 row3;
@@ -88,6 +90,9 @@ public struct GPUInteraction
     public Vector3 bitangent;
     public uint materialID;
     public uint meshInstanceID;
+    public float spreadAngle; //raycone angle use for mipmapping
+    public float coneWidth;
+    public Vector3Int vertexIndices;
 
     public Vector3 WorldToLocal(Vector3 v)
     {
@@ -103,7 +108,7 @@ public struct GPUInteraction
 
     public bool IsHit()
     {
-        return p.w > 0;
+        return hitT > 0;
     }
 }
 
@@ -290,9 +295,9 @@ public struct Vector4Int
 public struct GPUVertex
 {
     public Vector4 position;
-    public Vector4 uv;
+    public Vector2 uv;
 
-    public GPUVertex(Vector4 _position, Vector4 _uv)
+    public GPUVertex(Vector4 _position, Vector2 _uv)
     {
         position = _position;
         uv = _uv;
@@ -397,5 +402,17 @@ struct GPUDisneyMaterial
     float sheenTint;
     float clearcoat;
     float clearcoatGloss;
+};
+
+struct GPUShadingMaterial
+{
+    int materialType;
+    Vector3 reflectance;
+    Vector3 transmission;
+    //float3 specular;
+    Vector3 normal;
+    float metallic;
+    float roughness;
+    float eta;
 };
 

@@ -363,14 +363,14 @@ bool IntersectBVHandTriangles(Ray ray, int bvhOffset, out Interaction interactio
 					hitPos.w = hitT;
 					//materialIndex = v0.w;
 
-					const float4 uv0 = Vertices[vertexIndex0].uv;
-					const float4 uv1 = Vertices[vertexIndex1].uv;
-					const float4 uv2 = Vertices[vertexIndex2].uv;
+					const float2 uv0 = Vertices[vertexIndex0].uv;
+					const float2 uv1 = Vertices[vertexIndex1].uv;
+					const float2 uv2 = Vertices[vertexIndex2].uv;
 
 					interaction.normal.xyz = normal;
 					interaction.p = hitPos;
 					interaction.uv = uv0 * uv.x + uv1 * uv.y + uv2 * (1.0 - uv.x - uv.y);
-					
+					interaction.vertexIndices = int3(vertexIndex0, vertexIndex1, vertexIndex2);
 				}
 			} // triangle
 
@@ -388,7 +388,7 @@ bool IntersectBVHandTriangles(Ray ray, int bvhOffset, out Interaction interactio
 	return hitIndex != -1;
 }
 
-bool IntersectMeshBVH(/*float4 rayOrig, float4 rayDir*/Ray ray, int bvhOffset, float4x4 objectToWorld, float4x4 worldToObject, out float hitT, out int hitIndex, out Interaction interaction)
+bool IntersectMeshBVH(Ray ray, int bvhOffset, float4x4 objectToWorld, float4x4 worldToObject, out float hitT, out int hitIndex, out Interaction interaction)
 {
 	interaction = (Interaction)0;
 	int INVALID_INDEX = EntrypointSentinel;
@@ -431,14 +431,12 @@ bool IntersectMeshBVH(/*float4 rayOrig, float4 rayDir*/Ray ray, int bvhOffset, f
 
 			//left child ray-bound intersection test
 			float tMin = tmin;
-			//bool traverseChild0 = RayBoundIntersect(rayOrig, curNode.b0xy, curNode.b01z.xy, invDir.x, invDir.y, invDir.z, hitT, tMin);
-			//bool traverseChild0 = BoundRayIntersect(ray, curNode.b0xy, curNode.b01z.xy, invDir, signs, tMin);
+
 			bool traverseChild0 = BoundRayIntersect(ray, invDir, curNode.b0min, curNode.b0max, tMin);
 			//if (tMin < 0) tMin = 0;
 			//right child ray-bound intersection test
 			float tMin1 = tmin;
-			//bool traverseChild1 = RayBoundIntersect(rayOrig, curNode.b1xy, curNode.b01z.zw, invDir.x, invDir.y, invDir.z, hitT, tMin1);
-			//bool traverseChild1 = BoundRayIntersect(ray, curNode.b1xy, curNode.b01z.zw, invDir, signs, tMin1);
+
 			bool traverseChild1 = BoundRayIntersect(ray, invDir, curNode.b1min, curNode.b1max, tMin1);
 			//if (tMin1 < 0) tMin1 = 0;
 
@@ -466,14 +464,7 @@ bool IntersectMeshBVH(/*float4 rayOrig, float4 rayDir*/Ray ray, int bvhOffset, f
 						int tmp = nodeAddr;
 						nodeAddr = cnodes.y;
 						cnodes.y = tmp;
-						//tmp = primitivesNum;
-						//primitivesNum = primitivesNum2;
-						//primitivesNum2 = tmp;
 					}
-					//tmin = min(tMin1, tMin);
-					//stackPtr += 4;
-					//stackIndex++;
-					//*(int*)stackPtr = cnodes.y;
 					traversalStack[++stackIndex] = cnodes.y;
 				}
 			}
@@ -549,9 +540,9 @@ bool IntersectMeshBVH(/*float4 rayOrig, float4 rayDir*/Ray ray, int bvhOffset, f
 					//hitPos.w = hitT;
 					//materialIndex = v0.w;
 
-					const float4 uv0 = Vertices[vertexIndex0].uv;
-					const float4 uv1 = Vertices[vertexIndex1].uv;
-					const float4 uv2 = Vertices[vertexIndex2].uv;
+					const float2 uv0 = Vertices[vertexIndex0].uv;
+					const float2 uv1 = Vertices[vertexIndex1].uv;
+					const float2 uv2 = Vertices[vertexIndex2].uv;
 
 
 					//return true;
@@ -562,13 +553,12 @@ bool IntersectMeshBVH(/*float4 rayOrig, float4 rayDir*/Ray ray, int bvhOffset, f
 					//}
 					//计算法线
 					//change into worldnormal
+					interaction.vertexIndices = int3(vertexIndex0, vertexIndex1, vertexIndex2);
 					interaction.normal.xyz = worldNormal;
 					interaction.p.xyz = hitPos.xyz;//offset_ray(hitPos.xyz, worldNormal);
-					interaction.p.w = hitT;
+					interaction.hitT = hitT;
 					interaction.uv = uv0 * uv.x + uv1 * uv.y + uv2 * (1.0 - uv.x - uv.y);
-					//interaction.row1 = objectToWorld._m00_m01_m02_m03;
-					//interaction.row2 = objectToWorld._m10_m11_m12_m13;
-					//interaction.row3 = objectToWorld._m20_m21_m22_m23;
+
 					interaction.tangent = normalize(v0World.xyz - hitPos.xyz);
 					interaction.bitangent = normalize(cross(interaction.normal.xyz, interaction.tangent));
 					//计算切线
@@ -792,7 +782,7 @@ bool IntersectBVH(Ray ray, out Interaction interaction)
 }
 
 
-bool IntersectMeshBVHP(Ray ray/*float4 rayOrig, float4 rayDir*/, int bvhOffset, out float hitT, out int hitIndex)
+bool IntersectMeshBVHP(Ray ray, int bvhOffset, out float hitT, out int hitIndex)
 {
 	int INVALID_INDEX = EntrypointSentinel;
 
@@ -904,15 +894,7 @@ bool IntersectMeshBVHP(Ray ray/*float4 rayOrig, float4 rayDir*/, int bvhOffset, 
 				float3 normal = normalize(cross(m0, m1)).xyz;
 				if (dot(normal, rayDir.xyz) >= 0)
 				{
-					//int vertexIndex0 = WoodTriangleIndices[triAddr];
-					//int vertexIndex1 = WoodTriangleIndices[triAddr + 1];
-					//int vertexIndex2 = WoodTriangleIndices[triAddr + 2];
-					//const float3 v0 = Vertices[vertexIndex0].position.xyz;
-					//const float3 v1 = Vertices[vertexIndex1].position.xyz;
-					//const float3 v2 = Vertices[vertexIndex2].position.xyz;
-					//normal = normalize(cross(v1 - v0, v2 - v0));
-					//if (dot(normal, rayDir.xyz) >= 0)
-						continue;
+					continue;
 				}
 
 				float2 uv = 0;
@@ -1012,14 +994,12 @@ bool IntersectP(Ray ray, out float hitT, out int meshInstanceIndex)
 			int4 cnodes = asint(curNode.cids);
 
 			float t0 = 0;
-			//bool traverseChild0 = RayBoundIntersect(ray.orig.xyz, curNode.b0xy, curNode.b01z.xy, invDir.x, invDir.y, invDir.z, hitT, t0);
-			//bool traverseChild0 = BoundRayIntersect(ray, curNode.b0xy, curNode.b01z.xy, invDir, signs, t0);
+
 			bool traverseChild0 = BoundRayIntersect(ray, invDir, curNode.b0min, curNode.b0max, t0);
 			//if (t0 < 0) t0 = 0;
 
 			float t1 = 0;
-			//bool traverseChild1 = RayBoundIntersect(ray.orig.xyz, curNode.b1xy, curNode.b01z.zw, invDir.x, invDir.y, invDir.z, hitT, t1);
-			//bool traverseChild1 = BoundRayIntersect(ray, curNode.b1xy, curNode.b01z.zw, invDir, signs, t1);
+
 			bool traverseChild1 = BoundRayIntersect(ray, invDir, curNode.b1min, curNode.b1max, t1);
 			//if (t1 < 0) t1 = 0;
 
@@ -1143,6 +1123,7 @@ bool ClosestHit(Ray ray, out Interaction interaction)
 			}
 		}
 	}
+	
 	return hitted;
 }
 

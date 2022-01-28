@@ -16,6 +16,7 @@ StructuredBuffer<Interaction>  Intersections;
 RWStructuredBuffer<ShadowRay>  ShadowRays;
 StructuredBuffer<Light> lights;
 StructuredBuffer<Material> materials;
+//StructuredBuffer<ShadingMaterial>  _ShadingMaterials;
 //StructuredBuffer<int>    pathStates;
 //x pdf y cdf
 StructuredBuffer<float2> Distributions1D;
@@ -23,11 +24,9 @@ StructuredBuffer<uint> _RayQueueSizeBuffer;
 StructuredBuffer<uint> _RayQueue;
 //RWTexture2D<half4> outputTexture;
 
-Texture2D textures[] = {0};
-SamplerState texture_sampler;
 
 
-ShadowRay SampleShadowRay(uint threadId, Light light, Interaction isect, inout RNG rng)
+ShadowRay SampleShadowRay(uint workIndex, Light light, Interaction isect, inout RNG rng)
 {
 	ShadowRay shadowRay = (ShadowRay)0;
 	int discriptIndex = light.distributionDiscriptIndex;
@@ -74,7 +73,8 @@ ShadowRay SampleShadowRay(uint threadId, Light light, Interaction isect, inout R
 		float3 wiLocal = isect.WorldToLocal(wi);
 		float3 woLocal = isect.WorldToLocal(isect.wo.xyz);
 		float scatteringPdf = 0;
-		float3 f = MaterialBRDF(material, woLocal, wiLocal, isect.uv.xy, scatteringPdf);
+		float mipmapLevel = 0;
+		float3 f = MaterialBRDF(material, isect, woLocal, wiLocal, scatteringPdf);
 		f *= abs(dot(wi, isect.normal));
 		//float3 f = LambertBRDF(wiLocal, woLocal, material.kd.xyz) * abs(dot(wi, isect.normal));
 		//float scatteringPdf = LambertPDF(wiLocal, woLocal);

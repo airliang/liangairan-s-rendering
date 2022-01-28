@@ -1,6 +1,7 @@
 #ifndef MATERIALS_HLSL
 #define MATERIALS_HLSL
 #include "disney.hlsl"
+#include "bvhaccel.hlsl"
 
 #define BSDF_REFLECTION  1 << 0
 #define BSDF_TRANSMISSION  1 << 1
@@ -15,6 +16,7 @@
 #define GET_TEXTUREARRAY_ID(x) (((x) & 0x0000ff00) >> 8)
 #define GET_TEXTUREARRAY_INDEX(x) ((x) & 0x000000ff)
 
+uniform matrix WorldToRaster;
 
 //Texture2DArray albedoTexArray128;
 //Texture2DArray albedoTexArray256;
@@ -32,26 +34,59 @@ SamplerState Albedo_linear_clamp_sampler;
 SamplerState Normal_linear_repeat_sampler;
 SamplerState linearRepeatSampler;
 
-float4 SampleAlbedoTexture(float2 uv, int texIndex)
+float4 SampleAlbedoTexture(float2 uv, int texIndex, float mipmapLevel)
 {
-	return albedoTexArray.SampleLevel(Albedo_linear_repeat_sampler, float3(uv, texIndex), 0);
+	return albedoTexArray.SampleLevel(Albedo_linear_repeat_sampler, float3(uv, texIndex), mipmapLevel);
 }
 
-struct ShadingMaterial
+float GetTriangleLODConstant(Interaction isect)
 {
-	float3 reflectance;
-	float3 transmission;
-	//float3 specular;
-	float3 normal;
-	float  metallic;
-	float  roughness;
-	float  eta;
-};
+	Vertex vertex0 = Vertices[isect.vertexIndices.x];
+	Vertex vertex1 = Vertices[isect.vertexIndices.y];
+	Vertex vertex2 = Vertices[isect.vertexIndices.z];
+	const float4 v0 = vertex0.position;
+	const float4 v1 = vertex1.position;
+	const float4 v2 = vertex2.position;
 
-void UnpackShadingMaterial(Material material, inout ShadingMaterial shadingMaterial, float2 uv)
+	const float2 uv0 = vertex0.uv;
+	const float2 uv1 = vertex1.uv;
+	const float2 uv2 = vertex2.uv;
+	
+	MeshInstance meshInstance = MeshInstances[isect.meshInstanceID];
+	float4x4 objectToWorld = meshInstance.localToWorld;
+
+	float4 v0World = mul(objectToWorld, float4(v0.xyz, 1));
+	float4 v1World = mul(objectToWorld, float4(v1.xyz, 1));
+	float4 v2World = mul(objectToWorld, float4(v2.xyz, 1));
+
+	float4 v0Screen = mul(WorldToRaster, v0World);
+	float4 v1Screen = mul(WorldToRaster, v1World);
+	float4 v2Screen = mul(WorldToRaster, v2World);
+	v0Screen /= v0Screen.w;
+	v1Screen /= v1Screen.w;
+	v2Screen /= v2Screen.w;
+
+
+	float P_a = length(cross(v2Screen.xyz - v0Screen.xyz, v1Screen.xyz - v0Screen.xyz)); //ComputeTriangleArea(); // Eq. 5
+	float T_a = 512 * 512 * length(cross(float3(uv2, 1) - float3(uv0, 1), float3(uv1, 1) - float3(uv0, 1))); //ComputeTextureCoordsArea(); // Eq. 4
+	return 0.5 * max(log2(T_a / P_a), 0); // Eq. 3
+}
+
+
+float ComputeTextureLOD(Interaction isect)
+{
+	float lambda = GetTriangleLODConstant(isect);
+	lambda += max(log2(abs(isect.coneWidth)), 0);
+	//lambda += 0.5 * log2(512 * 512);
+	lambda -= max(log2(abs(dot(isect.wo, isect.normal))), 0);
+	return max(lambda, 0);
+}
+
+void UnpackShadingMaterial(Material material, inout ShadingMaterial shadingMaterial, Interaction isect)
 {
 	shadingMaterial = (ShadingMaterial)0;
 	//check if using texture
+	shadingMaterial.materialType = material.materialType;
 	int textureArrayId = -1;
 	int textureIndex = -1;
 	const uint mask = asuint(material.albedoMapMask);
@@ -60,8 +95,9 @@ void UnpackShadingMaterial(Material material, inout ShadingMaterial shadingMater
 	{
 		textureIndex = GET_TEXTUREARRAY_INDEX(mask);
 		//textureArrayId = GET_TEXTUREARRAY_ID(mask);
-		//float4 albedo = testTexture.SampleLevel(linearRepeatSampler, uv, 0);
-		float4 albedo = SampleAlbedoTexture(uv, textureIndex);
+		//float4 albedo = testTexture.SampleLevel(linearRepeatSampler, uv, mipmapLevel);
+		float mipmapLevel = ComputeTextureLOD(isect);
+		float4 albedo = SampleAlbedoTexture(isect.uv.xy, textureIndex, mipmapLevel);
 		shadingMaterial.reflectance *= albedo.rgb;
 	}
 
@@ -97,10 +133,10 @@ int GetMaterialBxDFNum(int bsdfType)
 }
 
 
-float3 MaterialBRDF(Material material, float3 wo, float3 wi, float2 uv, out float pdf)
+float3 MaterialBRDF(Material material, Interaction isect, float3 wo, float3 wi, out float pdf)
 {
 	ShadingMaterial shadingMaterial = (ShadingMaterial)0;
-	UnpackShadingMaterial(material, shadingMaterial, uv);
+	UnpackShadingMaterial(material, shadingMaterial, isect);
 	//int nComponent = GetMaterialBxDFNum(material.materialType);
 	float3 f = 0;
 	pdf = 0;
@@ -132,23 +168,23 @@ float3 SampleLambert(ShadingMaterial material, float3 wo, out float3 wi, float2 
 
 
 //wi wo is a vector which in local space of the interfaction surface
-float3 SampleMaterialBRDF(Material material, float2 uv, float3 wo, out float3 wi, out float pdf, inout RNG rng)
+float3 SampleMaterialBRDF(Material material, Interaction isect, float3 wo, out float3 wi, out float pdf, inout RNG rng)
 {
 //#ifdef DISNEY_BRDF
 	//DisneyMaterial materialDisney;
 	//UnpackMaterial(material, materialDisney, uv);
 	//return SampleDisneyBRDF(wi, wo, materialDisney, pdf, rng);
 //#else
-	if (material.materialType & BSDF_DISNEY)
-	{
-		DisneyMaterial materialDisney;
-		UnpackDisneyMaterial(material, materialDisney, uv);
-		return SampleDisneyBRDF(wi, wo, materialDisney, pdf, rng);
-	}
-	else
+	//if (material.materialType & BSDF_DISNEY)
+	//{
+	//	DisneyMaterial materialDisney;
+	//	UnpackDisneyMaterial(material, materialDisney, uv);
+	//	return SampleDisneyBRDF(wi, wo, materialDisney, pdf, rng);
+	//}
+	//else
 	{
 		ShadingMaterial shadingMaterial = (ShadingMaterial)0;
-		UnpackShadingMaterial(material, shadingMaterial, uv);
+		UnpackShadingMaterial(material, shadingMaterial, isect);
 		float2 u = Get2D(rng);
 		if (material.materialType & BSDF_DIFFUSE)
 		{

@@ -20,6 +20,7 @@ RWStructuredBuffer<PathRadiance> pathRadiances;
 RWStructuredBuffer<uint> _RayQueueSizeBuffer;
 RWStructuredBuffer<uint> _RayQueue;
 
+
 CameraSample GetCameraSample(float2 pRaster, float2 u)
 {
     CameraSample camSample;

@@ -1,6 +1,6 @@
 #include "sampler.hlsl"
 #include "bvhaccel.hlsl"
-
+#include "materials.hlsl"
 
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel RayTraversal
@@ -8,16 +8,37 @@
 float2 rasterSize;
 uniform int    bounces;
 uniform int   queueSizeIndex;
+uniform float cameraConeSpreadAngle;
 
 //use the matrix to calculate the world space ray
 StructuredBuffer<Ray>    Rays;
 StructuredBuffer<Light>  lights;
+StructuredBuffer<Material> materials;
 RWStructuredBuffer<Interaction>       Intersections;
 RWStructuredBuffer<PathRadiance> pathRadiances;
 //RWStructuredBuffer<int>    pathStates;
 RWStructuredBuffer<uint> _RayQueueSizeBuffer;
 RWStructuredBuffer<uint> _RayQueue;
-//RWTexture2D<half4> outputTexture;
+RWStructuredBuffer<ShadingMaterial>  _ShadingMaterials;
+RWTexture2D<half2>  RayConeGBuffer;
+RWTexture2D<half4> outputTexture;
+
+RayCone Propagate(RayCone cone, float surfaceSpreadAngle, float hitT)
+{
+    RayCone newCone;
+    newCone.width = cone.spreadAngle * hitT + cone.width;
+    newCone.spreadAngle = cone.spreadAngle + surfaceSpreadAngle;
+    return newCone;
+}
+
+RayCone ComputeRayCone(Interaction isect, float pixelSpreadAngle)
+{
+    RayCone rayCone;
+    rayCone.width = 0;
+    rayCone.spreadAngle = pixelSpreadAngle;
+    //float gamma = cameraConeSpreadAngle;
+    return Propagate(rayCone, isect.spreadAngle, isect.hitT);
+}
 
 [numthreads(8,8,1)]
 void RayTraversal(uint3 id : SV_DispatchThreadID)
@@ -36,7 +57,7 @@ void RayTraversal(uint3 id : SV_DispatchThreadID)
     //{
     Ray ray = Rays[workIndex];
     Interaction isect = (Interaction)0;//Intersections[threadId];
-    //if (IntersectBVHandTriangles(ray, 0, isect))
+
     bool foundIntersect = ClosestHit(ray, isect);//IntersectBVH(ray, isect);
     PathRadiance pathRadiance = pathRadiances[workIndex];
     if (foundIntersect)
@@ -44,7 +65,24 @@ void RayTraversal(uint3 id : SV_DispatchThreadID)
         int meshInstanceIndex = isect.meshInstanceID;
         MeshInstance meshInstance = MeshInstances[meshInstanceIndex];
         int lightIndex = meshInstance.GetLightIndex();
-
+        //ShadingMaterial shadingMaterial;
+        //Material material = materials[isect.materialID];
+        //UnpackShadingMaterial(material, shadingMaterial, isect, 0);
+        //_ShadingMaterials[workIndex] = shadingMaterial;
+        
+        if (bounces == 0)
+        {
+            half2 surfaceBeta = RayConeGBuffer[id.xy];
+            isect.spreadAngle = cameraConeSpreadAngle;
+            isect.coneWidth = cameraConeSpreadAngle * isect.hitT;
+        }
+        else
+        {
+            RayCone rayCone = ComputeRayCone(isect, cameraConeSpreadAngle);
+            isect.spreadAngle = rayCone.spreadAngle;
+            isect.coneWidth = rayCone.width;
+        }
+        
         //isect.p.w = 1;
         if (lightIndex >= 0 && bounces == 0)
         {
@@ -53,6 +91,10 @@ void RayTraversal(uint3 id : SV_DispatchThreadID)
             //color = light.radiance;
             //isect.p.w = 0;
         }
+
+        //just for mipmap test
+        //float mipmapLevel = ComputeTextureLOD(isect);
+        //outputTexture[id.xy] = half4(mipmapLevel / 5, 0, 0, 1);
 
         //outputTexture[id.xy] = half4(color, 1);//abs(ray.direction);
         //if (bounces == 1)

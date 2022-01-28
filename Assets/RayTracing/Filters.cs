@@ -304,19 +304,22 @@ public class GaussianFilter : Filter
         expX = MathUtil.Gaussian(radius.x, 0, sigma);
         expY = MathUtil.Gaussian(radius.y, 0, sigma);
 
-        filterValues = new float[48, 48];
-        float[] funcs = new float[48 * 48];
+        int xSize = (int)(32.0f * radius.x);
+        int ySize = (int)(32.0f * radius.y);
+
+        filterValues = new float[xSize, ySize];
+        float[] funcs = new float[xSize * ySize];
         //pdfUVs = new float[64, 64];
         Vector2 domainMin = -radius;
         Vector2 domainMax = radius;
-        for (int v = 0; v < 48; ++v)
+        for (int v = 0; v < ySize; ++v)
         {
-            for (int u = 0; u < 48; ++u)
+            for (int u = 0; u < xSize; ++u)
             {
-                Vector2 t = new Vector2((float)u / 48, (float)v / 48);
+                Vector2 t = new Vector2((float)(u + 0.5f) / xSize, (float)(v + 0.5f) / ySize);
                 Vector2 point = MathUtil.Lerp(domainMin, domainMax, t);
                 filterValues[u, v] = Evaluate(point);
-                int index = u + v * 48;
+                int index = u + v * ySize;
                 funcs[index] = filterValues[u, v];
             }
         }
@@ -327,7 +330,7 @@ public class GaussianFilter : Filter
             max = domainMax
         };
 
-        samples = new Distribution2D(funcs, 48, 48, bounds);
+        samples = new Distribution2D(funcs, xSize, ySize, bounds);
     }
 
     public override float Evaluate(Vector2 p)  
@@ -354,7 +357,7 @@ public class GaussianFilter : Filter
 
     public override Vector2Int GetDistributionSize()
     {
-        return new Vector2Int(48, 48);
+        return new Vector2Int((int)(32.0f * radius.x), (int)(32.0f * radius.y));
     }
 
     public override List<Vector2> GetGPUMarginalDistributions()

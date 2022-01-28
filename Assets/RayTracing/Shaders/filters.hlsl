@@ -12,8 +12,8 @@ float2 ImportanceFilterSample(float2 u)
 {
 	DistributionDiscript discript = (DistributionDiscript)0;
 	discript.start = 0;
-	discript.num = ConditionNum;
-	discript.unum = MarginalNum;
+	discript.num = MarginalNum;
+	discript.unum = ConditionNum;
 	discript.domain = FilterDomain;
 	float pdf = 0;
 	return Sample2DContinuous(u, discript, FilterMarginals, FilterConditions, pdf);

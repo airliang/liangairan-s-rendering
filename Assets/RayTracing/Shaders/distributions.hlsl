@@ -76,7 +76,7 @@ float2 Sample2DContinuous(float2 u, DistributionDiscript discript, StructuredBuf
     int nu;
     float pdfCondition;
     DistributionDiscript dCondition = (DistributionDiscript)0;
-    dCondition.start = discript.num + v * discript.unum;
+    dCondition.start = v * (discript.unum + 1);
     dCondition.num = discript.unum;
     float d0 = Sample1DContinuous(u.x, dCondition, discript.domain.zw, conditions, pdfCondition, nu);
     //p(v|u) = p(u,v) / pv(u)
