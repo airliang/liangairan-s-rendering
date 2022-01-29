@@ -187,6 +187,18 @@ public struct GPUBounds
         min = Vector3.Max(min, b.min);
     }
 
+    public void Union(Vector3 p)
+    {
+        min = Vector3.Min(min, p);
+        max = Vector3.Max(max, p);
+    }
+
+    public void Union(GPUBounds b)
+    {
+        min = Vector3.Min(min, b.min);
+        max = Vector3.Max(max, b.max);
+    }
+
     public static GPUBounds Intersection(GPUBounds a, GPUBounds b)
     {
         GPUBounds bounds;

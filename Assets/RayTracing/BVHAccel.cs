@@ -558,7 +558,11 @@ public class BVHAccel
 		}
 		List<Primitive> orderedPrims = new List<Primitive>();
 		BVHBuilder builder = new SplitBVHBuilder();
+        float timeBegin = Time.realtimeSinceStartup;
 		BVHBuildNode meshRoot = builder.Build(primitives, orderedPrims, vertices, triangles, primitives.Count < 3 ? 1 : maxLeafSize);
+		float timeInterval = Time.realtimeSinceStartup - timeBegin;
+        Debug.Log("building bottom level mesh bvh cost time:" + timeInterval);
+        
 		//CreateCompact生成的m_nodes数组只有inner node的数据，所以这里返回m_nodes.Count
 		primitives = orderedPrims;
 		CreateCompact(meshRoot, primitives, vertices, true);

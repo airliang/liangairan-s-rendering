@@ -320,6 +320,11 @@ public class Raytracing : MonoBehaviour
                     meshHandleIndex++;
                     meshHandles.Add(meshHandle);
                     //创建该meshHandle的bvh
+                    if (mesh.uv == null || mesh.uv.Length == 0)
+                    {
+                        Vector2[] uvs = new Vector2[mesh.vertexCount];
+                        mesh.SetUVs(0, uvs);
+                    }
 
                     for (int j = 0; j < subMeshDescriptor.vertexCount; ++j)
                     {
@@ -433,7 +438,11 @@ public class Raytracing : MonoBehaviour
             }
 
             //创建bvh
+            float timeBegin = Time.realtimeSinceStartup;
             instBVHNodeAddr = bvhAccel.Build(meshInstances, meshHandles, gpuVertices, triangles);
+            float timeInterval = Time.realtimeSinceStartup - timeBegin;
+            Debug.Log("building bvh cost time:" + timeInterval);
+            
 
 
             //创建对应的computebuffer

@@ -2,17 +2,20 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class BucketInfo
+public struct BucketInfo
 {
 	//拥有的primitive的数量
-	public int count = 0;
+	public int count;
 	//bucket的bounds
-	public GPUBounds bounds = GPUBounds.DefaultBounds();
+	public GPUBounds bounds;
 
-	public BucketInfo()
+	public static BucketInfo Default()
 	{
-		//bounds.SetMinMax(new Vector3(float.MaxValue, float.MaxValue, float.MaxValue), 
-		//	new Vector3(float.MinValue, float.MinValue, float.MinValue));
+		return new BucketInfo
+		{
+			count = 0,
+			bounds = GPUBounds.DefaultBounds()
+		};
 	}
 };
 public class BVHBuilder
@@ -78,7 +81,7 @@ public class BVHBuilder
 		int start, int end,
 		List<Primitive> orderedPrims)
 	{
-		Debug.Log("RecursiveBuild start = " + start + " end = " + end);
+		//Debug.Log("RecursiveBuild start = " + start + " end = " + end);
 		if (start == end)
 			return null;
 		BVHBuildNode node = new BVHBuildNode();
@@ -151,7 +154,7 @@ public class BVHBuilder
 				BucketInfo[] buckets = new BucketInfo[nBuckets];
 				for (int i = 0; i < nBuckets; ++i)
 				{
-					buckets[i] = new BucketInfo();
+					buckets[i] = BucketInfo.Default();//new BucketInfo();
 				}
 
 				// Initialize _BucketInfo_ for SAH partition buckets
@@ -166,8 +169,9 @@ public class BVHBuilder
 					//CHECK_LT(b, nBuckets);
 					buckets[b].count++;
 					//计算bucket的bounds
-					buckets[b].bounds =
-						GPUBounds.Union(buckets[b].bounds, primitiveInfo[i].worldBound);
+					//buckets[b].bounds =
+					//	GPUBounds.Union(buckets[b].bounds, primitiveInfo[i].worldBound);
+					buckets[b].bounds.Union(primitiveInfo[i].worldBound);
 				}
 
 				//分组，计算每组的cost

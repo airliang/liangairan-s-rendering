@@ -3,71 +3,39 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Reference
+public struct Reference
 {
     public int triIdx;
     public GPUBounds bounds;
-    public Reference()
+    public static Reference DefaultReference()
     {
-        triIdx = -1;
-        bounds = GPUBounds.DefaultBounds();
+        return new Reference()
+        {
+            triIdx = -1,
+            bounds = GPUBounds.DefaultBounds()
+        };
     }
 };
 
 //BVH树的节点描述
-class NodeSpec
+struct NodeSpec
 {
     public int startIdx;   //primitive在总的primitve中的位置
     public int numRef;     //该节点包含的所有子节点的三角形数量
     public GPUBounds bounds;  //节点的AABB盒子
     public GPUBounds centroidBounds;
-    public NodeSpec()
+    public static NodeSpec Default()
     {
-        startIdx = 0;
-        numRef = 0;
-        bounds = GPUBounds.DefaultBounds();
-        centroidBounds = GPUBounds.DefaultBounds();
+        return new NodeSpec()
+        {
+            startIdx = 0,
+            numRef = 0,
+            bounds = GPUBounds.DefaultBounds(),
+            centroidBounds = GPUBounds.DefaultBounds()
+        };
     }
 };
 
-/*
-struct ObjectSplit
-{
-    public float sah;
-    public int   sortDim;
-    public int   numLeft;
-    public GPUBounds leftBounds;
-    public GPUBounds rightBounds;
-    public float overlap;
-
-    public static ObjectSplit Default()
-    {
-        ObjectSplit objectSplit = new ObjectSplit();
-        objectSplit.sah = float.MaxValue;
-        objectSplit.sortDim = 0;
-        objectSplit.leftBounds = GPUBounds.DefaultBounds();
-        objectSplit.rightBounds = GPUBounds.DefaultBounds();
-        objectSplit.overlap = 0;
-        return objectSplit;
-    }
-};
-
-struct SpatialSplit
-{
-    public float sah;
-    public int   dim;
-    public float pos;
-
-    public static SpatialSplit Default()
-    {
-        SpatialSplit spatialSplit = new SpatialSplit();
-        spatialSplit.sah = float.MaxValue;
-        spatialSplit.dim = 0;
-        spatialSplit.pos = 0;
-        return spatialSplit;
-    }
-};
-*/
 
 
 struct SahSplit
@@ -86,70 +54,22 @@ struct SahSplit
         return split;
     }
 };
-class SpatialBin
+struct SpatialBin
 {
     public GPUBounds bounds;
     public int enter;
     public int exit;
 
-    public SpatialBin()
+    public static SpatialBin DefaultSpatialBin()
     {
-        bounds = GPUBounds.DefaultBounds();
-        enter = 0;
-        exit = 0;
+        return new SpatialBin()
+        {
+            bounds = GPUBounds.DefaultBounds(),
+            enter = 0,
+            exit = 0
+        };
     }
 };
-
-/*
-public class ReferenceCompair : IComparer<Reference>
-{
-    int sortDim;
-    public ReferenceCompair(int dim)
-    {
-        sortDim = dim;
-    }
-    
-    public int Compare(Reference ra, Reference rb)
-    {
-        if (ra == null)
-        {
-            if (rb == null)
-            {
-                // If x is null and y is null, they're
-                // equal.
-                return 0;
-            }
-            else
-            {
-                // If x is null and y is not null, y
-                // is greater.
-                return -1;
-            }
-        }
-        else
-        {
-            if (rb == null)
-            {
-                return 1;
-            }
-            float ca = ra.bounds.min[sortDim] + ra.bounds.max[sortDim];
-            float cb = rb.bounds.min[sortDim] + rb.bounds.max[sortDim];
-            if (ca < cb || (ca == cb && ra.triIdx < rb.triIdx))
-            {
-                return -1;
-            }
-            else if (ca == cb && ra.triIdx == rb.triIdx)
-            {
-                return 0;
-            }
-            else
-            {
-                return 1;
-            }
-        }
-    }
-}
-*/
 
 public class SplitBVHBuilder : BVHBuilder
 {
@@ -247,21 +167,25 @@ public class SplitBVHBuilder : BVHBuilder
         _primitives = prims;
         _orderedPrimitives = orderedPrims;
         maxPrimsInNode = _maxPrimsInNode;
-        NodeSpec root = new NodeSpec();
+        NodeSpec root = NodeSpec.Default(); //new NodeSpec();
         m_refStack.Clear();
 
         for (int i = 0; i < prims.Count; ++i)
         {
             primitiveInfos.Add(new BVHPrimitiveInfo(i, prims[i].worldBound));
-            Reference reference = new Reference();
-            reference.triIdx = i;  //reference's triIdx is the index in _primitives
-            reference.bounds = prims[i].worldBound;
+            Reference reference = new Reference()
+            {
+                triIdx = i,  //reference's triIdx is the index in _primitives
+                bounds = prims[i].worldBound
+            };
             m_refStack.Add(reference);
         }
         for (int i = 0; i < prims.Count; ++i)
         {
-            root.bounds = GPUBounds.Union(root.bounds, primitiveInfos[i].worldBound);
-            root.centroidBounds = GPUBounds.Union(root.centroidBounds, primitiveInfos[i].worldBound.centroid);
+            //root.bounds = GPUBounds.Union(root.bounds, primitiveInfos[i].worldBound);
+            //root.centroidBounds = GPUBounds.Union(root.centroidBounds, primitiveInfos[i].worldBound.centroid);
+            root.bounds.Union(primitiveInfos[i].worldBound);
+            root.centroidBounds.Union(primitiveInfos[i].worldBound.centroid);
         }
         root.numRef = prims.Count;
 
@@ -302,7 +226,7 @@ public class SplitBVHBuilder : BVHBuilder
     BVHBuildNode RecursiveBuild(NodeSpec spec, int level, float progressStart, float progressEnd)
     {
         totalNodes++;
-        
+
         if (spec.numRef <= maxPrimsInNode || level >= MaxDepth)
             return CreateLeaf(spec);
 
@@ -331,18 +255,18 @@ public class SplitBVHBuilder : BVHBuilder
         BVHBuildNode node = new BVHBuildNode();
         float minSAH = Mathf.Min(objectSplit.sah, spatialSplit.sah);
         //minSAH = Mathf.Min(minSAH, leafSAH);
-        if (minSAH == leafSAH && spec.numRef <= maxPrimsInNode)
-        {
-            //for (int i = 0; i < spec.numRef; i++)
-            //{
-            //    //tris.add(m_refStack.removeLast().triIdx);
-            //    Reference last = m_refStack[m_refStack.Count - 1];
-            //    m_refStack.RemoveAt(m_refStack.Count - 1);
-            //    _orderedPrimitives.Add(_primitives[last.triIdx]);
-            //}
-            //node.InitLeaf(_orderedPrimitives.Count - spec.numRef, spec.numRef, spec.bounds);
-            //return CreateLeaf(spec);
-        }
+        //if (minSAH == leafSAH && spec.numRef <= maxPrimsInNode)
+        //{
+        //for (int i = 0; i < spec.numRef; i++)
+        //{
+        //    //tris.add(m_refStack.removeLast().triIdx);
+        //    Reference last = m_refStack[m_refStack.Count - 1];
+        //    m_refStack.RemoveAt(m_refStack.Count - 1);
+        //    _orderedPrimitives.Add(_primitives[last.triIdx]);
+        //}
+        //node.InitLeaf(_orderedPrimitives.Count - spec.numRef, spec.numRef, spec.bounds);
+        //return CreateLeaf(spec);
+        //}
 
         if (objectSplit.sah < spatialSplit.sah)
         {
@@ -362,7 +286,7 @@ public class SplitBVHBuilder : BVHBuilder
                 //primrefs.resize(elems);
                 List<Reference> extras = new List<Reference>();
                 for (int i = 0; i < elems - m_refStack.Count; ++i)
-                    extras.Add(new Reference());
+                    extras.Add(Reference.DefaultReference());
                 m_refStack.AddRange(extras);
             }
 
@@ -398,11 +322,6 @@ public class SplitBVHBuilder : BVHBuilder
         if (!near2far)
             cmp2 = compl;
 
-        //bool(*cmpl)(float, float) = [](float a, float b)-> bool { return a < b; };
-        //bool(*cmpge)(float, float) = [](float a, float b)-> bool { return a >= b; };
-        //auto cmp1 = near2far ? cmpl : cmpge;
-        //auto cmp2 = near2far ? cmpge : cmpl;
-
         if (spec.centroidBounds.Extend[axis] > 0.0f)
         {
             int first = spec.startIdx;
@@ -412,29 +331,37 @@ public class SplitBVHBuilder : BVHBuilder
             {
                 while ((first != last) && cmp1(m_refStack[first].bounds.centroid[axis], border))
                 {
-                    leftbounds = GPUBounds.Union(m_refStack[first].bounds, leftbounds);
-                    leftcentroid_bounds = GPUBounds.Union(leftcentroid_bounds, m_refStack[first].bounds.centroid);
+                    //leftbounds = GPUBounds.Union(m_refStack[first].bounds, leftbounds);
+                    //leftcentroid_bounds = GPUBounds.Union(leftcentroid_bounds, m_refStack[first].bounds.centroid);
+                    leftbounds.Union(m_refStack[first].bounds);
+                    leftcentroid_bounds.Union(m_refStack[first].bounds.centroid);
                     ++first;
                 }
 
-                if (first == last--) 
+                if (first == last--)
                     break;
 
-                rightbounds = GPUBounds.Union(m_refStack[first].bounds, rightbounds);
-                rightcentroid_bounds = GPUBounds.Union(rightcentroid_bounds, m_refStack[first].bounds.centroid);
+                //rightbounds = GPUBounds.Union(m_refStack[first].bounds, rightbounds);
+                //rightcentroid_bounds = GPUBounds.Union(rightcentroid_bounds, m_refStack[first].bounds.centroid);
+                rightbounds.Union(m_refStack[first].bounds);
+                rightcentroid_bounds.Union(m_refStack[first].bounds.centroid);
 
                 while ((first != last) && cmp2(m_refStack[last].bounds.centroid[axis], border))
                 {
-                    rightbounds = GPUBounds.Union(m_refStack[last].bounds, rightbounds);
-                    rightcentroid_bounds = GPUBounds.Union(rightcentroid_bounds, m_refStack[last].bounds.centroid);
+                    //rightbounds = GPUBounds.Union(m_refStack[last].bounds, rightbounds);
+                    //rightcentroid_bounds = GPUBounds.Union(rightcentroid_bounds, m_refStack[last].bounds.centroid);
+                    rightbounds.Union(m_refStack[last].bounds);
+                    rightcentroid_bounds.Union(m_refStack[last].bounds.centroid);
                     --last;
                 }
 
-                if (first == last) 
+                if (first == last)
                     break;
 
-                leftbounds = GPUBounds.Union(m_refStack[last].bounds, leftbounds);
-                leftcentroid_bounds = GPUBounds.Union(leftcentroid_bounds, m_refStack[last].bounds.centroid);
+                //leftbounds = GPUBounds.Union(m_refStack[last].bounds, leftbounds);
+                //leftcentroid_bounds = GPUBounds.Union(leftcentroid_bounds, m_refStack[last].bounds.centroid);
+                leftbounds.Union(m_refStack[last].bounds);
+                leftcentroid_bounds.Union(m_refStack[last].bounds.centroid);
 
                 //std::swap(primrefs[first++], primrefs[last]);
                 SortSwap(m_refStack, first, last);
@@ -452,28 +379,37 @@ public class SplitBVHBuilder : BVHBuilder
 
             for (int i = spec.startIdx; i < splitidx; ++i)
             {
-                leftbounds = GPUBounds.Union(m_refStack[i].bounds, leftbounds);
-                leftcentroid_bounds = GPUBounds.Union(leftcentroid_bounds, m_refStack[i].bounds.centroid);
+                //leftbounds = GPUBounds.Union(m_refStack[i].bounds, leftbounds);
+                //leftcentroid_bounds = GPUBounds.Union(leftcentroid_bounds, m_refStack[i].bounds.centroid);
+                leftbounds.Union(m_refStack[i].bounds);
+                leftcentroid_bounds.Union(m_refStack[i].bounds.centroid);
             }
 
             for (int i = splitidx; i < spec.startIdx + spec.numRef; ++i)
             {
-                rightbounds = GPUBounds.Union(m_refStack[i].bounds, rightbounds);
-                rightcentroid_bounds = GPUBounds.Union(rightcentroid_bounds, m_refStack[i].bounds.centroid);
+                //rightbounds = GPUBounds.Union(m_refStack[i].bounds, rightbounds);
+                //rightcentroid_bounds = GPUBounds.Union(rightcentroid_bounds, m_refStack[i].bounds.centroid);
+                rightbounds.Union(m_refStack[i].bounds);
+                rightcentroid_bounds.Union(m_refStack[i].bounds.centroid);
             }
         }
         //分组结束
 
-        NodeSpec left = new NodeSpec();
-        left.startIdx = spec.startIdx;
-        left.numRef = splitidx - spec.startIdx;
-        left.bounds = leftbounds;
-        left.centroidBounds = leftcentroid_bounds;
-        NodeSpec right = new NodeSpec();
-        right.startIdx = splitidx;
-        right.numRef = spec.numRef - (splitidx - spec.startIdx);
-        right.bounds = rightbounds;
-        right.centroidBounds = rightcentroid_bounds;
+        NodeSpec left = new NodeSpec()
+        {
+            startIdx = spec.startIdx,
+            numRef = splitidx - spec.startIdx,
+            bounds = leftbounds,
+            centroidBounds = leftcentroid_bounds
+        };
+        NodeSpec right = new NodeSpec()
+        {
+            startIdx = splitidx,
+            numRef = spec.numRef - (splitidx - spec.startIdx),
+            bounds = rightbounds,
+            centroidBounds = rightcentroid_bounds
+        };
+        
 
         //if (minSAH == spatialSplit.sah)
         //    PerformSpatialSplit(left, right, spec, spatialSplit);
@@ -512,7 +448,7 @@ public class SplitBVHBuilder : BVHBuilder
             BucketInfo[] buckets = new BucketInfo[nBuckets];
             for (int i = 0; i < nBuckets; ++i)
             {
-                buckets[i] = new BucketInfo();
+                buckets[i] = BucketInfo.Default();//new BucketInfo();
             }
 
             // Initialize _BucketInfo_ for SAH partition buckets
@@ -527,8 +463,9 @@ public class SplitBVHBuilder : BVHBuilder
                 //CHECK_LT(b, nBuckets);
                 buckets[b].count++;
                 //计算bucket的bounds
-                buckets[b].bounds =
-                    GPUBounds.Union(buckets[b].bounds, m_refStack[i].bounds);
+                //buckets[b].bounds =
+                //    GPUBounds.Union(buckets[b].bounds, m_refStack[i].bounds);
+                buckets[b].bounds.Union(m_refStack[i].bounds);
             }
 
             //用pbrt的方法没必要sort了
@@ -538,7 +475,8 @@ public class SplitBVHBuilder : BVHBuilder
             GPUBounds rightBox = GPUBounds.DefaultBounds();
             for (int i = nBuckets - 1; i > 0; i--)
             {
-                rightBox = GPUBounds.Union(buckets[i].bounds, rightBox);
+                //rightBox = GPUBounds.Union(buckets[i].bounds, rightBox);
+                rightBox.Union(buckets[i].bounds);
                 rightBounds[i - 1] = rightBox;
             }
 
@@ -551,7 +489,7 @@ public class SplitBVHBuilder : BVHBuilder
             //分组，计算每组的cost
             //cost(A,B) = t_trav + pA∑t_isect(ai) + pB∑t_isect(ai)
             //t_trav = 0.125; t_isect = 1
-            float[] cost = new float[nBuckets - 1];
+            //float[] cost = new float[nBuckets - 1];
 
             for (int i = 0; i < nBuckets - 1; ++i)
             {
@@ -577,7 +515,8 @@ public class SplitBVHBuilder : BVHBuilder
                         count1 * bB.SurfaceArea()) /
                     spec.bounds.SurfaceArea();
                 */
-                leftBounds = GPUBounds.Union(buckets[i].bounds, leftBounds);
+                //leftBounds = GPUBounds.Union(buckets[i].bounds, leftBounds);
+                leftBounds.Union(buckets[i].bounds);
                 leftcount += buckets[i].count;
                 rightcount -= buckets[i].count;
                 float sahTemp = m_traversalCost +
@@ -605,53 +544,6 @@ public class SplitBVHBuilder : BVHBuilder
 
         //split.overlap = GPUBounds.Intersection(split.leftBounds, split.rightBounds).SurfaceArea() / spec.bounds.SurfaceArea();
         return split;
-
-
-        /*
-        //const Reference* refPtr = m_refStack.getPtr(m_refStack.getSize() - spec.numRef);
-        int beginIndex = m_refStack.Count - spec.numRef;
-        int count = spec.numRef;
-        Reference refPtr = m_refStack[m_refStack.Count - spec.numRef];
-        float bestTieBreak = float.MaxValue;
-
-        // Sort along each dimension.
-
-        for (m_sortDim = 0; m_sortDim < 3; m_sortDim++)
-        {
-            //sort(this, m_refStack.getSize() - spec.numRef, m_refStack.getSize(), sortCompare, sortSwap);
-
-            //m_refStack.Sort(m_refStack.Count - spec.numRef, count, new ReferenceCompair(m_sortDim));
-            BVHSort.Sort<Reference>(m_refStack.Count - spec.numRef, count, m_refStack, ReferenceCompare, SortSwap);
-            // Sweep right to left and determine bounds.
-
-            GPUBounds rightBounds = GPUBounds.DefaultBounds();
-            for (int i = spec.numRef - 1; i > 0; i--)
-            {
-                rightBounds = GPUBounds.Union(m_refStack[beginIndex + i].bounds, rightBounds);
-                m_rightBounds[i - 1] = rightBounds;
-            }
-
-            // Sweep left to right and select lowest SAH.
-
-            GPUBounds leftBounds = GPUBounds.DefaultBounds();
-            for (int i = 1; i < spec.numRef; i++)
-            {
-                leftBounds = GPUBounds.Union(m_refStack[beginIndex + i - 1].bounds, leftBounds);
-                float sah = m_traversalCost + leftBounds.SurfaceArea() * GetTriangleCost(i) + m_rightBounds[beginIndex + i - 1].SurfaceArea() * GetTriangleCost(spec.numRef - i);
-                float tieBreak = ((float)i * (float)i) + ((float)(spec.numRef - i) * (float)(spec.numRef - i));
-                if (sah < split.sah || (sah == split.sah && tieBreak < bestTieBreak))
-                {
-                    split.sah = sah;
-                    split.sortDim = m_sortDim;
-                    split.numLeft = i;
-                    split.leftBounds = leftBounds;
-                    split.rightBounds = m_rightBounds[i - 1];
-                    bestTieBreak = tieBreak;
-                }
-            }
-        }
-        return split;
-        */
     }
     SahSplit FindSpatialSplit(NodeSpec spec, float nodeSAH)
     {
@@ -666,11 +558,11 @@ public class SplitBVHBuilder : BVHBuilder
         {
             for (int i = 0; i < NumSpatialBins; i++)
             {
-                if (m_bins[dim, i] == null)
+                //if (m_bins[dim, i] == null)
                 {
-                    m_bins[dim, i] = new SpatialBin();
+                    m_bins[dim, i] = SpatialBin.DefaultSpatialBin(); //new SpatialBin();
                 }
-                SpatialBin bin = m_bins[dim, i];
+                //SpatialBin bin = m_bins[dim, i];
                 //bin.bounds = GPUBounds.DefaultBounds();
                 //bin.enter = 0;
                 //bin.exit = 0;
@@ -700,17 +592,20 @@ public class SplitBVHBuilder : BVHBuilder
                 Reference currRef = reference;
                 for (int i = (int)firstBin[dim]; i < (int)lastBin[dim]; i++)
                 {
-                    Reference leftRef = new Reference();
-                    Reference rightRef = new Reference();
+                    Reference leftRef = Reference.DefaultReference();//new Reference();
+                    Reference rightRef = Reference.DefaultReference();//new Reference();
                     float splitPos = origin[dim] + binSize[dim] * (float)(i + 1);
                     //SplitReference(leftRef, rightRef, currRef, dim, splitPos);
-                    if (SplitPrimRef(currRef, dim, splitPos, leftRef, rightRef))
+                    if (SplitPrimRef(currRef, dim, splitPos, ref leftRef, ref rightRef))
                     {
-                        m_bins[dim, i].bounds = GPUBounds.Union(m_bins[dim, i].bounds, leftRef.bounds);
+                        //m_bins[dim, i].bounds = GPUBounds.Union(m_bins[dim, i].bounds, leftRef.bounds);
+                        m_bins[dim, i].bounds.Union(leftRef.bounds);
                         currRef = rightRef;
                     }
                 }
-                m_bins[dim, (int)lastBin[dim]].bounds = GPUBounds.Union(m_bins[dim, (int)lastBin[dim]].bounds, currRef.bounds);
+
+                //m_bins[dim, (int)lastBin[dim]].bounds = GPUBounds.Union(m_bins[dim, (int)lastBin[dim]].bounds, currRef.bounds);
+                m_bins[dim, (int)lastBin[dim]].bounds.Union(currRef.bounds);
                 m_bins[dim, (int)firstBin[dim]].enter++;
                 m_bins[dim, (int)lastBin[dim]].exit++;
             }
@@ -728,7 +623,8 @@ public class SplitBVHBuilder : BVHBuilder
             GPUBounds rightBox = GPUBounds.DefaultBounds();
             for (int i = NumSpatialBins - 1; i > 0; i--)
             {
-                rightBox = GPUBounds.Union(rightBox, m_bins[dim, i].bounds);
+                //rightBox = GPUBounds.Union(rightBox, m_bins[dim, i].bounds);
+                rightBox.Union(m_bins[dim, i].bounds);
                 rightBounds[i - 1] = rightBox;
             }
 
@@ -740,7 +636,8 @@ public class SplitBVHBuilder : BVHBuilder
 
             for (int i = 1; i < NumSpatialBins; i++)
             {
-                leftBounds = GPUBounds.Union(leftBounds, m_bins[dim, i - 1].bounds);
+                //leftBounds = GPUBounds.Union(leftBounds, m_bins[dim, i - 1].bounds);
+                leftBounds.Union(m_bins[dim, i - 1].bounds);
                 leftNum += m_bins[dim, i - 1].enter;
                 rightNum -= m_bins[dim, i - 1].exit;
 
@@ -800,7 +697,7 @@ public class SplitBVHBuilder : BVHBuilder
         //return new BVHBuildNode(spec.bounds, tris.getSize() - spec.numRef, tris.getSize());
     }
 
-    void SplitReference(Reference left, Reference right, Reference reference, int dim, float pos)
+    void SplitReference(ref Reference left, ref Reference right, Reference reference, int dim, float pos)
     {
         // Initialize references.
 
@@ -832,17 +729,21 @@ public class SplitBVHBuilder : BVHBuilder
             // Insert vertex to the boxes it belongs to.
 
             if (v0p <= pos)
-                left.bounds = GPUBounds.Union(left.bounds, v0);
+                //left.bounds = GPUBounds.Union(left.bounds, v0);
+                left.bounds.Union(v0);
             if (v0p >= pos)
-                right.bounds = GPUBounds.Union(right.bounds, v0);
+                //right.bounds = GPUBounds.Union(right.bounds, v0);
+                right.bounds.Union(v0);
 
             // Edge intersects the plane => insert intersection to both boxes.
 
             if ((v0p < pos && v1p > pos) || (v0p > pos && v1p < pos))
             {
                 Vector3 t = Vector3.Lerp(v0, v1, Mathf.Clamp((pos - v0p) * (1 / (v1p - v0p)), 0.0f, 1.0f));
-                left.bounds = GPUBounds.Union(left.bounds, t);
-                right.bounds = GPUBounds.Union(right.bounds, t);
+                //left.bounds = GPUBounds.Union(left.bounds, t);
+                //right.bounds = GPUBounds.Union(right.bounds, t);
+                left.bounds.Union(t);
+                right.bounds.Union(t);
             }
         }
 
@@ -872,7 +773,7 @@ public class SplitBVHBuilder : BVHBuilder
     }
     */
 
-    bool SplitPrimRef(Reference refPrim, int axis, float split, Reference leftref, Reference rightref)
+    bool SplitPrimRef(Reference refPrim, int axis, float split, ref Reference leftref, ref Reference rightref)
     {
         // Start with left and right refs equal to original ref
         leftref.triIdx = rightref.triIdx = refPrim.triIdx;
@@ -901,9 +802,9 @@ public class SplitBVHBuilder : BVHBuilder
         {
             //assert(static_cast<size_t>(req.startidx + appendprims) < refs.size());
 
-            Reference leftref = new Reference();
-            Reference rightref = new Reference();
-            if (SplitPrimRef(refs[i], split.dim, split.pos, leftref, rightref))
+            Reference leftref = Reference.DefaultReference(); //new Reference();
+            Reference rightref = Reference.DefaultReference();//new Reference();
+            if (SplitPrimRef(refs[i], split.dim, split.pos, ref leftref, ref rightref))
             {
                 // Copy left ref instead of original
                 refs[i] = leftref;
@@ -948,7 +849,8 @@ public class SplitBVHBuilder : BVHBuilder
 
             else if (m_refStack[i].bounds.min[split.dim] >= split.pos)
             {
-                right.bounds = GPUBounds.Union(right.bounds, m_refStack[i].bounds);
+                //right.bounds = GPUBounds.Union(right.bounds, m_refStack[i].bounds);
+                right.bounds.Union(m_refStack[i].bounds);
                 //swap(refs[i--], refs[--rightStart]);
                 --rightStart;
                 Reference tmp = m_refStack[i];
@@ -964,9 +866,9 @@ public class SplitBVHBuilder : BVHBuilder
         {
             // Split reference.
 
-            Reference lref = new Reference();
-            Reference rref = new Reference();
-            SplitReference(lref, rref, m_refStack[leftEnd], split.dim, split.pos);
+            Reference lref = Reference.DefaultReference();//new Reference();
+            Reference rref = Reference.DefaultReference();//new Reference();
+            SplitReference(ref lref, ref rref, m_refStack[leftEnd], split.dim, split.pos);
 
             // Compute SAH for duplicate/unsplit candidates.
 
