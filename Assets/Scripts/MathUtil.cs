@@ -201,6 +201,11 @@ public static class MathUtil
         return new Vector3(c.linear.r, c.linear.g, c.linear.b);
     }
 
+    public static Vector4 LinearToVector4(this Color c)
+    {
+        return new Vector4(c.linear.r, c.linear.g, c.linear.b, c.linear.a);
+    }
+
     public static float Pow2(float d)
     {
         return d * d;
@@ -530,6 +535,11 @@ public static class MathUtil
         return *(int*)(&value);
     }
 
+    public static unsafe uint SingleToUint32Bits(float value)
+    {
+        return *(uint*)(&value);
+    }
+
     public static unsafe Vector4Int SingleToInt32Bits(Vector4 value)
     {
         Vector4Int result = new Vector4Int();
@@ -540,6 +550,11 @@ public static class MathUtil
         return result;
     }
     public static unsafe float Int32BitsToSingle(int value)
+    {
+        return *(float*)(&value);
+    }
+
+    public static unsafe float UInt32BitsToSingle(uint value)
     {
         return *(float*)(&value);
     }
