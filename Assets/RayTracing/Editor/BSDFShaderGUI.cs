@@ -1,0 +1,204 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEditor;
+using UnityEngine;
+
+#if UNITY_EDITOR
+public class BSDFShaderGUI : ShaderGUI
+{
+    public enum BSDFMaterial
+    {
+        Matte,
+        Plastic,
+        Metal,
+        Mirror,
+        Glass,
+    }
+    private static class Styles
+    {
+        public static string materialType = "Material Type";
+
+        public static readonly string[] materialNames = Enum.GetNames(typeof(BSDFMaterial));
+
+        public static GUIContent albedoText = new GUIContent("Albedo", "Albedo (RGB) and Transparency (A)");
+        public static GUIContent tilingText = new GUIContent("Tiling", "Tiling");
+        //public static GUIContent uvOffsetText = new GUIContent("Offset", "Offset");
+
+        public static GUIContent normalText = new GUIContent("Normal", "Normal Texture");
+
+        public static GUIContent glossySpecularMapText = new GUIContent("Glossy Specular", "Glossy Specular Texture");
+
+        public static GUIContent roughnessText = new GUIContent("Roughness", "Roughness");
+        public static GUIContent roughnessUText = new GUIContent("Roughness U", "Roughness U");
+        public static GUIContent roughnessVText = new GUIContent("Roughness V", "Roughness V");
+        public static GUIContent etaText = new GUIContent("Refraction Index", "Refraction Index");
+        public static GUIContent metallicAbsorptionText = new GUIContent("Metallic", "Metallic");
+
+        public static GUIContent materialTypeText = new GUIContent("Material choose", "matte, plastic, metal, glass");
+
+        public static string surfaceProperties = "Surface Properties";
+        public static string function = "Function";
+    }
+
+    protected MaterialEditor materialEditor { get; set; }
+
+    protected MaterialProperty materialTypeProp { get; set; }
+    //protected MaterialProperty surfaceTypeProp { get; set; }
+    //protected MaterialProperty blendModeProp { get; set; }
+    //protected MaterialProperty cullModeProp { get; set; }
+
+    //private MaterialProperty spreadUV;
+    //private MaterialProperty worldSpaceUV;
+    //private MaterialProperty useTextureArray;
+    //private MaterialProperty useTextureAtlas;
+    //private MaterialProperty textureMode;
+
+    private MaterialProperty albedoColor;
+    private MaterialProperty albedoMap;
+    private MaterialProperty normalMap;
+    private MaterialProperty glossySpecularMap;
+    private MaterialProperty glossySpecularColor;
+
+
+    private MaterialProperty roughnessU;
+    private MaterialProperty roughnessV;
+    private MaterialProperty eta;
+    private MaterialProperty k;
+
+    //private MaterialProperty staticBatch;
+
+    private bool m_FirstTimeApply = true;
+
+    private void MaterialChanged(Material material)
+    {
+        if (material == null)
+            throw new ArgumentNullException("material");
+
+        material.shaderKeywords = null;
+    }
+
+    public void FindProperties(MaterialProperty[] properties)
+    {
+        materialTypeProp = FindProperty("_MaterialType", properties);
+        albedoColor = FindProperty("_BaseColor", properties);
+        albedoMap = FindProperty("_MainTex", properties);
+        normalMap = FindProperty("_NormalTex", properties);
+        glossySpecularMap = FindProperty("_GlossySpecularTex", properties);
+        glossySpecularColor = FindProperty("_GlossySpecularColor", properties);
+        //albedoTiling = FindProperty("_MainTex_ST", properties);
+        //albedoOffset = FindProperty("_UVOffsets", properties);
+
+        roughnessU = FindProperty("_roughnessU", properties);
+        roughnessV = FindProperty("_roughnessV", properties);
+        eta = FindProperty("_eta", properties);
+        k = FindProperty("_k", properties);
+    }
+
+    public override void AssignNewShaderToMaterial(Material material, Shader oldShader, Shader newShader)
+    {
+        //if (oldShader.name != "Davinci/Primitive" && oldShader.name != "Universal Render Pipeline/Lit")
+        //    return;
+
+        Texture mainTex = material.GetTexture("_MainTex");
+        Color col = material.GetColor("_BaseColor");
+
+        base.AssignNewShaderToMaterial(material, oldShader, newShader);
+
+        material.SetColor("_BaseColor", col);
+        material.SetTexture("_MainTex", mainTex);
+    }
+
+    public override void OnGUI(MaterialEditor materialEditorIn, MaterialProperty[] properties)
+    {
+        if (materialEditorIn == null)
+            throw new ArgumentNullException("materialEditorIn");
+
+        FindProperties(properties); // MaterialProperties can be animated so we do not cache them but fetch them every event to ensure animated values are updated correctly
+        materialEditor = materialEditorIn;
+        Material material = materialEditor.target as Material;
+
+        // Make sure that needed setup (ie keywords/renderqueue) are set up if we're switching some existing
+        // material to a lightweight shader.
+        if (m_FirstTimeApply)
+        {
+            MaterialChanged(material);
+            m_FirstTimeApply = false;
+        }
+
+        // Use default labelWidth
+        EditorGUIUtility.labelWidth = 0f;
+
+        // Detect any changes to the material
+        EditorGUI.BeginChangeCheck();
+        {
+            DoPopup(Styles.materialType, materialTypeProp, Styles.materialNames);
+            //DoPopup(Styles.surfaceType, surfaceTypeProp, Styles.surfaceNames);
+            //DoPopup(Styles.cullingMode, cullModeProp, Styles.cullNames);
+
+            EditorGUILayout.Space();
+            GUILayout.Label(Styles.surfaceProperties, EditorStyles.boldLabel);
+
+            materialEditor.TexturePropertySingleLine(Styles.albedoText, albedoMap, albedoColor);
+            Vector4 tiling = material.GetVector("_MainTex_ST");
+            tiling = EditorGUILayout.Vector4Field(Styles.tilingText, tiling);
+            material.SetVector("_MainTex_ST", tiling);
+            //albedoTiling.vectorValue = tiling;
+
+            EditorGUILayout.Space();
+            materialEditor.TexturePropertySingleLine(Styles.normalText, normalMap);
+
+            EditorGUILayout.Space();
+            
+
+            if (materialTypeProp.floatValue == (float)BSDFMaterial.Metal)
+            {
+                materialEditor.ShaderProperty(roughnessU, Styles.roughnessUText);
+                materialEditor.ShaderProperty(roughnessV, Styles.roughnessVText);
+                materialEditor.ShaderProperty(eta, Styles.etaText);
+                materialEditor.ShaderProperty(k, Styles.metallicAbsorptionText);
+            }
+            else if (materialTypeProp.floatValue == (float)BSDFMaterial.Plastic)
+            {
+                materialEditor.TexturePropertySingleLine(Styles.glossySpecularMapText, glossySpecularMap, glossySpecularColor);
+                EditorGUILayout.Space();
+                materialEditor.ShaderProperty(roughnessU, Styles.roughnessText);
+            }
+
+            EditorGUILayout.Space();
+            GUILayout.Label(Styles.function, EditorStyles.boldLabel);
+        }
+
+        DoMaterialRenderingOptions();
+    }
+
+
+    protected void DoPopup(string label, MaterialProperty property, string[] options)
+    {
+        if (property == null)
+            throw new ArgumentNullException("property");
+
+        EditorGUI.showMixedValue = property.hasMixedValue;
+
+        var mode = property.floatValue;
+        EditorGUI.BeginChangeCheck();
+        mode = EditorGUILayout.Popup(label, (int)mode, options);
+        if (EditorGUI.EndChangeCheck())
+        {
+            materialEditor.RegisterPropertyChangeUndo(label);
+            property.floatValue = (float)mode;
+        }
+
+        EditorGUI.showMixedValue = false;
+    }
+
+    protected void DoMaterialRenderingOptions()
+    {
+        EditorGUILayout.Space();
+        //GUILayout.Label(Styles.renderingOptionsLabel, EditorStyles.boldLabel);
+        materialEditor.EnableInstancingField();
+        materialEditor.DoubleSidedGIField();
+    }
+}
+
+#endif

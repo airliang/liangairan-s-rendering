@@ -39,11 +39,14 @@ struct Light
 struct Material
 {
 	int materialType; 
-	float4 kd;
+	float3 kd;
+	float3 ks;
 	float metallic;
 	float specular;
 	float roughness;
 	float anisotropy;
+	float eta;
+	float k;             //metal material absorption
 	float albedoMapMask;
 	float normalMapMask;
 	float metallicMapMask;
@@ -111,6 +114,7 @@ struct ShadingMaterial
 	float3 normal;
 	float  metallic;
 	float  roughness;
+	float  roughnessV;
 	float  eta;
 };
 

@@ -16,21 +16,44 @@ public enum BxDFType
                BSDF_TRANSMISSION,
 };
 
+public enum BSDFMaterialType
+{
+    Matte,
+    Plastic,
+    Metal,
+    Mirror,
+    Glass,
+    Disney,
+}
+
 public class MaterialParam
 {
+    public int materialType;
     public Texture2D AlbedoMap;
-    //public uint AlbedoMapMask = 0;
+
     public Color BaseColor = Color.white;
     public Texture2D NormalMap;
-    //public uint NormalMapMask = 0;
+
     //public Texture2D SpecularGlossMap;
     public Texture2D MetallicGlossMap;
-    //public uint MetallicGlossMapMask = 0;
-    public float Metallic = 0;
-    public float Specular = 0;
-    public float Roughness = 0;
-    public float Anisotropy = 0;
-    public float Cutoff = 0;
+    public Color GlossySpecularColor = Color.white;
+
+    //disney params
+    public struct DisneyParam
+    {
+        public float Metallic;
+        public float Specular;
+        public float Roughness;
+        public float Anisotropy;
+        public float Cutoff;
+    }
+
+    DisneyParam disneyParam;
+
+    public float RoughnessU;
+    public float RoughnessV;
+    public float Eta;
+    public float K;
 
     public static MaterialParam ConvertUnityMaterial(Material material)
     {
@@ -41,6 +64,7 @@ public class MaterialParam
         }
         else if (material.shader.name == "RayTracing/Disney")
         {
+            materialParam.materialType = (int)BSDFMaterialType.Disney;
             Texture mainTex = material.GetTexture("_MainTex");
             if (mainTex != null)
                 materialParam.AlbedoMap = mainTex as Texture2D;
@@ -51,11 +75,38 @@ public class MaterialParam
             Texture metallicTex = material.GetTexture("_MetallicGlossMap");
             if (metallicTex != null)
                 materialParam.MetallicGlossMap = metallicTex as Texture2D;
-            materialParam.Metallic = material.GetFloat("_metallic");
-            materialParam.Roughness = material.GetFloat("_roughness");
-            materialParam.Specular = material.GetFloat("_specular");
-            materialParam.Anisotropy = material.GetFloat("_anisotropy");
-            materialParam.Cutoff = material.GetFloat("_Cutoff");
+            materialParam.disneyParam.Metallic = material.GetFloat("_metallic");
+            materialParam.disneyParam.Roughness = material.GetFloat("_roughness");
+            materialParam.disneyParam.Specular = material.GetFloat("_specular");
+            materialParam.disneyParam.Anisotropy = material.GetFloat("_anisotropy");
+            materialParam.disneyParam.Cutoff = material.GetFloat("_Cutoff");
+        }
+        else if (material.shader.name == "RayTracing/Uber")
+        {
+            materialParam.materialType = material.GetInt("_MaterialType");
+            Texture mainTex = material.GetTexture("_MainTex");
+            if (mainTex != null)
+                materialParam.AlbedoMap = mainTex as Texture2D;
+            materialParam.BaseColor = material.GetColor("_BaseColor");
+            Texture normalTex = material.GetTexture("_NormalTex");
+            if (normalTex != null)
+                materialParam.NormalMap = normalTex as Texture2D;
+
+            if (materialParam.materialType == (int)BSDFMaterialType.Plastic)
+            {
+                Texture metallicTex = material.GetTexture("_GlossySpecularTex");
+                if (metallicTex != null)
+                    materialParam.MetallicGlossMap = metallicTex as Texture2D;
+                materialParam.GlossySpecularColor = material.GetColor("_GlossySpecularColor");
+                materialParam.RoughnessU = material.GetFloat("_roughnessU");
+            }
+            else if (materialParam.materialType == (int)BSDFMaterialType.Metal)
+            {
+                materialParam.RoughnessU = material.GetFloat("_roughnessU");
+                materialParam.RoughnessV = material.GetFloat("_roughnessV");
+                materialParam.Eta = material.GetFloat("_eta");
+                materialParam.K = material.GetFloat("_k");
+            }
         }
         else
         {
@@ -93,7 +144,7 @@ public class MaterialParam
         }
         else
             gpuMaterial.albedoMapMask = MathUtil.UInt32BitsToSingle(0);
-        gpuMaterial.baseColor = BaseColor.LinearToVector4();
+        gpuMaterial.baseColor = BaseColor.LinearToVector3();
 
         if (NormalMap != null)
         {
@@ -109,14 +160,19 @@ public class MaterialParam
         }
         else
             gpuMaterial.metallicMapMask = MathUtil.UInt32BitsToSingle(0);
-        gpuMaterial.materialType = (int)BxDFType.BSDF_DIFFUSE;
-        gpuMaterial.metallic = Metallic;
-        gpuMaterial.roughness = Roughness;
-        gpuMaterial.specular = Specular;
-        gpuMaterial.anisotropy = Anisotropy;
-        //gpuMaterial.albedoMapMask = AlbedoMapMask;
-        //gpuMaterial.normalMapMask = NormalMapMask;
-        //gpuMaterial.metallicMapMask = MetallicGlossMapMask;
+        gpuMaterial.materialType = materialType;
+        if (materialType == (int)BSDFMaterialType.Disney)
+        {
+            gpuMaterial.metallic = disneyParam.Metallic;
+            gpuMaterial.roughness = disneyParam.Roughness;
+            gpuMaterial.specular = disneyParam.Specular;
+            gpuMaterial.anisotropy = disneyParam.Anisotropy;
+        }
+        else if (materialType == (int)BSDFMaterialType.Plastic)
+        {
+            gpuMaterial.roughness = RoughnessU;
+            gpuMaterial.specularColor = GlossySpecularColor.LinearToVector3();
+        }
 
         return gpuMaterial;
     }

@@ -341,11 +341,14 @@ public struct GPUMaterial
     //public BSDFMaterial.BSDFType materialType;
     //public Vector4 materialParams;  //x-materialtype, y-sigma, z-roughness
     public int materialType;
-    public Vector4 baseColor;       //a is texture mask
+    public Vector3 baseColor;       //a is texture mask
+    public Vector3 specularColor;
     public float metallic;
-    public float specular;
-    public float roughness;
-    public float anisotropy;
+    public float specular;      //when material is plastic, stand for ks
+    public float roughness;     //roughnessU
+    public float anisotropy;    //roughnessV
+    public float eta;
+    public float k;             //metal material absorption
     public float albedoMapMask;
     public float normalMapMask;
     public float metallicMapMask;

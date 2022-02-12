@@ -2,6 +2,7 @@
 #define MATERIALS_HLSL
 #include "disney.hlsl"
 #include "bvhaccel.hlsl"
+#include "bxdf.hlsl"
 
 #define BSDF_REFLECTION  1 << 0
 #define BSDF_TRANSMISSION  1 << 1
@@ -10,6 +11,13 @@
 #define BSDF_SPECULAR  1 << 4
 #define BSDF_ALL  BSDF_DIFFUSE | BSDF_GLOSSY | BSDF_SPECULAR | BSDF_REFLECTION | BSDF_TRANSMISSION
 #define BSDF_DISNEY 1 << 5
+
+#define Matte 0
+#define Plastic 1
+#define Metal 2
+#define Mirror 3
+#define Glass 4
+#define Disney 5
 
 #define TEXTURED_PARAM_MASK 0x80000000
 #define IS_TEXTURED_PARAM(x) ((x) & 0x80000000)
@@ -132,6 +140,47 @@ int GetMaterialBxDFNum(int bsdfType)
 	return num;
 }
 
+void ComputeBxDFLambertReflection(ShadingMaterial shadingMaterial, out BxDFLambertReflection bxdf)
+{
+	bxdf.R = shadingMaterial.reflectance;
+}
+
+void ComputeBxDFMicrofacetReflection(ShadingMaterial shadingMaterial, out BxDFMicrofacetReflection bxdf)
+{
+	bxdf = (BxDFMicrofacetReflection)0;
+	bxdf.alphax = RoughnessToAlpha(shadingMaterial.roughness);
+	bxdf.alphay = RoughnessToAlpha(shadingMaterial.roughnessV);
+	bxdf.R = shadingMaterial.reflectance;
+	if (shadingMaterial.materialType == Plastic)
+	{
+		bxdf.fresnel.fresnelType = FresnelDielectric;
+		bxdf.fresnel.etaI = 1.5;
+		bxdf.fresnel.etaT = 1;
+		bxdf.fresnel.k = 0;
+	}
+	else if (shadingMaterial.materialType == Metal)
+	{
+		bxdf.fresnel.fresnelType = FresnelDielectric;
+		bxdf.fresnel.etaI = 1;
+		bxdf.fresnel.etaT = shadingMaterial.eta;
+		bxdf.fresnel.k = shadingMaterial.metallic;
+	}
+}
+
+void ComputeBxDFMicrofacetTransmission(ShadingMaterial shadingMaterial, out BxDFMicrofacetTransmission bxdf)
+{
+
+}
+
+void ComputeBxDFSpecularReflection(ShadingMaterial shadingMaterial, out BxDFSpecularReflection bxdf)
+{
+	bxdf.R = shadingMaterial.reflectance;
+}
+
+void ComputeBxDFSpecularTransmission(ShadingMaterial shadingMaterial, out BxDFSpecularTransmission bxdf)
+{
+
+}
 
 float3 MaterialBRDF(Material material, Interaction isect, float3 wo, float3 wi, out float pdf)
 {

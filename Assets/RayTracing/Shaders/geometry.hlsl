@@ -321,5 +321,53 @@ float3 SampleTrianglePoint(float3 p0, float3 p1, float3 p2, float2 u, out float3
 	return position;
 }
 
+inline float CosTheta(float3 w) { return w.z; }
+inline float Cos2Theta(float3 w) { return w.z * w.z; }
+inline float Sin2Theta(float3 w) {
+	return max(0, 1.0 - Cos2Theta(w));
+}
+
+inline float SinTheta(float3 w) { return sqrt(Sin2Theta(w)); }
+
+inline float TanTheta(float3 w) { return SinTheta(w) / CosTheta(w); }
+
+inline float Tan2Theta(float3 w) {
+	return Sin2Theta(w) / Cos2Theta(w);
+}
+
+inline float CosPhi(float3 w) {
+	float sinTheta = SinTheta(w);
+	return (sinTheta == 0) ? 1 : clamp(w.x / sinTheta, -1, 1);
+}
+
+inline float SinPhi(float3 w) {
+	float sinTheta = SinTheta(w);
+	return (sinTheta == 0) ? 0 : clamp(w.y / sinTheta, -1, 1);
+}
+
+inline float Cos2Phi(float3 w) 
+{ 
+	float v = CosPhi(w);
+	return v * v;
+}
+
+inline float Sin2Phi(float3 w) 
+{ 
+	float v = SinPhi(w);
+	return v * v;
+}
+
+inline float CosDPhi(float3 wa, float3 wb) {
+	float waxy = wa.x * wa.x + wa.y * wa.y;
+	float wbxy = wb.x * wb.x + wb.y * wb.y;
+	if (waxy == 0 || wbxy == 0)
+		return 1;
+	return clamp((wa.x * wb.x + wa.y * wb.y) / sqrt(waxy * wbxy), -1, 1);
+}
+
+float3 Faceforward(float3 normal, float3 v)
+{
+	return (dot(normal, v) < 0.f) ? -normal : normal;
+}
 
 #endif
