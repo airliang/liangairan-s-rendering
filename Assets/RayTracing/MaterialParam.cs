@@ -64,7 +64,7 @@ public class MaterialParam
         }
         else if (material.shader.name == "RayTracing/Disney")
         {
-            materialParam.materialType = (int)BSDFMaterialType.Disney;
+            materialParam.materialType = (int)BSDFMaterialType.Matte;
             Texture mainTex = material.GetTexture("_MainTex");
             if (mainTex != null)
                 materialParam.AlbedoMap = mainTex as Texture2D;
@@ -99,6 +99,7 @@ public class MaterialParam
                     materialParam.MetallicGlossMap = metallicTex as Texture2D;
                 materialParam.GlossySpecularColor = material.GetColor("_GlossySpecularColor");
                 materialParam.RoughnessU = material.GetFloat("_roughnessU");
+                materialParam.RoughnessV = material.GetFloat("_roughnessV");
             }
             else if (materialParam.materialType == (int)BSDFMaterialType.Metal)
             {
@@ -171,7 +172,15 @@ public class MaterialParam
         else if (materialType == (int)BSDFMaterialType.Plastic)
         {
             gpuMaterial.roughness = RoughnessU;
+            gpuMaterial.anisotropy = RoughnessV;
             gpuMaterial.specularColor = GlossySpecularColor.LinearToVector3();
+        }
+        else if (materialType == (int)BSDFMaterialType.Metal)
+        {
+            gpuMaterial.roughness = RoughnessU;
+            gpuMaterial.anisotropy = RoughnessV;
+            gpuMaterial.eta = Eta;
+            gpuMaterial.k = K;
         }
 
         return gpuMaterial;

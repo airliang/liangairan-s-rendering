@@ -169,6 +169,7 @@ struct Vertex
 {
 	float4 position;
 	float2 uv;
+	float3 normal;
 };
 
 bool BoundIntersectP(Ray ray, Bounds bounds, float3 invDir, int dirIsNeg[3])
@@ -368,6 +369,11 @@ inline float CosDPhi(float3 wa, float3 wb) {
 float3 Faceforward(float3 normal, float3 v)
 {
 	return (dot(normal, v) < 0.f) ? -normal : normal;
+}
+
+float3 SphericalDirection(float sinTheta, float cosTheta, float phi)
+{
+	return float3(sinTheta * cos(phi), sinTheta * sin(phi), cosTheta);
 }
 
 #endif

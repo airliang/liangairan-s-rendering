@@ -8,9 +8,9 @@
 struct FresnelData
 {
     int fresnelType;
-    float etaI;
-    float etaT;
-    float k;    //just for conductor
+    float3 etaI;
+    float3 etaT;
+    float3 k;    //just for conductor
 };
 
 inline float SchlickWeight(float cosTheta) {

@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Profiling;
 
 public struct Reference
 {
@@ -86,9 +87,19 @@ public class SplitBVHBuilder : BVHBuilder
     readonly int MaxDepth = 64;
     int MaxSpatialDepth = 48;
     readonly static int NumSpatialBins = 64;
-
+    
     private int innerNodes = 0;
     private int leafNodes = 0;
+
+    SpatialBin[,] m_bins = new SpatialBin[3, NumSpatialBins];
+    BucketInfo[] buckets = new BucketInfo[NumSpatialBins];
+    GPUBounds[] rightBounds = new GPUBounds[NumSpatialBins - 1];
+
+    static GPUBounds defaultBound = GPUBounds.DefaultBounds();
+    static SpatialBin defaultBin = SpatialBin.DefaultSpatialBin();
+    static Reference defaultReference = Reference.DefaultReference();
+    static SahSplit defaultSahSplit = SahSplit.Default();
+    static BucketInfo defaultBucket = BucketInfo.Default();
 
     public enum SplitType
     {
@@ -214,8 +225,9 @@ public class SplitBVHBuilder : BVHBuilder
         innerNodes = 0;
         leafNodes = 0;
         totalNodes = 0;
-
+        
         BVHBuildNode rootNode = RecursiveBuild(root, 0, 0, 1.0f);
+        
         Debug.Log("InnerNodes num = " + innerNodes);
         Debug.Log("LeafNodes num = " + leafNodes);
         Debug.Log("TotalNodes num = " + totalNodes);
@@ -242,15 +254,19 @@ public class SplitBVHBuilder : BVHBuilder
         float border = spec.centroidBounds.centroid[axis];
 
         SplitType split_type = SplitType.kObject;
-
+        Profiler.BeginSample("BVH Find Object Splits");
         SahSplit objectSplit = FindObjectSplit(spec, nodeSAH);
+        Profiler.EndSample();
 
         SahSplit spatialSplit = SahSplit.Default();
         if (level < MaxSpatialDepth && objectSplit.overlap >= m_minOverlap)
         {
             //由于object划分会产生overlap的区域，当overlap的区域＞minOverlap的时候，需要划分spatial split
+            Profiler.BeginSample("BVH FindSpatialSplit");
             spatialSplit = FindSpatialSplit(spec, nodeSAH);
+            Profiler.EndSample();
         }
+        
 
         BVHBuildNode node = new BVHBuildNode();
         float minSAH = Mathf.Min(objectSplit.sah, spatialSplit.sah);
@@ -292,7 +308,9 @@ public class SplitBVHBuilder : BVHBuilder
 
             // Split prim refs and add extra refs to request
             int extra_refs = 0;
+            Profiler.BeginSample("SplitPrimRefs");
             SplitPrimRefs(spatialSplit, spec, m_refStack, ref extra_refs);
+            Profiler.EndSample();
             spec.numRef += extra_refs;
             border = spatialSplit.pos;
             axis = spatialSplit.dim;
@@ -426,7 +444,7 @@ public class SplitBVHBuilder : BVHBuilder
 
     SahSplit FindObjectSplit(NodeSpec spec, float nodeSAH)
     {
-        SahSplit split = SahSplit.Default();
+        SahSplit split = defaultSahSplit;
 
         Vector3 origin = spec.bounds.min;
         Vector3 binSize = (spec.bounds.max - origin) * (1.0f / (float)NumSpatialBins);
@@ -439,16 +457,16 @@ public class SplitBVHBuilder : BVHBuilder
 
         for (int axis = 0; axis < 3; axis++)
         {
-            GPUBounds[] rightBounds = new GPUBounds[NumSpatialBins - 1];
+            
             float centroid_rng = spec.centroidBounds.Extend[axis];
 
             if (centroid_rng == 0.0f) 
                 continue;
-            int nBuckets = NumSpatialBins;
-            BucketInfo[] buckets = new BucketInfo[nBuckets];
+            int nBuckets = buckets.Length;
+            
             for (int i = 0; i < nBuckets; ++i)
             {
-                buckets[i] = BucketInfo.Default();//new BucketInfo();
+                buckets[i] = defaultBucket;
             }
 
             // Initialize _BucketInfo_ for SAH partition buckets
@@ -472,7 +490,7 @@ public class SplitBVHBuilder : BVHBuilder
             //BVHSort.Sort<Reference>(start, end, m_refStack, ReferenceCompare, SortSwap);
             // Sweep right to left and determine bounds.
 
-            GPUBounds rightBox = GPUBounds.DefaultBounds();
+            GPUBounds rightBox = defaultBound;
             for (int i = nBuckets - 1; i > 0; i--)
             {
                 //rightBox = GPUBounds.Union(buckets[i].bounds, rightBox);
@@ -482,7 +500,7 @@ public class SplitBVHBuilder : BVHBuilder
 
             // Sweep left to right and select lowest SAH.
 
-            GPUBounds leftBounds = GPUBounds.DefaultBounds();
+            GPUBounds leftBounds = defaultBound;
             int leftcount = 0;
             int rightcount = spec.numRef;
 
@@ -552,20 +570,13 @@ public class SplitBVHBuilder : BVHBuilder
         Vector3 binSize = (spec.bounds.max - origin) * (1.0f / (float)NumSpatialBins);
         Vector3 invBinSize = new Vector3(1.0f / binSize.x, 1.0f / binSize.y, 1.0f / binSize.z);
 
-        SpatialBin[,] m_bins = new SpatialBin[3, NumSpatialBins];
+        
 
         for (int dim = 0; dim< 3; dim++)
         {
             for (int i = 0; i < NumSpatialBins; i++)
             {
-                //if (m_bins[dim, i] == null)
-                {
-                    m_bins[dim, i] = SpatialBin.DefaultSpatialBin(); //new SpatialBin();
-                }
-                //SpatialBin bin = m_bins[dim, i];
-                //bin.bounds = GPUBounds.DefaultBounds();
-                //bin.enter = 0;
-                //bin.exit = 0;
+                m_bins[dim, i] = defaultBin; //new SpatialBin();
             }
         }
 
@@ -592,8 +603,8 @@ public class SplitBVHBuilder : BVHBuilder
                 Reference currRef = reference;
                 for (int i = (int)firstBin[dim]; i < (int)lastBin[dim]; i++)
                 {
-                    Reference leftRef = Reference.DefaultReference();//new Reference();
-                    Reference rightRef = Reference.DefaultReference();//new Reference();
+                    Reference leftRef = defaultReference;
+                    Reference rightRef = defaultReference;
                     float splitPos = origin[dim] + binSize[dim] * (float)(i + 1);
                     //SplitReference(leftRef, rightRef, currRef, dim, splitPos);
                     if (SplitPrimRef(currRef, dim, splitPos, ref leftRef, ref rightRef))
@@ -612,15 +623,14 @@ public class SplitBVHBuilder : BVHBuilder
         }
 
         // Select best split plane.
-
-        SahSplit split = SahSplit.Default();
+        SahSplit split = defaultSahSplit;
         for (int dim = 0; dim < 3; dim++)
         {
             if (spec.bounds.Extend[dim] == 0.0f)
                 continue;
             // Sweep right to left and determine bounds.
-            GPUBounds[] rightBounds = new GPUBounds[NumSpatialBins - 1];
-            GPUBounds rightBox = GPUBounds.DefaultBounds();
+            //GPUBounds[] rightBounds = new GPUBounds[NumSpatialBins - 1];
+            GPUBounds rightBox = defaultBound;
             for (int i = NumSpatialBins - 1; i > 0; i--)
             {
                 //rightBox = GPUBounds.Union(rightBox, m_bins[dim, i].bounds);
@@ -630,18 +640,18 @@ public class SplitBVHBuilder : BVHBuilder
 
             // Sweep left to right and select lowest SAH.
 
-            GPUBounds leftBounds = GPUBounds.DefaultBounds();
+            GPUBounds leftBox = defaultBound;
             int leftNum = 0;
             int rightNum = spec.numRef;
 
             for (int i = 1; i < NumSpatialBins; i++)
             {
                 //leftBounds = GPUBounds.Union(leftBounds, m_bins[dim, i - 1].bounds);
-                leftBounds.Union(m_bins[dim, i - 1].bounds);
+                leftBox.Union(m_bins[dim, i - 1].bounds);
                 leftNum += m_bins[dim, i - 1].enter;
                 rightNum -= m_bins[dim, i - 1].exit;
 
-                float sah = m_traversalCost + (leftBounds.SurfaceArea() * GetTriangleCost(leftNum) + rightBounds[i - 1].SurfaceArea() * GetTriangleCost(rightNum)) /
+                float sah = m_traversalCost + (leftBox.SurfaceArea() * GetTriangleCost(leftNum) + rightBounds[i - 1].SurfaceArea() * GetTriangleCost(rightNum)) /
                     spec.bounds.SurfaceArea();
                 if (sah < split.sah)
                 {

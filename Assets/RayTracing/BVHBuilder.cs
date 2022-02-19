@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Profiling;
 
 public struct BucketInfo
 {
@@ -66,8 +67,10 @@ public class BVHBuilder
 		List<BVHPrimitiveInfo> primitiveInfos = new List<BVHPrimitiveInfo>();
 		for (int i = 0; i < prims.Count; ++i)
 			primitiveInfos.Add(new BVHPrimitiveInfo(i, prims[i].worldBound));
-		return RecursiveBuild(primitiveInfos, 0, prims.Count, orderedPrims);
-
+		Profiler.BeginSample("Build BVH");
+		BVHBuildNode bvhNode = RecursiveBuild(primitiveInfos, 0, prims.Count, orderedPrims);
+		Profiler.EndSample();
+		return bvhNode;
 	}
 
 	public int TotalNodes

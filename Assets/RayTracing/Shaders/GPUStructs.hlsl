@@ -110,7 +110,7 @@ struct ShadingMaterial
 	int    materialType;
 	float3 reflectance;
 	float3 transmission;
-	//float3 specular;
+	float3 specular;
 	float3 normal;
 	float  metallic;
 	float  roughness;

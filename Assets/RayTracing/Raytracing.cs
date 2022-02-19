@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Profiling;
 using UnityEngine.Rendering;
 
 class RTMesh
@@ -76,11 +77,24 @@ public class Raytracing : MonoBehaviour
     public ComputeShader SampleShadowRay;
     public ComputeShader EstimateDirect;
     public ComputeShader ImageReconstruction;
+    public ComputeShader DebugView;
     public bool useInstanceBVH = true;
     public FilterType filterType = FilterType.Gaussian;
     public Vector2 fiterRadius = Vector2.one;
     public float gaussianSigma = 0.5f;
     public Texture2D testTexture;
+    private CommandBuffer renderGBufferCmd;
+
+    public enum TracingView
+    {
+        ColorView,
+        NormalView,
+        DepthView,
+        MipmapView,
+        GBufferView,
+    }
+
+    public TracingView viewMode = TracingView.ColorView;
 
     int kGeneratePrimaryRay = -1;
     //generate path ray
@@ -91,6 +105,7 @@ public class Raytracing : MonoBehaviour
     int kSampleShadowRay = -1;
     int kEstimateDirect = -1;
     int kImageReconstruction = -1;
+    int kDebugView = -1;
     ComputeBuffer woodTriBuffer;
     ComputeBuffer woodTriIndexBuffer;
     ComputeBuffer verticesBuffer;
@@ -163,7 +178,7 @@ public class Raytracing : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        if (rayConeGBuffer == null)
+        //if (rayConeGBuffer == null)
             RenderToGBuffer();
         if (Input.GetMouseButtonUp(0))
         {
@@ -171,7 +186,7 @@ public class Raytracing : MonoBehaviour
             OnePathTracing((int)Input.mousePosition.x, (int)Input.mousePosition.y, (int)Screen.width, 1);
         }
 
-        bvhAccel.DrawDebug(meshInstances, true);
+        //bvhAccel.DrawDebug(meshInstances, true);
 
         if (framesNum >= samplesPerPixel)
         {
@@ -193,33 +208,42 @@ public class Raytracing : MonoBehaviour
         generateRay.SetMatrix("CameraToWorld", cameraComponent.cameraToWorldMatrix);
         generateRay.Dispatch(kGeneratePrimaryRay, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
 
-        
-        for (int i = 0; i < MAX_PATH; ++i)
+        if (viewMode == TracingView.ColorView)
         {
-            RayTravel.SetFloat("_time", Time.time);
-            RayTravel.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
+            for (int i = 0; i < MAX_PATH; ++i)
+            {
+                RayTravel.SetFloat("_time", Time.time);
+                RayTravel.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
 
-            RayTravel.SetInt("bounces", i);
-            RayTravel.SetInt("queueSizeIndex", queueSizeIndex++);
-            RayTravel.Dispatch(kRayTraversal, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
+                RayTravel.SetInt("bounces", i);
+                RayTravel.SetInt("queueSizeIndex", queueSizeIndex++);
+                RayTravel.Dispatch(kRayTraversal, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
 
-            SampleShadowRay.SetInt("bounces", i);
-            SampleShadowRay.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
-            SampleShadowRay.SetInt("lightsNum", gpuLights.Count);
-            SampleShadowRay.SetInt("queueSizeIndex", queueSizeIndex);
-            SampleShadowRay.Dispatch(kSampleShadowRay, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
+                SampleShadowRay.SetInt("bounces", i);
+                SampleShadowRay.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
+                SampleShadowRay.SetInt("lightsNum", gpuLights.Count);
+                SampleShadowRay.SetInt("queueSizeIndex", queueSizeIndex);
+                SampleShadowRay.Dispatch(kSampleShadowRay, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
 
-            EstimateDirect.SetInt("bounces", i);
-            EstimateDirect.SetInt("queueSizeIndex", queueSizeIndex++);
-            EstimateDirect.Dispatch(kEstimateDirect, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
-            
-            //generatePath.SetInt("bounces", i);
-            //generatePath.SetInt("queueSizeIndex", queueSizeIndex++);
-            //generatePath.Dispatch(kGeneratePath, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
+                EstimateDirect.SetInt("bounces", i);
+                EstimateDirect.SetInt("queueSizeIndex", queueSizeIndex++);
+                EstimateDirect.Dispatch(kEstimateDirect, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
+            }
+
+            ImageReconstruction.SetInt("framesNum", ++framesNum);
+            ImageReconstruction.Dispatch(kImageReconstruction, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
         }
+        else
+        {
+            if (kDebugView < 0)
+                SetupDebugView();
 
-        ImageReconstruction.SetInt("framesNum", ++framesNum);
-        ImageReconstruction.Dispatch(kImageReconstruction, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
+            DebugView.SetInt("debugView", (int)viewMode);
+            DebugView.SetInt("bounces", 0);
+
+            DebugView.Dispatch(kDebugView, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
+            ++framesNum;
+        }
     }
 
     int SetupMaterials(MeshRenderer renderer, int subMeshIndex)
@@ -256,15 +280,18 @@ public class Raytracing : MonoBehaviour
 
         int renderObjectsNum = 0;
 
+        Profiler.BeginSample("Scene Mesh Data Process");
         if (useInstanceBVH)
         {
             //Dictionary<Mesh, int> sharedMeshes = new Dictionary<Mesh, int>();
+            
             List<Mesh> sharedMeshes = new List<Mesh>();
             Dictionary<Mesh, List<int>> meshHandlesDict = new Dictionary<Mesh, List<int>>();
             int lightObjectsNum = 0;
 
             //先生成MeshHandle
             int meshHandleIndex = 0;
+            
             for (int i = 0; i < meshRenderers.Length; ++i)
             {
                 MeshRenderer meshRenderer = meshRenderers[i];
@@ -286,32 +313,52 @@ public class Raytracing : MonoBehaviour
                 {
                     lightObjectsNum++;
                 }
-                //if (shapes[i].shapeType == Shape.ShapeType.rectangle)
-                //{
-                //    mesh = GetRectangleMesh();
-                //}
+
 
                 if (sharedMeshes.Contains(mesh))
                 {
                     continue;
                 }
-
+                //if (mesh.normals == null || mesh.normals.Length == 0)
+                //    mesh.RecalculateNormals();
                 sharedMeshes.Add(mesh);
                 List<int> meshHandleIndices = new List<int>();
                 meshHandlesDict.Add(mesh, meshHandleIndices);
-                    
+
 
                 //int meshId = i;
+                Profiler.BeginSample("Getting mesh orig datas");
                 int vertexOffset = gpuVertices.Count;
+                List<Vector2> meshUVs = new List<Vector2>();
+                List<Vector3> meshVertices = new List<Vector3>();
+                List<Vector3> meshNormals = new List<Vector3>();
+                
+                mesh.GetUVs(0, meshUVs);
+                if (meshUVs.Count == 0)
+                {
+                    Vector2[] uvs = new Vector2[mesh.vertexCount];
+                    mesh.SetUVs(0, uvs);
+                }
+                mesh.GetVertices(meshVertices);
+                mesh.GetNormals(meshNormals);
+                if (meshNormals.Count == 0)
+                {
+                    mesh.RecalculateNormals();
+                    mesh.GetNormals(meshNormals);
+                }
+                Profiler.EndSample();
+                GPUVertex vertexTmp = new GPUVertex();
 
+                Profiler.BeginSample("Geometry Vertex data fetching");
                 for (int sm = 0; sm < mesh.subMeshCount; ++sm)
                 {
                     int subMeshVertexOffset = gpuVertices.Count;
                     int triangleOffset = triangles.Count;
-                    int primitiveTriangleOffset = gpuVertices.Count;
-                    int primitiveVertexOffset = triangles.Count;
-                    //material这部分暂时先不处理，写死成lambert diffuse
-                    
+                    //int primitiveTriangleOffset = gpuVertices.Count;
+                    //int primitiveVertexOffset = triangles.Count;
+                    List<int> meshTriangles = new List<int>();
+                    mesh.GetTriangles(meshTriangles, sm);
+
                     SubMeshDescriptor subMeshDescriptor = mesh.GetSubMesh(sm);
                     //MeshHandle meshHandle = new MeshHandle(vertexOffset, triangleOffset, mesh.vertexCount, mesh.triangles.Length, mesh.bounds);
                     MeshHandle meshHandle = new MeshHandle(subMeshVertexOffset, triangleOffset, subMeshDescriptor.vertexCount, 
@@ -320,31 +367,23 @@ public class Raytracing : MonoBehaviour
                     meshHandleIndex++;
                     meshHandles.Add(meshHandle);
                     //创建该meshHandle的bvh
-                    if (mesh.uv == null || mesh.uv.Length == 0)
-                    {
-                        Vector2[] uvs = new Vector2[mesh.vertexCount];
-                        mesh.SetUVs(0, uvs);
-                    }
-
+                    
+                    
                     for (int j = 0; j < subMeshDescriptor.vertexCount; ++j)
                     {
-                        GPUVertex vertex = new GPUVertex();
-                        vertex.position = mesh.vertices[subMeshDescriptor.firstVertex + j];//mesh.vertices[j];
-                        vertex.uv = mesh.uv[subMeshDescriptor.firstVertex + j];
-                        gpuVertices.Add(vertex);
+                        vertexTmp.position = meshVertices[subMeshDescriptor.firstVertex + j];//mesh.vertices[j];
+                        vertexTmp.uv = meshUVs[subMeshDescriptor.firstVertex + j];
+                        vertexTmp.normal = meshNormals[subMeshDescriptor.firstVertex + j];
+                        gpuVertices.Add(vertexTmp);
                     }
                     for (int j = 0; j < subMeshDescriptor.indexCount; ++j)
                     {
-                        triangles.Add(mesh.triangles[j + subMeshDescriptor.indexStart] + vertexOffset);
+                        triangles.Add(meshTriangles[j + subMeshDescriptor.indexStart] + vertexOffset);
                     }
                 }
+                Profiler.EndSample();
             }
-
-            //float totalLightArea = 0;
             
-            //List<Vector2> lightTriangleDistributions = new List<Vector2>();
-           
-            //List<Transform> meshTransforms = new List<Transform>();
 
             //生成meshinstance和对应的material
             meshHandleIndex = 0;
@@ -358,45 +397,72 @@ public class Raytracing : MonoBehaviour
 
                 MeshFilter meshFilter = meshRenderer.GetComponent<MeshFilter>();
                 Mesh mesh = meshFilter.sharedMesh;
-                //if (shapes[i].shapeType == Shape.ShapeType.rectangle)
-                //{
-                //    mesh = GetRectangleMesh();
-                //}
-                //int meshIndex = sharedMeshes.FindIndex(s => s == mesh);
+
                 Light lightComponent = meshRenderer.GetComponent<Light>();
                 if (lightComponent != null && lightComponent.type == LightType.Area)
                 {
+                    Profiler.BeginSample("Lights data fetching");
                     AreaLightResource areaLight = null;
+                    List<Vector3> lightMeshVertices = new List<Vector3>();
                     if (!meshDistributions.TryGetValue(mesh, out areaLight))
                     {
                         areaLight = new AreaLightResource();
                         //compute the mesh triangle distribution
-                        for (int t = 0; t < mesh.triangles.Length; t += 3)
-                        {
-                            Vector3 p0 = mesh.vertices[mesh.triangles[t]];
-                            Vector3 p1 = mesh.vertices[mesh.triangles[t + 1]];
-                            Vector3 p2 = mesh.vertices[mesh.triangles[t + 2]];
-                            float triangleArea = Vector3.Cross(p1 - p0, p2 - p0).magnitude * 0.5f;
-                            areaLight.triangleAreas.Add(triangleArea);
+                        //for (int t = 0; t < mesh.triangles.Length; t += 3)
+                        //{
+                        //    Vector3 p0 = mesh.vertices[mesh.triangles[t]];
+                        //    Vector3 p1 = mesh.vertices[mesh.triangles[t + 1]];
+                        //    Vector3 p2 = mesh.vertices[mesh.triangles[t + 2]];
+                        //    float triangleArea = Vector3.Cross(p1 - p0, p2 - p0).magnitude * 0.5f;
+                        //    areaLight.triangleAreas.Add(triangleArea);
+                        //}
+                        
+                        mesh.GetVertices(lightMeshVertices);
+
+                        for (int sm = 0; sm < mesh.subMeshCount; ++sm)
+                        {                            
+                            List<int> meshTriangles = new List<int>();
+                            mesh.GetTriangles(meshTriangles, sm);
+                            for (int t = 0; t < meshTriangles.Count; t += 3)
+                            {
+                                Vector3 p0 = lightMeshVertices[meshTriangles[t]];
+                                Vector3 p1 = lightMeshVertices[meshTriangles[t + 1]];
+                                Vector3 p2 = lightMeshVertices[meshTriangles[t + 2]];
+                                float triangleArea = Vector3.Cross(p1 - p0, p2 - p0).magnitude * 0.5f;
+                                areaLight.triangleAreas.Add(triangleArea);
+                            }
                         }
 
-                        //areaLight.distributionAddress = lightObjectsNum + lightTriangleDistributions.Count;
                         areaLight.triangleDistributions = new Distribution1D(areaLight.triangleAreas.ToArray(), 0, areaLight.triangleAreas.Count, 0, areaLight.triangleAreas.Count);
                         meshDistributions.Add(mesh, areaLight);
                         //lightTriangleDistributions.AddRange(areaLight.triangleDistributions);
                     }
 
                     float lightArea = 0;
-                    //List<float> triangleAreas = new List<float>();
-                    for (int t = 0; t < mesh.triangles.Length; t += 3)
+                    //for (int t = 0; t < mesh.triangles.Length; t += 3)
+                    //{
+                    //    Vector3 p0 = transform.TransformPoint(mesh.vertices[mesh.triangles[t]]);
+                    //    Vector3 p1 = transform.TransformPoint(mesh.vertices[mesh.triangles[t + 1]]);
+                    //    Vector3 p2 = transform.TransformPoint(mesh.vertices[mesh.triangles[t + 2]]);
+                    //    float triangleArea = Vector3.Cross(p1 - p0, p2 - p0).magnitude * 0.5f;
+                    //    lightArea += triangleArea;
+                    //}
+
+                    lightMeshVertices.Clear();
+                    mesh.GetVertices(lightMeshVertices);
+
+                    for (int sm = 0; sm < mesh.subMeshCount; ++sm)
                     {
-                        Vector3 p0 = transform.TransformPoint(mesh.vertices[mesh.triangles[t]]);
-                        Vector3 p1 = transform.TransformPoint(mesh.vertices[mesh.triangles[t + 1]]);
-                        Vector3 p2 = transform.TransformPoint(mesh.vertices[mesh.triangles[t + 2]]);
-                        float triangleArea = Vector3.Cross(p1 - p0, p2 - p0).magnitude * 0.5f;
-                        //triangleAreas.Add(triangleArea);
-                        //areaLight.area += triangleArea;
-                        lightArea += triangleArea;
+                        List<int> meshTriangles = new List<int>();
+                        mesh.GetTriangles(meshTriangles, sm);
+                        for (int t = 0; t < meshTriangles.Count; t += 3)
+                        {
+                            Vector3 p0 = lightMeshVertices[meshTriangles[t]];
+                            Vector3 p1 = lightMeshVertices[meshTriangles[t + 1]];
+                            Vector3 p2 = lightMeshVertices[meshTriangles[t + 2]];
+                            float triangleArea = Vector3.Cross(p1 - p0, p2 - p0).magnitude * 0.5f;
+                            lightArea += triangleArea;
+                        }
                     }
 
                     AreaLightInstance areaLightInstance = new AreaLightInstance();
@@ -420,12 +486,12 @@ public class Raytracing : MonoBehaviour
                     gpuLight.distributionDiscriptIndex = gpuLights.Count + 1;
                     gpuLight.meshInstanceID = meshInstances.Count;
                     gpuLights.Add(gpuLight);
-
+                    Profiler.EndSample();
                 }
 
                 List<int> meshHandleIndices = null;
                 meshHandlesDict.TryGetValue(mesh, out meshHandleIndices);
-
+                Profiler.BeginSample("SetupMaterials");
                 for (int sm = 0; sm < mesh.subMeshCount; ++sm)
                 {
                     meshHandleIndex = meshHandleIndices[sm];
@@ -435,11 +501,15 @@ public class Raytracing : MonoBehaviour
                         materialIndex, lightIndex, meshHandle.triangleOffset, meshHandle.triangleCount);
                     meshInstances.Add(meshInstance);
                 }
+                Profiler.EndSample();
             }
+            
 
             //创建bvh
             float timeBegin = Time.realtimeSinceStartup;
+            Profiler.BeginSample("Build BVH");
             instBVHNodeAddr = bvhAccel.Build(meshInstances, meshHandles, gpuVertices, triangles);
+            Profiler.EndSample();
             float timeInterval = Time.realtimeSinceStartup - timeBegin;
             Debug.Log("building bvh cost time:" + timeInterval);
             
@@ -450,12 +520,12 @@ public class Raytracing : MonoBehaviour
             //meshHandleBuffer.SetData(meshHandles.ToArray());
 
             meshInstanceBuffer = new ComputeBuffer(meshInstances.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(MeshInstance)), ComputeBufferType.Structured);
-            meshInstanceBuffer.SetData(meshInstances.ToArray());
+            meshInstanceBuffer.SetData(meshInstances);
 
             if (gpuLights.Count > 0)
             {
                 lightBuffer = new ComputeBuffer(gpuLights.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPULight)), ComputeBufferType.Structured);
-                lightBuffer.SetData(gpuLights.ToArray());
+                lightBuffer.SetData(gpuLights);
             }
             else
             {
@@ -487,6 +557,7 @@ public class Raytracing : MonoBehaviour
                             GPUVertex vertex = new GPUVertex();
                             vertex.position = meshRenderer.transform.localToWorldMatrix.MultiplyPoint(mesh.vertices[j]);
                             vertex.uv = mesh.uv[j];
+                            vertex.normal = mesh.normals[j];
                             gpuVertices.Add(vertex);
                         }
                         for (int j = 0; j < mesh.triangles.Length; ++j)
@@ -516,6 +587,7 @@ public class Raytracing : MonoBehaviour
                             GPUVertex vertex = new GPUVertex();
                             vertex.position = meshRenderer.transform.localToWorldMatrix.MultiplyPoint(mesh.vertices[j]);
                             vertex.uv = mesh.uv[j];
+                            vertex.normal = mesh.normals[j];
                             gpuVertices.Add(vertex);
                         }
                         for (int j = 0; j < mesh.triangles.Length; ++j)
@@ -538,46 +610,49 @@ public class Raytracing : MonoBehaviour
                 }
             }
 
-            bvhAccel.Build(primitives, gpuVertices, triangles);
+            //bvhAccel.Build(primitives, gpuVertices, triangles);
         }
+        Profiler.EndSample();
 
+        Profiler.BeginSample("Create Scene Compute Buffers");
         int BVHNodeSize = System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUBVHNode));
         if (BVHBuffer == null)
         {
             BVHBuffer = new ComputeBuffer(bvhAccel.m_nodes.Count, BVHNodeSize, ComputeBufferType.Structured);
-            BVHBuffer.SetData(bvhAccel.m_nodes.ToArray());
+            BVHBuffer.SetData(bvhAccel.m_nodes);
         }
 
         if (woodTriBuffer == null)
         {
             woodTriBuffer = new ComputeBuffer(bvhAccel.m_woodTriangleVertices.Count, 16, ComputeBufferType.Structured);
         }
-        woodTriBuffer.SetData(bvhAccel.m_woodTriangleVertices.ToArray());
+        woodTriBuffer.SetData(bvhAccel.m_woodTriangleVertices);
 
         if (woodTriIndexBuffer == null)
         {
             woodTriIndexBuffer = new ComputeBuffer(bvhAccel.m_woodTriangleIndices.Count, sizeof(int), ComputeBufferType.Structured);
         }
-        woodTriIndexBuffer.SetData(bvhAccel.m_woodTriangleIndices.ToArray());
+        woodTriIndexBuffer.SetData(bvhAccel.m_woodTriangleIndices);
 
         if (verticesBuffer == null)
         {
             int vertexSize = System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUVertex));
             verticesBuffer = new ComputeBuffer(gpuVertices.Count, vertexSize, ComputeBufferType.Structured);
         }
-        verticesBuffer.SetData(gpuVertices.ToArray());
+        verticesBuffer.SetData(gpuVertices);
 
         if (triangleBuffer == null)
         {
             triangleBuffer = new ComputeBuffer(triangles.Count, 4, ComputeBufferType.Default);
         }
-        triangleBuffer.SetData(triangles.ToArray());
+        triangleBuffer.SetData(triangles);
 
         if (materialBuffer == null)
         {
             materialBuffer = new ComputeBuffer(gpuMaterials.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUMaterial)), ComputeBufferType.Structured);
         }
         materialBuffer.SetData(gpuMaterials);
+        Profiler.EndSample();
     }
 
     public void InitScene()
@@ -589,44 +664,37 @@ public class Raytracing : MonoBehaviour
             outputTexture.enableRandomWrite = true;
         }
 
-        float timeBegin = Time.realtimeSinceStartup;
+        Profiler.BeginSample("SetupSceneData");
         SetupSceneData();
-        float timeInterval = Time.realtimeSinceStartup - timeBegin;
-        Debug.Log("SetupSceneData function cost time:" + timeInterval);
+        Profiler.EndSample();
 
-        timeBegin = Time.realtimeSinceStartup;
+
+        Profiler.BeginSample("SetupDistributions");
         SetupDistributions();
-        timeInterval = Time.realtimeSinceStartup - timeBegin;
-        Debug.Log("SetupDistributions function cost time:" + timeInterval);
+        Profiler.EndSample();
 
-        timeBegin = Time.realtimeSinceStartup;
         SetupSamplers();
-        timeInterval = Time.realtimeSinceStartup - timeBegin;
-        Debug.Log("SetupSamplers function cost time:" + timeInterval);
+
         //generate ray
         //init the camera parameters
-        timeBegin = Time.realtimeSinceStartup;
+        Profiler.BeginSample("SetupGenerateRay");
         SetupGenerateRay();
-        timeInterval = Time.realtimeSinceStartup - timeBegin;
-        Debug.Log("SetupGenerateRay function cost time:" + timeInterval);
+        Profiler.EndSample();
 
-        timeBegin = Time.realtimeSinceStartup;
+        Profiler.BeginSample("SetupRayTraversal");
         SetupRayTraversal();
-        timeInterval = Time.realtimeSinceStartup - timeBegin;
-        Debug.Log("SetupRayTraversal function cost time:" + timeInterval);
+        Profiler.EndSample();
 
         //generateRay.Dispatch(kGeneratePrimaryRay, (int)rasterWidth / 8 + 1, (int)rasterHeight / 8 + 1, 1);
         //TestRay(camera, 0);
-        timeBegin = Time.realtimeSinceStartup;
+        Profiler.BeginSample("SetupEstimateNextEvent");
         SetupEstimateNextEvent();
-        timeInterval = Time.realtimeSinceStartup - timeBegin;
-        Debug.Log("SetupEstimateNextEvent function cost time:" + timeInterval);
+        Profiler.EndSample();
 
         //SetupGeneratePath();
-        timeBegin = Time.realtimeSinceStartup;
+        Profiler.BeginSample("SetupImageReconstruction");
         SetupImageReconstruction();
-        timeInterval = Time.realtimeSinceStartup - timeBegin;
-        Debug.Log("SetupImageReconstruction function cost time:" + timeInterval);
+        Profiler.EndSample();
     }
 
     void SetupDistributions()
@@ -999,12 +1067,62 @@ public class Raytracing : MonoBehaviour
             rayConeGBuffer.name = "RayConeGBuffer";
             rayConeGBuffer.enableRandomWrite = true;
         }
+        RayTravel.SetTexture(kRayTraversal, "RayConeGBuffer", rayConeGBuffer);
 
-        //just for mipmap test
-        //RayTravel.SetMatrix("WorldToRaster", WorldToRaster);
-        //SetComputeTexture(RayTravel, kRayTraversal, "RayConeGBuffer", rayConeGBuffer);
         //RayTravel.SetTexture(kRayTraversal, "outputTexture", outputTexture);
     }
+
+    void SetupDebugView()
+    {
+        if (intersectBuffer == null)
+        {
+            intersectBuffer = new ComputeBuffer(Screen.width * Screen.height, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUInteraction)), ComputeBufferType.Structured);
+        }
+        if (gpuInteractions == null)
+        {
+            gpuInteractions = new GPUInteraction[Screen.width * Screen.height];
+        }
+        intersectBuffer.SetData(gpuInteractions);
+
+        float rasterWidth = Screen.width;
+        float rasterHeight = Screen.height;
+        kDebugView = DebugView.FindKernel("CSMain");
+        DebugView.SetBuffer(kDebugView, "Rays", rayBuffer);
+        DebugView.SetBuffer(kDebugView, "WoodTriangles", woodTriBuffer);
+        DebugView.SetBuffer(kDebugView, "Vertices", verticesBuffer);
+        DebugView.SetBuffer(kDebugView, "BVHTree", BVHBuffer);
+        DebugView.SetBuffer(kDebugView, "Intersections", intersectBuffer);
+        if (meshInstanceBuffer != null)
+            DebugView.SetBuffer(kDebugView, "MeshInstances", meshInstanceBuffer);
+        //RayTravel.SetBuffer(kRayTraversal, "WorldMatrices", transformBuffer);
+        DebugView.SetBuffer(kDebugView, "RNGs", samplerBuffer);
+        //DebugView.SetBuffer(kRayTraversal, "pathRadiances", pathRadianceBuffer);
+        SetComputeBuffer(DebugView, kDebugView, "lights", lightBuffer);
+        SetComputeBuffer(DebugView, kDebugView, "WoodTriangleIndices", woodTriIndexBuffer);
+        DebugView.SetBuffer(kDebugView, "materials", materialBuffer);
+        //SetComputeBuffer(RayTravel, kRayTraversal, "pathStates", pathStatesBuffer);
+        //SetComputeBuffer(RayTravel, kRayTraversal, "_RayQueueSizeBuffer", rayQueueSizeBuffer);
+        //SetComputeBuffer(RayTravel, kRayTraversal, "_RayQueue", rayQueueBuffer);
+        DebugView.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
+        DebugView.SetInt("instBVHAddr", instBVHNodeAddr);
+        DebugView.SetInt("bvhNodesNum", bvhAccel.m_nodes.Count);
+        DebugView.SetFloat("cameraConeSpreadAngle", cameraConeSpreadAngle);
+        DebugView.SetInt("lightsNum", gpuLights.Count);
+        DebugView.SetMatrix("WorldToRaster", WorldToRaster);
+        DebugView.SetFloat("cameraFar", cameraComponent.farClipPlane);
+        SetTextures(DebugView, kDebugView);
+        DebugView.SetTexture(kDebugView, "outputTexture", outputTexture);
+
+        if (rayConeGBuffer == null)
+        {
+            rayConeGBuffer = new RenderTexture(Screen.width, Screen.height, 0, RenderTextureFormat.RGHalf);
+            rayConeGBuffer.name = "RayConeGBuffer";
+            rayConeGBuffer.enableRandomWrite = true;
+        }
+
+        DebugView.SetTexture(kDebugView, "RayConeGBuffer", rayConeGBuffer);
+    }
+
     private void OnPostRender()
     {
         
@@ -1154,18 +1272,29 @@ public class Raytracing : MonoBehaviour
             gBufferMaterial = new Material(renderToGBuffer);
         }
 
-        CommandBuffer cmd = new CommandBuffer();
+        if (renderGBufferCmd == null)
+        {
+            renderGBufferCmd = new CommandBuffer();
+            renderGBufferCmd.name = "RayConeGBuffer Commands";
+        }
+        CommandBuffer cmd = renderGBufferCmd;//new CommandBuffer();
         cmd.Clear();
         cmd.BeginSample("Render GBuffer");
         cmd.SetRenderTarget(rayConeGBuffer);
         cmd.ClearRenderTarget(true, true, Color.black);
+        cmd.SetViewProjectionMatrices(cameraComponent.worldToCameraMatrix, cameraComponent.projectionMatrix);
+        cmd.SetViewport(new Rect(0, 0, (float)Screen.width, (float)Screen.height));
+
+        Plane[] frustums = GeometryUtility.CalculateFrustumPlanes(cameraComponent);
         for (int i = 0; i < meshRenderers.Length; ++i)
         {
-            cmd.DrawRenderer(meshRenderers[i], gBufferMaterial);
+            if (GeometryUtility.TestPlanesAABB(frustums, meshRenderers[i].bounds))
+                cmd.DrawRenderer(meshRenderers[i], gBufferMaterial);
         }
         cmd.EndSample("Render GBuffer");
+        Graphics.ExecuteCommandBuffer(cmd);
 
-        cameraComponent.AddCommandBuffer(CameraEvent.BeforeForwardOpaque, cmd);
+        //cameraComponent.AddCommandBuffer(CameraEvent.BeforeForwardOpaque, cmd);
         
         //cameraComponent.SetReplacementShader(renderToGBuffer, "RenderType");
         //RenderTexture defaultTarget = cameraComponent.targetTexture;

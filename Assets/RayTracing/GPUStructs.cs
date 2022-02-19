@@ -308,11 +308,12 @@ public struct GPUVertex
 {
     public Vector4 position;
     public Vector2 uv;
-
-    public GPUVertex(Vector4 _position, Vector2 _uv)
+    public Vector3 normal;
+    public GPUVertex(Vector4 _position, Vector2 _uv, Vector3 _normal)
     {
         position = _position;
         uv = _uv;
+        normal = _normal;
     }
 }
 public struct GPUBVHNode

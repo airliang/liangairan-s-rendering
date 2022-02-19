@@ -21,7 +21,7 @@ RWStructuredBuffer<uint> _RayQueueSizeBuffer;
 RWStructuredBuffer<uint> _RayQueue;
 RWStructuredBuffer<ShadingMaterial>  _ShadingMaterials;
 RWTexture2D<half2>  RayConeGBuffer;
-RWTexture2D<half4> outputTexture;
+//RWTexture2D<half4> outputTexture;
 
 RayCone Propagate(RayCone cone, float surfaceSpreadAngle, float hitT)
 {
@@ -31,13 +31,13 @@ RayCone Propagate(RayCone cone, float surfaceSpreadAngle, float hitT)
     return newCone;
 }
 
-RayCone ComputeRayCone(Interaction isect, float pixelSpreadAngle)
+RayCone ComputeRayCone(Interaction lastisect, float distance, float pixelSpreadAngle)
 {
     RayCone rayCone;
-    rayCone.width = 0;
-    rayCone.spreadAngle = pixelSpreadAngle;
+    rayCone.width = lastisect.spreadAngle * lastisect.hitT;
+    rayCone.spreadAngle = lastisect.spreadAngle;
     //float gamma = cameraConeSpreadAngle;
-    return Propagate(rayCone, isect.spreadAngle, isect.hitT);
+    return Propagate(rayCone, pixelSpreadAngle, distance);
 }
 
 [numthreads(8,8,1)]
@@ -69,16 +69,18 @@ void RayTraversal(uint3 id : SV_DispatchThreadID)
         //Material material = materials[isect.materialID];
         //UnpackShadingMaterial(material, shadingMaterial, isect, 0);
         //_ShadingMaterials[workIndex] = shadingMaterial;
-        
+        half2 surfaceBeta = RayConeGBuffer[id.xy];
         if (bounces == 0)
         {
-            half2 surfaceBeta = RayConeGBuffer[id.xy];
+            //half2 surfaceBeta = RayConeGBuffer[id.xy];
             isect.spreadAngle = cameraConeSpreadAngle;
             isect.coneWidth = cameraConeSpreadAngle * isect.hitT;
         }
         else
         {
-            RayCone rayCone = ComputeRayCone(isect, cameraConeSpreadAngle);
+            Interaction isectLast = Intersections[workIndex];
+            half2 surfaceBeta = RayConeGBuffer[id.xy];
+            RayCone rayCone = ComputeRayCone(isectLast, isect.hitT, surfaceBeta.r);
             isect.spreadAngle = rayCone.spreadAngle;
             isect.coneWidth = rayCone.width;
         }

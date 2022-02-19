@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: Plastic
+  m_Name: MatteGreen
   m_Shader: {fileID: 4800000, guid: 8b036619dc8f6c548a5a2fa03e3c2155, type: 3}
   m_ShaderKeywords: 
   m_LightmapFlags: 4
@@ -65,13 +65,13 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Floats:
     - _BumpScale: 1
-    - _Cutoff: 0.5
+    - _Cutoff: 0.489
     - _DetailNormalMapScale: 1
     - _DstBlend: 0
     - _GlossMapScale: 1
     - _Glossiness: 0.5
     - _GlossyReflections: 1
-    - _MaterialType: 2
+    - _MaterialType: 0
     - _Metallic: 0
     - _Mode: 0
     - _OcclusionStrength: 1
@@ -81,13 +81,24 @@ Material:
     - _SrcBlend: 1
     - _UVSec: 0
     - _ZWrite: 1
-    - _eta: 1.47
-    - _k: 1.62
-    - _roughnessU: 1
-    - _roughnessV: 1
+    - _anisotropy: 0
+    - _clearcoat: 0
+    - _clearcoatGloss: 0
+    - _eta: 1
+    - _ior: 1
+    - _k: 0
+    - _metallic: 0
+    - _roughness: 0
+    - _roughnessU: 0
+    - _roughnessV: 0
+    - _sheen: 0
+    - _sheenTint: 0
+    - _specular: 0
+    - _specularTint: 0
+    - _specularTransmission: 0
     m_Colors:
-    - _BaseColor: {r: 0.8490566, g: 0.82068795, b: 0.7809719, a: 1}
-    - _Color: {r: 1, g: 0.8784314, b: 0.6627451, a: 1}
+    - _BaseColor: {r: 0, g: 0.5019608, b: 0, a: 1}
+    - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
     - _GlossySpecularColor: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []

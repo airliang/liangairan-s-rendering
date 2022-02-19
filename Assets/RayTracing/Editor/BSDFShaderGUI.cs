@@ -101,7 +101,13 @@ public class BSDFShaderGUI : ShaderGUI
         //    return;
 
         Texture mainTex = material.GetTexture("_MainTex");
-        Color col = material.GetColor("_BaseColor");
+        Color col = Color.white;
+        if (material.HasProperty("_Color"))
+            col = material.GetColor("_Color");
+        else if (material.HasProperty("_MainColor"))
+            col = material.GetColor("_MainColor");
+        else if (material.HasProperty("_BaseColor"))
+            col = material.GetColor("_BaseColor");
 
         base.AssignNewShaderToMaterial(material, oldShader, newShader);
 
@@ -162,7 +168,8 @@ public class BSDFShaderGUI : ShaderGUI
             {
                 materialEditor.TexturePropertySingleLine(Styles.glossySpecularMapText, glossySpecularMap, glossySpecularColor);
                 EditorGUILayout.Space();
-                materialEditor.ShaderProperty(roughnessU, Styles.roughnessText);
+                materialEditor.ShaderProperty(roughnessU, Styles.roughnessUText);
+                materialEditor.ShaderProperty(roughnessV, Styles.roughnessVText);
             }
 
             EditorGUILayout.Space();

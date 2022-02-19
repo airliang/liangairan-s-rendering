@@ -367,7 +367,11 @@ bool IntersectBVHandTriangles(Ray ray, int bvhOffset, out Interaction interactio
 					const float2 uv1 = Vertices[vertexIndex1].uv;
 					const float2 uv2 = Vertices[vertexIndex2].uv;
 
-					interaction.normal.xyz = normal;
+					const float3 normal0 = Vertices[vertexIndex0].normal;
+					const float3 normal1 = Vertices[vertexIndex1].normal;
+					const float3 normal2 = Vertices[vertexIndex2].normal;
+
+					interaction.normal.xyz = normalize(normal0 * uv.x + normal1 * uv.y + normal2 * (1.0 - uv.x - uv.y));
 					interaction.p = hitPos;
 					interaction.uv = uv0 * uv.x + uv1 * uv.y + uv2 * (1.0 - uv.x - uv.y);
 					interaction.vertexIndices = int3(vertexIndex0, vertexIndex1, vertexIndex2);
@@ -522,17 +526,27 @@ bool IntersectMeshBVH(Ray ray, int bvhOffset, float4x4 objectToWorld, float4x4 w
 					int vertexIndex0 = WoodTriangleIndices[triAddr];
 					int vertexIndex1 = WoodTriangleIndices[triAddr + 1];
 					int vertexIndex2 = WoodTriangleIndices[triAddr + 2];
-					const float4 v0 = Vertices[vertexIndex0].position;
-					const float4 v1 = Vertices[vertexIndex1].position;
-					const float4 v2 = Vertices[vertexIndex2].position;
+					Vertex vertex0 = Vertices[vertexIndex0];
+					Vertex vertex1 = Vertices[vertexIndex1];
+					Vertex vertex2 = Vertices[vertexIndex2];
+					const float4 v0 = vertex0.position;
+					const float4 v1 = vertex1.position;
+					const float4 v2 = vertex2.position;
 					float4 hitPos = v0 * uv.x + v1 * uv.y + v2 * (1.0 - uv.x - uv.y);
 					hitPos.w = 1;
 					hitPos = mul(objectToWorld, hitPos);
+
+					float3 normal0 = vertex0.normal;
+					float3 normal1 = vertex1.normal;
+					float3 normal2 = vertex2.normal;
+
+					normal = normalize(normal0 * uv.x + normal1 * uv.y + normal2 * (1.0 - uv.x - uv.y));
+
 					float3 worldNormal = normalize(mul(normal, (float3x3)worldToObject));
 
 					float4 v0World = mul(objectToWorld, float4(v0.xyz, 1));
-					float4 v1World = mul(objectToWorld, float4(v1.xyz, 1));
-					float4 v2World = mul(objectToWorld, float4(v2.xyz, 1));
+					//float4 v1World = mul(objectToWorld, float4(v1.xyz, 1));
+					//float4 v2World = mul(objectToWorld, float4(v2.xyz, 1));
 
 					//worldNormal = normalize(cross(v1World.xyz - v0World.xyz, v2World.xyz - v0World.xyz));
 
@@ -540,9 +554,9 @@ bool IntersectMeshBVH(Ray ray, int bvhOffset, float4x4 objectToWorld, float4x4 w
 					//hitPos.w = hitT;
 					//materialIndex = v0.w;
 
-					const float2 uv0 = Vertices[vertexIndex0].uv;
-					const float2 uv1 = Vertices[vertexIndex1].uv;
-					const float2 uv2 = Vertices[vertexIndex2].uv;
+					const float2 uv0 = vertex0.uv;
+					const float2 uv1 = vertex1.uv;
+					const float2 uv2 = vertex2.uv;
 
 
 					//return true;
@@ -559,8 +573,13 @@ bool IntersectMeshBVH(Ray ray, int bvhOffset, float4x4 objectToWorld, float4x4 w
 					interaction.hitT = hitT;
 					interaction.uv = uv0 * uv.x + uv1 * uv.y + uv2 * (1.0 - uv.x - uv.y);
 
-					interaction.tangent = normalize(v0World.xyz - hitPos.xyz);
-					interaction.bitangent = normalize(cross(interaction.normal.xyz, interaction.tangent));
+					//interaction.tangent = normalize(v0World.xyz - hitPos.xyz);
+					//interaction.bitangent = normalize(cross(interaction.normal.xyz, interaction.tangent));
+					float3 dpdu = float3(1, 0, 0);
+					float3 dpdv = float3(0, 1, 0);
+					CoordinateSystem(worldNormal, dpdu, dpdv);
+					interaction.tangent.xyz = normalize(dpdu.xyz);
+					interaction.bitangent.xyz = normalize(cross(interaction.tangent.xyz, worldNormal));
 					//º∆À„«–œﬂ
 					/*
 					float3 dp02 = v0.xyz - v2.xyz;

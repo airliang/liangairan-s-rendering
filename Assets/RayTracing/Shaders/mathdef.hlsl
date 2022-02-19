@@ -27,6 +27,7 @@
 #define HALF_MIN 6.103515625e-5  // 2^-14, the same value for 10, 11 and 16-bit: https://www.khronos.org/opengl/wiki/Small_Float_Formats
 #define HALF_MAX 65504.0
 #define UINT_MAX 0xFFFFFFFFu
+#define ONE_MINUS_EPSILON 0.99999994
 
 
 float gamma(int n) {

@@ -1,0 +1,79 @@
+#include "sampler.hlsl"
+#include "bvhaccel.hlsl"
+#include "materials.hlsl"
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+#define NormalView 1
+#define DepthView 2
+#define MipmapView 3
+#define GBuffer    4
+
+int debugView;
+float2 rasterSize;
+uniform int    bounces;
+uniform int   queueSizeIndex;
+uniform float cameraConeSpreadAngle;
+uniform float cameraFar;
+
+//use the matrix to calculate the world space ray
+StructuredBuffer<Ray>    Rays;
+//StructuredBuffer<Light>  lights;
+StructuredBuffer<Material> materials;
+RWStructuredBuffer<Interaction>       Intersections;
+RWTexture2D<half2>  RayConeGBuffer;
+RWTexture2D<half4> outputTexture;
+
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= (uint)rasterSize.x || id.y >= (uint)rasterSize.y)
+        return;
+
+    int threadId = id.x + id.y * rasterSize.x;
+
+    Ray ray = Rays[threadId];
+    Interaction isect = (Interaction)0;//Intersections[threadId];
+
+    bool foundIntersect = ClosestHit(ray, isect);//IntersectBVH(ray, isect);
+    half3 color = half3(0, 0, 0);
+    if (foundIntersect)
+    {
+        int meshInstanceIndex = isect.meshInstanceID;
+        MeshInstance meshInstance = MeshInstances[meshInstanceIndex];
+        //int lightIndex = meshInstance.GetLightIndex();
+
+        //if (bounces == 0)
+        {
+            //half2 surfaceBeta = RayConeGBuffer[id.xy];
+            isect.spreadAngle = cameraConeSpreadAngle;
+            isect.coneWidth = cameraConeSpreadAngle * isect.hitT;
+        }
+        //else
+        //{
+        //    RayCone rayCone = ComputeRayCone(isect, cameraConeSpreadAngle);
+        //    isect.spreadAngle = rayCone.spreadAngle;
+        //    isect.coneWidth = rayCone.width;
+        //}
+
+        switch (debugView)
+        {
+        case NormalView:
+            color = isect.normal * 0.5 + 0.5;
+            break;
+        case DepthView:
+            color = half3(isect.hitT, isect.hitT, isect.hitT) / cameraFar;
+            break;
+        case MipmapView:
+            float mipmapLevel = ComputeTextureLOD(isect) / log2(512);
+            color = lerp(half3(0, 0, 1), half3(1, 0, 0), mipmapLevel * 2);
+            break;
+        case GBuffer:
+            color.rg = RayConeGBuffer[id.xy];
+            break;
+        }
+
+    }
+    outputTexture[id.xy] = half4(color, 1);
+}

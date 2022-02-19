@@ -536,7 +536,7 @@ Camera:
     width: 1
     height: 1
   near clip plane: 0.3
-  far clip plane: 1000
+  far clip plane: 100
   field of view: 19.5
   orthographic: 0
   orthographic size: 3
@@ -615,7 +615,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: a939de3f347b1ff4f8d4cd9910bb807f, type: 2}
+  - {fileID: 2100000, guid: 6c748fb17dee06b4191f1d6b11cd8f7b, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -656,7 +656,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: a939de3f347b1ff4f8d4cd9910bb807f, type: 2}
+  - {fileID: 2100000, guid: 6c748fb17dee06b4191f1d6b11cd8f7b, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -697,7 +697,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: a939de3f347b1ff4f8d4cd9910bb807f, type: 2}
+  - {fileID: 2100000, guid: 6c748fb17dee06b4191f1d6b11cd8f7b, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -738,7 +738,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 24c6745f894e1ad41b5873b070b05552, type: 2}
+  - {fileID: 2100000, guid: fa4f790a16ad7034ab58393d0512989b, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -779,7 +779,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: da11e324f5d8006449c69b5a8a8e45c1, type: 2}
+  - {fileID: 2100000, guid: e75faae20204bd6438fefafbf36a3af9, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -2024,11 +2024,13 @@ MonoBehaviour:
   SampleShadowRay: {fileID: 7200000, guid: 04a3649e79e1b39499bc6f3019e9e3dc, type: 3}
   EstimateDirect: {fileID: 7200000, guid: 0e9388db8ef7da84fa9512dbe530a0f8, type: 3}
   ImageReconstruction: {fileID: 7200000, guid: 0df577181ba92c140b93275cf6a21642, type: 3}
+  DebugView: {fileID: 7200000, guid: 07dd9c5452a1b83488ccde81a1e4f9bd, type: 3}
   useInstanceBVH: 1
   filterType: 1
   fiterRadius: {x: 1.5, y: 1.5}
   gaussianSigma: 0.5
   testTexture: {fileID: 2800000, guid: e43d8a27ed9197a499c7b25c2065fdde, type: 3}
+  viewMode: 0
 --- !u!108 &62
 Light:
   m_ObjectHideFlags: 0
@@ -2538,7 +2540,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 4c48e2b9bc614784c8af0bfaebb46675, type: 2}
+  - {fileID: 2100000, guid: 38438fd288be1814c95c3380d2103f10, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -3016,7 +3018,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: a939de3f347b1ff4f8d4cd9910bb807f, type: 2}
+  - {fileID: 2100000, guid: 0cf2b695f34ef05469762adbbd6109fb, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
