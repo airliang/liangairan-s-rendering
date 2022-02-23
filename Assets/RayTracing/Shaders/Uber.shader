@@ -11,8 +11,8 @@ Shader "RayTracing/Uber"
         [KeywordEnum(Matte, Plastic, Metal, Glass, Mirror)] _MaterialType("Material Type(Matte, Plastic, Metal, Glass, Mirror)", float) = 0
         _roughnessU("RoughnessU", Range(0.0, 1.0)) = 0
         _roughnessV("RoughnessU", Range(0.0, 1.0)) = 0
-        _eta("Eta", Range(0.0, 2.0)) = 1.0
-        _k("Metal Absorption", Range(0.0, 2.0)) = 0
+        _eta("Eta", Range(0.0, 4.0)) = 1.0
+        _k("Metal Absorption", Range(0.0, 4.0)) = 0
         _Cutoff("Alpha Cutoff", Range(0.0, 1.0)) = 0
     }
     SubShader

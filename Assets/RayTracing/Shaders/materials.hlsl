@@ -17,7 +17,8 @@
 #define Metal 2
 #define Mirror 3
 #define Glass 4
-#define Disney 5
+#define RoughDielectric 5
+#define Disney 6
 
 #define TEXTURED_PARAM_MASK 0x80000000
 #define IS_TEXTURED_PARAM(x) ((x) & 0x80000000)

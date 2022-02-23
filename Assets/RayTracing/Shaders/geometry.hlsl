@@ -305,9 +305,9 @@ Ray TransformRay(float4x4 mat, Ray ray)
 	return output;
 }
 
-//return the triangle point
+//return the a point of triangle
 //p0 p1 p2 is the local position of a mesh
-float3 SampleTrianglePoint(float3 p0, float3 p1, float3 p2, float2 u, out float3 normal, out float pdf)
+float3 SamplePointOnTriangle(float3 p0, float3 p1, float3 p2, float2 u, out float3 normal, out float pdf)
 {
 	//caculate bery centric uv w = 1 - u - v
 	float t = sqrt(u.x);
@@ -374,6 +374,11 @@ float3 Faceforward(float3 normal, float3 v)
 float3 SphericalDirection(float sinTheta, float cosTheta, float phi)
 {
 	return float3(sinTheta * cos(phi), sinTheta * sin(phi), cosTheta);
+}
+
+bool IsBlack(float3 radiance)
+{
+	return (radiance.x + radiance.y + radiance.z) < 0.001;
 }
 
 #endif

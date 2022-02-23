@@ -1,6 +1,8 @@
 #include "sampler.hlsl"
 #include "bvhaccel.hlsl"
 #include "materials.hlsl"
+#include "light.hlsl"
+
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel CSMain
 
@@ -8,6 +10,7 @@
 #define DepthView 2
 #define MipmapView 3
 #define GBuffer    4
+#define ShadowRayView  5
 
 int debugView;
 float2 rasterSize;
@@ -15,14 +18,58 @@ uniform int    bounces;
 uniform int   queueSizeIndex;
 uniform float cameraConeSpreadAngle;
 uniform float cameraFar;
+uniform int    lightsNum;
 
 //use the matrix to calculate the world space ray
 StructuredBuffer<Ray>    Rays;
 //StructuredBuffer<Light>  lights;
 StructuredBuffer<Material> materials;
 RWStructuredBuffer<Interaction>       Intersections;
-RWTexture2D<half2>  RayConeGBuffer;
+StructuredBuffer<float2> Distributions1D;
+StructuredBuffer<Light> lights;
+
+Texture2D<half2>  RayConeGBuffer;
 RWTexture2D<half4> outputTexture;
+
+float3 SampleShadowRayRadiance(Light light, Interaction isect, inout RNG rng)
+{
+	ShadowRay shadowRay = (ShadowRay)0;
+
+	float3 wi;
+	float lightPdf = 0;
+	float3 samplePointOnLight;
+	float3 Li = SampleLightRadiance(Distributions1D, light, isect, rng, wi, lightPdf, samplePointOnLight);
+
+    if (lightPdf > 0)
+    {
+        shadowRay.p0 = isect.p.xyz;
+        shadowRay.p1 = samplePointOnLight;
+        //shadowRay.pdf = triPdf;
+        shadowRay.lightPdf = lightPdf;
+        //float3 Li = light.radiance;
+        //shadowRay.lightNormal = lightPointNormal;
+        //float3 wi = normalize(shadowRay.p1 - shadowRay.p0);
+
+        //sample bsdf
+        Material material = materials[isect.materialID];
+        float3 wiLocal = isect.WorldToLocal(wi);
+        float3 woLocal = isect.WorldToLocal(isect.wo.xyz);
+        float scatteringPdf = 0;
+        float mipmapLevel = 0;
+        float3 f = MaterialBRDF(material, isect, woLocal, wiLocal, scatteringPdf);
+        f *= abs(dot(wi, isect.normal));
+        //float3 f = LambertBRDF(wiLocal, woLocal, material.kd.xyz) * abs(dot(wi, isect.normal));
+        //scatteringPdf = LambertPDF(wiLocal, woLocal);
+
+        bool shadowRayVisible = ShadowRayVisibilityTest(shadowRay, isect.normal);
+        if (shadowRayVisible)
+        {
+            shadowRay.radiance = Li;
+        }
+    }
+
+	return shadowRay.radiance;
+}
 
 
 [numthreads(8,8,1)]
@@ -32,7 +79,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
         return;
 
     int threadId = id.x + id.y * rasterSize.x;
-
+    RNG rng = GetRNG(threadId);
     Ray ray = Rays[threadId];
     Interaction isect = (Interaction)0;//Intersections[threadId];
 
@@ -72,8 +119,19 @@ void CSMain (uint3 id : SV_DispatchThreadID)
         case GBuffer:
             color.rg = RayConeGBuffer[id.xy];
             break;
+        case ShadowRayView:
+        {
+            float u = Get1D(rng);
+            float lightSourcePdf = 0;
+            int lightIndex = SampleLightSource(u, lightsNum, Distributions1D, lightSourcePdf);
+            Light light = lights[lightIndex];
+            float3 shadowRayRadiance = SampleShadowRayRadiance(light, isect, rng);
+            color = shadowRayRadiance;
+        }
+            break;
         }
 
     }
     outputTexture[id.xy] = half4(color, 1);
+    WriteRNG(threadId, rng);
 }

@@ -81,10 +81,10 @@ Material:
     - _SrcBlend: 1
     - _UVSec: 0
     - _ZWrite: 1
-    - _eta: 1.47
-    - _k: 1.62
-    - _roughnessU: 1
-    - _roughnessV: 1
+    - _eta: 1.35
+    - _k: 0.96
+    - _roughnessU: 0.143
+    - _roughnessV: 0.143
     m_Colors:
     - _BaseColor: {r: 0.8490566, g: 0.82068795, b: 0.7809719, a: 1}
     - _Color: {r: 1, g: 0.8784314, b: 0.6627451, a: 1}

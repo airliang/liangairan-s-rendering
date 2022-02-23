@@ -1,6 +1,7 @@
 #include "sampler.hlsl"
 #include "bvhaccel.hlsl"
 #include "materials.hlsl"
+#include "light.hlsl"
 
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel RayTraversal
@@ -9,6 +10,7 @@ float2 rasterSize;
 uniform int    bounces;
 uniform int   queueSizeIndex;
 uniform float cameraConeSpreadAngle;
+
 
 //use the matrix to calculate the world space ray
 StructuredBuffer<Ray>    Rays;
@@ -19,8 +21,9 @@ RWStructuredBuffer<PathRadiance> pathRadiances;
 //RWStructuredBuffer<int>    pathStates;
 RWStructuredBuffer<uint> _RayQueueSizeBuffer;
 RWStructuredBuffer<uint> _RayQueue;
-RWStructuredBuffer<ShadingMaterial>  _ShadingMaterials;
-RWTexture2D<half2>  RayConeGBuffer;
+//RWStructuredBuffer<ShadingMaterial>  _ShadingMaterials;
+Texture2D<half2>  RayConeGBuffer;
+
 //RWTexture2D<half4> outputTexture;
 
 RayCone Propagate(RayCone cone, float surfaceSpreadAngle, float hitT)
@@ -39,6 +42,8 @@ RayCone ComputeRayCone(Interaction lastisect, float distance, float pixelSpreadA
     //float gamma = cameraConeSpreadAngle;
     return Propagate(rayCone, pixelSpreadAngle, distance);
 }
+
+
 
 [numthreads(8,8,1)]
 void RayTraversal(uint3 id : SV_DispatchThreadID)
@@ -108,14 +113,16 @@ void RayTraversal(uint3 id : SV_DispatchThreadID)
         InterlockedAdd(_RayQueueSizeBuffer[queueSizeIndex + 1], 1, index);
         _RayQueue[index] = workIndex;
     }
-    //else
-    //{
-    //    //sample enviroment map
-    //    pathRadiance.li += pathRadiance.beta * float3(0, 0, 0);
-    //    isect.p.w = -1;
-    //    pathStates[threadId] = 0;
-    //    //outputTexture[id.xy] = half4(0, 0, 0, 1);
-    //}
+    else
+    {
+        //sample enviroment map
+        if (bounces == 0)
+        {
+            pathRadiance.li += pathRadiance.beta * SampleEnviromentLight(ray.direction);
+            pathRadiances[workIndex] = pathRadiance;
+        }
+        //outputTexture[id.xy] = half4(0, 0, 0, 1);
+    }
 //}
     
 }

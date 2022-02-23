@@ -23,6 +23,7 @@ public enum BSDFMaterialType
     Metal,
     Mirror,
     Glass,
+    RoughDielectric,
     Disney,
 }
 

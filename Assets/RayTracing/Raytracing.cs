@@ -11,6 +11,20 @@ class RTMesh
     public int triangleStart = 0;
 }
 
+class LightInstance
+{
+    public enum LightType
+    {
+        Area,
+        Envmap,
+        Point,
+    }
+
+    public LightType lightType;
+    public float area = 0;
+    public Vector3 radiance;
+}
+
 class AreaLightResource
 {
     
@@ -19,16 +33,32 @@ class AreaLightResource
     public int discriptAddress = -1;
     public Distribution1D triangleDistributions = null;
     public List<float> triangleAreas = new List<float>();
+    
 }
 
-class AreaLightInstance
+class AreaLightInstance : LightInstance
 {
+    public AreaLightInstance()
+    {
+        lightType = LightType.Area;
+    }
     public AreaLightResource light;
     public int meshInstanceID = -1;
-    public float area = 0;
+    
     public float intensity;
     public float pointRadius;
-    public Vector3 radiance;
+    public Texture2D textureRadiance;
+}
+
+class EnviromentLight : LightInstance
+{
+    public EnviromentLight()
+    {
+        lightType = LightType.Envmap;
+        area = Mathf.PI * 4.0f;
+        radiance = Vector3.one;
+    }
+    public Cubemap textureRadiance;
 }
 
 public class RTSceneData
@@ -65,7 +95,7 @@ public class Raytracing : MonoBehaviour
     List<GPUDistributionDiscript> gpuDistributionDiscripts = new List<GPUDistributionDiscript>();
     //Dictionary<Mesh, Distribution1D<Vector2>> meshTriangleDistribution = new Dictionary<Mesh, Distribution1D<Vector2>>();
     Dictionary<Mesh, AreaLightResource> meshDistributions = new Dictionary<Mesh, AreaLightResource>();
-    List<AreaLightInstance> areaLightInstances = new List<AreaLightInstance>();
+    List<LightInstance> areaLightInstances = new List<LightInstance>();
     uint[] RayQueueSizeArray;
 
     BVHAccel bvhAccel = new BVHAccel();
@@ -84,6 +114,7 @@ public class Raytracing : MonoBehaviour
     public float gaussianSigma = 0.5f;
     public Texture2D testTexture;
     private CommandBuffer renderGBufferCmd;
+    EnviromentLight envLight = new EnviromentLight();
 
     public enum TracingView
     {
@@ -92,6 +123,7 @@ public class Raytracing : MonoBehaviour
         DepthView,
         MipmapView,
         GBufferView,
+        ShadowRayView,
     }
 
     public TracingView viewMode = TracingView.ColorView;
@@ -334,11 +366,11 @@ public class Raytracing : MonoBehaviour
                 List<Vector3> meshNormals = new List<Vector3>();
                 
                 mesh.GetUVs(0, meshUVs);
-                if (meshUVs.Count == 0)
-                {
-                    Vector2[] uvs = new Vector2[mesh.vertexCount];
-                    mesh.SetUVs(0, uvs);
-                }
+                //if (meshUVs.Count == 0)
+                //{
+                //    Vector2[] uvs = new Vector2[mesh.vertexCount];
+                //    mesh.SetUVs(0, uvs);
+                //}
                 mesh.GetVertices(meshVertices);
                 mesh.GetNormals(meshNormals);
                 if (meshNormals.Count == 0)
@@ -372,7 +404,7 @@ public class Raytracing : MonoBehaviour
                     for (int j = 0; j < subMeshDescriptor.vertexCount; ++j)
                     {
                         vertexTmp.position = meshVertices[subMeshDescriptor.firstVertex + j];//mesh.vertices[j];
-                        vertexTmp.uv = meshUVs[subMeshDescriptor.firstVertex + j];
+                        vertexTmp.uv = meshUVs.Count == 0 ? Vector2.zero : meshUVs[subMeshDescriptor.firstVertex + j];
                         vertexTmp.normal = meshNormals[subMeshDescriptor.firstVertex + j];
                         gpuVertices.Add(vertexTmp);
                     }
@@ -469,15 +501,24 @@ public class Raytracing : MonoBehaviour
                     areaLightInstance.light = areaLight;
                     areaLightInstance.meshInstanceID = meshInstances.Count;
                     areaLightInstance.area = lightArea;
-                    Shape shape = meshRenderer.GetComponent<Shape>();
-                    areaLightInstance.radiance = shape.lightSpectrum.linear.ToVector3().Mul(shape.spectrumScale);
+                    //Shape shape = meshRenderer.GetComponent<Shape>();
+                    //if (shape != null)
+                    //    areaLightInstance.radiance = shape.lightSpectrum.linear.ToVector3().Mul(shape.spectrumScale);
                     //areaLightInstance.radiance = lightComponent.color.linear.ToVector3() * lightComponent.intensity;
+                    Material lightMaterial = meshRenderer.sharedMaterial;
+                    if (lightMaterial != null && lightMaterial.shader.name == "RayTracing/AreaLight")
+                    {
+                        Color emssionColor = lightMaterial.GetColor("_Emission");
+                        Vector3 lightIntensity = lightMaterial.GetVector("_Intensity");
+                        areaLightInstance.radiance = emssionColor.ToVector3().Mul(lightIntensity);
+                    }
                     areaLightInstance.pointRadius = 0;
                     areaLightInstance.intensity = lightComponent.intensity; // shapes[i].lightIntensity;
                     areaLightInstances.Add(areaLightInstance);
 
                     lightIndex = gpuLights.Count;
                     GPULight gpuLight = new GPULight();
+                    gpuLight.type = (int)LightInstance.LightType.Area;
                     gpuLight.radiance = areaLightInstance.radiance;
                     gpuLight.intensity = areaLightInstance.intensity;
                     //gpuLight.trianglesNum = mesh.triangles.Length / 3;
@@ -521,17 +562,6 @@ public class Raytracing : MonoBehaviour
 
             meshInstanceBuffer = new ComputeBuffer(meshInstances.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(MeshInstance)), ComputeBufferType.Structured);
             meshInstanceBuffer.SetData(meshInstances);
-
-            if (gpuLights.Count > 0)
-            {
-                lightBuffer = new ComputeBuffer(gpuLights.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPULight)), ComputeBufferType.Structured);
-                lightBuffer.SetData(gpuLights);
-            }
-            else
-            {
-                lightBuffer = new ComputeBuffer(1, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPULight)), ComputeBufferType.Structured);
-            }
-            
         }
         else
         {
@@ -653,6 +683,41 @@ public class Raytracing : MonoBehaviour
         }
         materialBuffer.SetData(gpuMaterials);
         Profiler.EndSample();
+
+        //environment light process
+        Material skyBoxMaterial = RenderSettings.skybox;
+        GPULight gpuEnvLight = new GPULight();
+        gpuEnvLight.type = (int)envLight.lightType;
+        gpuEnvLight.meshInstanceID = -1;
+        gpuEnvLight.distributionDiscriptIndex = gpuLights.Count + 1;
+        if (skyBoxMaterial != null)
+        {
+            if (skyBoxMaterial.shader.name == "Skybox/Cubemap")
+            {
+                envLight.textureRadiance = skyBoxMaterial.GetTexture("_Tex") as Cubemap;
+                if (envLight.textureRadiance == null)
+                {
+                    envLight.radiance = RenderSettings.ambientSkyColor.LinearToVector3();
+                    gpuEnvLight.radiance = envLight.radiance;
+                }
+                else
+                {
+                    uint mask = 1;
+                    gpuEnvLight.textureMask = MathUtil.UInt32BitsToSingle(mask);
+                }
+            }
+        }
+        areaLightInstances.Add(envLight);
+        gpuLights.Add(gpuEnvLight);
+        if (gpuLights.Count > 0)
+        {
+            lightBuffer = new ComputeBuffer(gpuLights.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPULight)), ComputeBufferType.Structured);
+            lightBuffer.SetData(gpuLights);
+        }
+        else
+        {
+            lightBuffer = new ComputeBuffer(1, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPULight)), ComputeBufferType.Structured);
+        }
     }
 
     public void InitScene()
@@ -704,7 +769,7 @@ public class Raytracing : MonoBehaviour
         List<float> lightObjectDistribution = new List<float>();
         for (int i = 0; i < areaLightInstances.Count; ++i)
         {
-            lightObjectDistribution.Add(areaLightInstances[i].area);
+            lightObjectDistribution.Add(areaLightInstances[i].area * areaLightInstances[i].radiance.magnitude);
         }
         Distribution1D lightObjDistribution = new Distribution1D(lightObjectDistribution.ToArray(), 0, lightObjectDistribution.Count, 0, lightObjectDistribution.Count);
 
@@ -922,6 +987,16 @@ public class Raytracing : MonoBehaviour
         SampleShadowRay.SetInt("lightsNum", gpuLights.Count);
         SampleShadowRay.SetMatrix("WorldToRaster", WorldToRaster);
         SetTextures(SampleShadowRay, kSampleShadowRay);
+        if (envLight.textureRadiance != null)
+        {
+            SampleShadowRay.SetTexture(kSampleShadowRay, "_EnvMap", envLight.textureRadiance);
+            SampleShadowRay.SetInt("enviromentTextureMask", 1);
+        }
+        else
+        {
+            SampleShadowRay.SetInt("enviromentTextureMask", 0);
+            SampleShadowRay.SetVector("enviromentColor", envLight.radiance);
+        }
         //SampleShadowRay.SetTexture(kSampleShadowRay, "outputTexture", outputTexture);
 
 
@@ -955,6 +1030,16 @@ public class Raytracing : MonoBehaviour
         EstimateDirect.SetInt("lightsNum", gpuLights.Count);
         EstimateDirect.SetMatrix("WorldToRaster", WorldToRaster);
         SetTextures(EstimateDirect, kEstimateDirect);
+        if (envLight.textureRadiance != null)
+        {
+            EstimateDirect.SetTexture(kEstimateDirect, "_EnvMap", envLight.textureRadiance);
+            EstimateDirect.SetInt("enviromentTextureMask", 1);
+        }
+        else
+        {
+            EstimateDirect.SetInt("enviromentTextureMask", 0);
+            EstimateDirect.SetVector("enviromentColor", envLight.radiance);
+        }
         //EstimateDirect.SetTexture(kSampleShadowRay, "outputTexture", outputTexture);
         //EstimateDirect.Dispatch(kEstimateDirect, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
     }
@@ -1070,6 +1155,16 @@ public class Raytracing : MonoBehaviour
         RayTravel.SetTexture(kRayTraversal, "RayConeGBuffer", rayConeGBuffer);
 
         //RayTravel.SetTexture(kRayTraversal, "outputTexture", outputTexture);
+        if (envLight.textureRadiance != null)
+        {
+            RayTravel.SetTexture(kRayTraversal, "_EnvMap", envLight.textureRadiance);
+            RayTravel.SetInt("enviromentTextureMask", 1);
+        }
+        else
+        {
+            RayTravel.SetInt("enviromentTextureMask", 0);
+            RayTravel.SetVector("enviromentColor", envLight.radiance);
+        }
     }
 
     void SetupDebugView()
@@ -1094,15 +1189,13 @@ public class Raytracing : MonoBehaviour
         DebugView.SetBuffer(kDebugView, "Intersections", intersectBuffer);
         if (meshInstanceBuffer != null)
             DebugView.SetBuffer(kDebugView, "MeshInstances", meshInstanceBuffer);
-        //RayTravel.SetBuffer(kRayTraversal, "WorldMatrices", transformBuffer);
         DebugView.SetBuffer(kDebugView, "RNGs", samplerBuffer);
-        //DebugView.SetBuffer(kRayTraversal, "pathRadiances", pathRadianceBuffer);
+        SetComputeBuffer(DebugView, kDebugView, "TriangleIndices", triangleBuffer);
         SetComputeBuffer(DebugView, kDebugView, "lights", lightBuffer);
         SetComputeBuffer(DebugView, kDebugView, "WoodTriangleIndices", woodTriIndexBuffer);
         DebugView.SetBuffer(kDebugView, "materials", materialBuffer);
-        //SetComputeBuffer(RayTravel, kRayTraversal, "pathStates", pathStatesBuffer);
-        //SetComputeBuffer(RayTravel, kRayTraversal, "_RayQueueSizeBuffer", rayQueueSizeBuffer);
-        //SetComputeBuffer(RayTravel, kRayTraversal, "_RayQueue", rayQueueBuffer);
+        SetComputeBuffer(DebugView, kDebugView, "Distributions1D", distribution1DBuffer);
+        SetComputeBuffer(DebugView, kDebugView, "DistributionDiscripts", distributionDiscriptBuffer);
         DebugView.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
         DebugView.SetInt("instBVHAddr", instBVHNodeAddr);
         DebugView.SetInt("bvhNodesNum", bvhAccel.m_nodes.Count);
@@ -1121,6 +1214,16 @@ public class Raytracing : MonoBehaviour
         }
 
         DebugView.SetTexture(kDebugView, "RayConeGBuffer", rayConeGBuffer);
+        if (envLight.textureRadiance != null)
+        {
+            DebugView.SetTexture(kDebugView, "_EnvMap", envLight.textureRadiance);
+            DebugView.SetInt("enviromentTextureMask", 1);
+        }
+        else
+        {
+            DebugView.SetInt("enviromentTextureMask", 0);
+            DebugView.SetVector("enviromentColor", envLight.radiance);
+        }
     }
 
     private void OnPostRender()

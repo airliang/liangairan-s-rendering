@@ -130,6 +130,7 @@ float3 MicrofacetReflectionF(float3 wo, float3 wi, BxDFMicrofacetReflection bxdf
     float cosThetaO = AbsCosTheta(wo);
     float cosThetaI = AbsCosTheta(wi);
     float3 wh = wi + wo;
+    pdf = 0;
     // Handle degenerate cases for microfacet reflection
     if (cosThetaI == 0 || cosThetaO == 0) 
         return float3(0, 0, 0);

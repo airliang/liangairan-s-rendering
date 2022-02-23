@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: LightMaterial
-  m_Shader: {fileID: 10, guid: 0000000000000000f000000000000000, type: 0}
+  m_Shader: {fileID: 4800000, guid: 90d2ae9d772c9f94d92907c46ad14bc5, type: 3}
   m_ShaderKeywords: 
   m_LightmapFlags: 0
   m_EnableInstancingVariants: 0
@@ -30,8 +30,11 @@ Material:
     m_Floats:
     - _Emission: 1
     - _EmissionLM: 35
+    - _Intensity: 1
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 1}
+    - _Emission: {r: 1, g: 1, b: 1, a: 1}
+    - _Intensity: {r: 17, g: 12, b: 4, a: 1}
   m_BuildTextureStacks: []
 --- !u!1002 &2100001
 EditorExtensionImpl:

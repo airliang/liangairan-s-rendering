@@ -26,16 +26,17 @@ StructuredBuffer<uint> _RayQueue;
 
 
 
-ShadowRay SampleShadowRay(uint workIndex, Light light, Interaction isect, inout RNG rng)
+ShadowRay SampleShadowRay(Light light, Interaction isect, inout RNG rng)
 {
 	ShadowRay shadowRay = (ShadowRay)0;
+	/*
 	int discriptIndex = light.distributionDiscriptIndex;
 	DistributionDiscript lightDistributionDiscript = DistributionDiscripts[discriptIndex];
 	float u = Get1D(rng);
 	float triPdf = 0;
 	float lightPdf = 0;
 	MeshInstance meshInstance = MeshInstances[light.meshInstanceID];
-	int triangleIndex = SampleLightTriangle(u, lightDistributionDiscript, Distributions1D, lightPdf) * 3 + meshInstance.triangleStartOffset;
+	int triangleIndex = SampleTriangleIndexOfLightPoint(u, lightDistributionDiscript, Distributions1D, lightPdf) * 3 + meshInstance.triangleStartOffset;
 
 	int vertexStart = triangleIndex;
 	int vIndex0 = TriangleIndices[vertexStart];
@@ -50,18 +51,22 @@ ShadowRay SampleShadowRay(uint workIndex, Light light, Interaction isect, inout 
 	p1 = mul(meshInstance.localToWorld, float4(p1, 1)).xyz;
 	p2 = mul(meshInstance.localToWorld, float4(p2, 1)).xyz;
 
-	//float3 lightPointNormal;
-	float3 trianglePoint;
-	//SampleTrianglePoint(p0, p1, p2, rs.Get2D(threadId), lightPointNormal, trianglePoint, triPdf);
+	float3 samplePointOnLight;
 	float3 wi;
 	
-	float3 Li = SampleTriangleLight(p0, p1, p2, Get2D(rng), isect, light, wi, trianglePoint, triPdf);
+	float3 Li = SampleTriangleLight(p0, p1, p2, Get2D(rng), isect, light, wi, samplePointOnLight, triPdf);
 	lightPdf *= triPdf;
+	*/
+	
+	float3 wi;
+	float lightPdf = 0;
+	float3 samplePointOnLight;
+	float3 Li = SampleLightRadiance(Distributions1D, light, isect, rng, wi, lightPdf, samplePointOnLight);
 
 	if (lightPdf > 0)
 	{
 		shadowRay.p0 = isect.p.xyz;
-		shadowRay.p1 = trianglePoint;
+		shadowRay.p1 = samplePointOnLight;
 		//shadowRay.pdf = triPdf;
 		shadowRay.lightPdf = lightPdf;
 		//float3 Li = light.radiance;
@@ -77,7 +82,7 @@ ShadowRay SampleShadowRay(uint workIndex, Light light, Interaction isect, inout 
 		float3 f = MaterialBRDF(material, isect, woLocal, wiLocal, scatteringPdf);
 		f *= abs(dot(wi, isect.normal));
 		//float3 f = LambertBRDF(wiLocal, woLocal, material.kd.xyz) * abs(dot(wi, isect.normal));
-		//float scatteringPdf = LambertPDF(wiLocal, woLocal);
+		//scatteringPdf = LambertPDF(wiLocal, woLocal);
 
 		bool shadowRayVisible = ShadowRayVisibilityTest(shadowRay, isect.normal);
 
@@ -108,28 +113,18 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 	uint workIndex = _RayQueue[threadId];
 	RNG rng = GetRNG(threadId);
 	//int pathState = pathStates[threadId];
-	//if (pathState == 1)
-	{
-		float lightSourcePdf = 1.0;
-		//some error happen in SampleLightSource
-		float u = Get1D(rng);//rs.Get1D(workIndex);
-		int lightIndex = SampleLightSource(u, lightsNum, Distributions1D, lightSourcePdf);
-		Light light = lights[lightIndex];
-		//float testD = Distributions1D[0].y;
-		Interaction isect = Intersections[workIndex];
-		ShadowRay shadowRay = SampleShadowRay(workIndex, light, isect, rng);
-		shadowRay.lightSourcePdf = lightSourcePdf;
-		shadowRay.lightIndex = asfloat(lightIndex);
-		ShadowRays[workIndex] = shadowRay;
-		//outputTexture[id.xy] = half4(shadowRay.radiance, 1);
-		//if (bounces >= 1)
-		//	outputTexture[id.xy] = half4(isect.normal.xyz, 1);
-		//else
-		//outputTexture[id.xy] = half4(shadowRay.radiance * 10, 1);
-	}
-	//else
-	//{
-	//	outputTexture[id.xy] = half4(0, 0, 0, 1);
-	//}
+
+	float lightSourcePdf = 1.0;
+	//some error happen in SampleLightSource
+	float u = Get1D(rng);//rs.Get1D(workIndex);
+	int lightIndex = SampleLightSource(u, lightsNum, Distributions1D, lightSourcePdf);
+	Light light = lights[lightIndex];
+	//float testD = Distributions1D[0].y;
+	Interaction isect = Intersections[workIndex];
+	ShadowRay shadowRay = SampleShadowRay(light, isect, rng);
+	shadowRay.lightSourcePdf = lightSourcePdf;
+	shadowRay.lightIndex = asfloat(lightIndex);
+	ShadowRays[workIndex] = shadowRay;
+
 	WriteRNG(threadId, rng);
 }

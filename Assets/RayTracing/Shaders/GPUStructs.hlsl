@@ -27,13 +27,14 @@ struct MeshInstance
 
 struct Light
 {
-	int type;
+	int type;   //0-arealight 1-envmap light
 	int meshInstanceID;
 	int distributionDiscriptIndex;   //triangle area distribution
 	//int trianglesNum;
 	float  radius;  //for point light
 	float  intensity;
 	float3 radiance;
+	float textureMask;
 };
 
 struct Material

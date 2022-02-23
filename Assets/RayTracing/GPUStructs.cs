@@ -19,6 +19,7 @@ public struct GPULight
     public float intensity;
     public float pointRadius;
     public Vector3 radiance;
+    public float textureMask;
 }
 
 public struct GPURay
