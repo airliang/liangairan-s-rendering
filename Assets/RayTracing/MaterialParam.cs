@@ -53,8 +53,8 @@ public class MaterialParam
 
     public float RoughnessU;
     public float RoughnessV;
-    public float Eta;
-    public float K;
+    public Vector3 Eta;
+    public Vector3 K;
 
     public static MaterialParam ConvertUnityMaterial(Material material)
     {
@@ -106,8 +106,8 @@ public class MaterialParam
             {
                 materialParam.RoughnessU = material.GetFloat("_roughnessU");
                 materialParam.RoughnessV = material.GetFloat("_roughnessV");
-                materialParam.Eta = material.GetFloat("_eta");
-                materialParam.K = material.GetFloat("_k");
+                materialParam.Eta = material.GetVector("_eta");
+                materialParam.K = material.GetVector("_k");
             }
         }
         else

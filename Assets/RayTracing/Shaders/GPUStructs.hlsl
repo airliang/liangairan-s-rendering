@@ -46,8 +46,8 @@ struct Material
 	float specular;
 	float roughness;
 	float anisotropy;
-	float eta;
-	float k;             //metal material absorption
+	float3 eta;
+	float3 k;             //metal material absorption
 	float albedoMapMask;
 	float normalMapMask;
 	float metallicMapMask;
@@ -113,10 +113,10 @@ struct ShadingMaterial
 	float3 transmission;
 	float3 specular;
 	float3 normal;
-	float  metallic;
+	float3 k;
 	float  roughness;
 	float  roughnessV;
-	float  eta;
+	float3  eta;
 };
 
 #endif

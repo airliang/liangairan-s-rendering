@@ -41,7 +41,7 @@ public class GPUDistributionTest
 
     public static int Sample1DDiscrete(float u, GPUDistributionDiscript discript, List<Vector2> gpuDistributions, out float pdf)
     {
-        int offset = FindInterval<float>(discript.start, discript.num, index => (gpuDistributions[index].y <= u));
+        int offset = FindInterval<float>(discript.start, discript.num + 1, index => (gpuDistributions[index].y <= u));
         float du = u - gpuDistributions[offset].y;
         if ((gpuDistributions[offset + 1].y - gpuDistributions[offset].y) > 0)
         {

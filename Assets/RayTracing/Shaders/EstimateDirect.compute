@@ -129,10 +129,9 @@ void CSMain (uint3 id : SV_DispatchThreadID)
         {
             //caculate the mis weight
             float weight = PowerHeuristic(1, lightPdf, 1, scatteringPdf);
-            Li += Light_Le(wi, light) * beta * weight;//f * light.radiance * weight / scatteringPdf;
+            Li += Light_Le(wi, light) * beta * weight;
         }
     }
-    
     Li /= shadowRay.lightSourcePdf;
     pathRadiance.li += Li * pathRadiance.beta;
 
@@ -160,7 +159,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
             _RayQueue[index] = workIndex;
         }
     }
-    //outputTexture[id.xy] = half4(pathRadiance.li * 5, 1);
+    //outputTexture[id.xy] = half4(f, 1);
     pathRadiances[workIndex] = pathRadiance;
     WriteRNG(threadId, rng);
 }

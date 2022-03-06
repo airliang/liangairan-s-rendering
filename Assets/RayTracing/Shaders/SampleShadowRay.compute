@@ -63,7 +63,7 @@ ShadowRay SampleShadowRay(Light light, Interaction isect, inout RNG rng)
 	float3 samplePointOnLight;
 	float3 Li = SampleLightRadiance(Distributions1D, light, isect, rng, wi, lightPdf, samplePointOnLight);
 
-	if (lightPdf > 0)
+	if (lightPdf > 0 && !IsBlack(Li))
 	{
 		shadowRay.p0 = isect.p.xyz;
 		shadowRay.p1 = samplePointOnLight;

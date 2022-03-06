@@ -109,6 +109,30 @@ public class RayTracingTest
         return offset;
     }
     */
+    public static Vector3 FrConductor(float cosThetaI, Vector3 etai, Vector3 etat, Vector3 k)
+    {
+        cosThetaI = Mathf.Clamp(cosThetaI, -1, 1);
+        Vector3 eta = etat.Div(etai);
+        Vector3 etak = k.Div(etai);
+
+        float cosThetaI2 = cosThetaI * cosThetaI;
+        float sinThetaI2 = 1.0f - cosThetaI2;
+        Vector3 eta2 = eta.Mul(eta);
+        Vector3 etak2 = etak.Mul(etak);
+
+        Vector3 t0 = eta2 - etak2 - new Vector3(sinThetaI2, sinThetaI2, sinThetaI2);
+        Vector3 a2plusb2 = (t0.Mul(t0) + eta2.Mul(etak2) * 4).Sqrt();
+        Vector3 t1 = a2plusb2.Add(cosThetaI2);
+        Vector3 a = ((a2plusb2 + t0) * 0.5f).Sqrt();
+        Vector3 t2 = 2.0f * cosThetaI * a;
+        Vector3 Rs = (t1 - t2).Div(t1 + t2);
+
+        Vector3 t3 = (a2plusb2 * cosThetaI2).Add(sinThetaI2 * sinThetaI2);
+        Vector3 t4 = t2 * sinThetaI2;
+        Vector3 Rp = Rs.Mul( (t3 - t4).Div(t3 + t4) );
+
+        return 0.5f * (Rp + Rs);
+    }
 
     public static void SampleLightTest(List<Vector2> Distributions1D, List<GPULight> gpuLights, List<MeshInstance> meshInstances, 
         List<int> triangles, List<GPUVertex> gpuVertices, List<GPUDistributionDiscript> gpuDistributionDiscripts)
@@ -190,88 +214,125 @@ public class RayTracingTest
         lightPdf *= triPdf;
     }
 
-	public static GPUShadowRay SampleShadowRayTest(BVHAccel bvhAccel, int instBVHOffset, List<Vector2> Distributions1D, List<GPULight> gpuLights, GPUInteraction isect, 
-        List<MeshInstance> meshInstances, GPULight light, List<int> TriangleIndices, List<GPUVertex> Vertices, List<GPUMaterial> materials, List<GPUDistributionDiscript> gpuDistributionDiscripts)
+    public static int SampleLightSource(float u, int lightCount, List<Vector2> Distributions1D, out float pmf)
     {
-        int SampleLightTriangle(float u, GPUDistributionDiscript discript, List<Vector2> Distributions1D, out float pdf)
+        GPUDistributionDiscript discript = new GPUDistributionDiscript();
+        discript.start = 0;
+        discript.num = lightCount;
+        int index = GPUDistributionTest.Sample1DDiscrete(u, discript, Distributions1D, out pmf); //SampleDistribution1DDiscrete(rs.Get1D(threadId), 0, lightCount, pdf);
+        return index;
+    }
+
+    static int SampleTriangleIndexOfLightPoint(float u, GPUDistributionDiscript discript, List<Vector2> Distributions1D, out float pdf)
+    {
+        //get light mesh triangle index
+        int index = GPUDistributionTest.Sample1DDiscrete(u, discript, Distributions1D, out pdf);//SampleDistribution1DDiscrete(Distributions1D, u, start, count, out pdf);
+        return index;
+    }
+
+    static Vector3 SampleTrianglePoint(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 u, out Vector3 normal, out float pdf)
+    {
+        //caculate bery centric uv w = 1 - u - v
+        float t = Mathf.Sqrt(u.x);
+        Vector2 uv = new Vector2(1.0f - t, t * u.y);
+        float w = 1 - uv.x - uv.y;
+
+        Vector3 position = p0 * w + p1 * uv.x + p2 * uv.y;
+        Vector3 crossVector = Vector3.Cross(p1 - p0, p2 - p0);
+        normal = crossVector.normalized;
+        pdf = 1.0f / crossVector.magnitude;
+
+        return position;
+    }
+
+    static Vector3 SampleTriangleLight(Vector3 p0, Vector3 p1, Vector3 p2, Vector2 u, GPUInteraction isect, GPULight light, out Vector3 wi, out Vector3 position, out float pdf)
+    {
+        Vector3 Li = light.radiance;
+        Vector3 lightPointNormal;
+        float triPdf = 0;
+        position = SampleTrianglePoint(p0, p1, p2, u, out lightPointNormal, out triPdf);
+        pdf = triPdf;
+        wi = position - (Vector3)isect.p;
+        float wiLength = Vector3.Magnitude(wi);
+        if (wiLength == 0 || pdf == 0)
         {
-            //get light mesh triangle index
-            int index = GPUDistributionTest.Sample1DDiscrete(u, discript, Distributions1D, out pdf);//SampleDistribution1DDiscrete(Distributions1D, u, start, count, out pdf);
-            return index;
+            pdf = 0;
+            return Vector3.zero;
         }
+        wi = Vector3.Normalize(wi);
+        float cos = Vector3.Dot(lightPointNormal, -wi);
+        pdf *= wiLength * wiLength / Mathf.Abs(cos);
+        if (float.IsInfinity(pdf))
+            pdf = 0.0f;
 
-        Vector3 SampleTrianglePoint(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 u, out Vector3 normal, out float pdf)
+        return cos <= 0 ? Vector3.zero : Li;
+    }
+
+    public static Vector3 SampleLightRadiance(List<Vector2> Distributions1D, GPULight light, GPUInteraction isect, 
+        List<MeshInstance> meshInstances, List<int> TriangleIndices, List<GPUVertex> Vertices, List<GPUDistributionDiscript> DistributionDiscripts, 
+        out Vector3 wi, out float lightPdf, out Vector3 lightPoint)
+    {
+        if (light.type == 0)
         {
-            //caculate bery centric uv w = 1 - u - v
-            float t = Mathf.Sqrt(u.x);
-            Vector2 uv = new Vector2(1.0f - t, t * u.y);
-            float w = 1 - uv.x - uv.y;
-
-            Vector3 position = p0 * w + p1 * uv.x + p2 * uv.y;
-            Vector3 crossVector = Vector3.Cross(p1 - p0, p2 - p0);
-            normal = crossVector.normalized;
-            pdf = 1.0f / crossVector.magnitude;
-
-            return position;
-        }
-
-        Vector3 SampleTriangleLightRadiance(Vector3 p0, Vector3 p1, Vector3 p2, Vector2 u, GPUInteraction isect, GPULight light, out Vector3 wi, out Vector3 position, out float pdf)
-        {
-            Vector3 Li = light.radiance;
-            Vector3 lightPointNormal;
+            int discriptIndex = light.distributionDiscriptIndex;
+            GPUDistributionDiscript lightDistributionDiscript = DistributionDiscripts[discriptIndex];
+            float u = UnityEngine.Random.Range(0.0f, 1.0f);
             float triPdf = 0;
-            position = SampleTrianglePoint(p0, p1, p2, u, out lightPointNormal, out triPdf);
-            pdf = triPdf;
-            wi = position - (Vector3)isect.p;
-            float wiLength = Vector3.Magnitude(wi);
-            if (wiLength == 0 || pdf == 0)
-            {
-                pdf = 0;
-                return Vector3.zero;
-            }
-            wi = Vector3.Normalize(wi);
-            float cos = Vector3.Dot(lightPointNormal, -wi);
-            pdf *= wiLength * wiLength / Mathf.Abs(cos);
-            if (float.IsInfinity(pdf))
-                pdf = 0.0f;
+            lightPdf = 0;
+            MeshInstance meshInstance = meshInstances[light.meshInstanceID];
+            int triangleIndex = SampleTriangleIndexOfLightPoint(u, lightDistributionDiscript, Distributions1D, out lightPdf) * 3 + meshInstance.triangleStartOffset;
 
-            return cos <= 0 ? Vector3.zero : Li;
+            int vertexStart = triangleIndex;
+            int vIndex0 = TriangleIndices[vertexStart];
+            int vIndex1 = TriangleIndices[vertexStart + 1];
+            int vIndex2 = TriangleIndices[vertexStart + 2];
+            Vector3 p0 = Vertices[vIndex0].position;
+            Vector3 p1 = Vertices[vIndex1].position;
+            Vector3 p2 = Vertices[vIndex2].position;
+            //convert to worldpos
+
+            p0 = meshInstance.localToWorld.MultiplyPoint(p0); //mul(meshInstance.localToWorld, float4(p0, 1)).xyz;
+            p1 = meshInstance.localToWorld.MultiplyPoint(p1); //mul(meshInstance.localToWorld, float4(p1, 1)).xyz;
+            p2 = meshInstance.localToWorld.MultiplyPoint(p2); //mul(meshInstance.localToWorld, float4(p2, 1)).xyz;
+
+            Vector3 Li = SampleTriangleLight(p0, p1, p2, new Vector2(UnityEngine.Random.Range(0.0f, 1.0f), UnityEngine.Random.Range(0.0f, 1.0f)), isect, light, out wi, out lightPoint, out triPdf);
+            lightPdf *= triPdf;
+            return Li;
         }
+        else if (light.type == 1)
+        {
+            Vector2 u = new Vector2(UnityEngine.Random.Range(0.0f, 1.0f), UnityEngine.Random.Range(0.0f, 1.0f));
+            float mapPdf = 1.0f / (4.0f * Mathf.PI);
+            float theta = u[1] * Mathf.PI;
+            float phi = u[0] * 2 * Mathf.PI;
+            float cosTheta = Mathf.Cos(theta);
+            float sinTheta = Mathf.Sin(theta);
+            float sinPhi = Mathf.Sin(phi);
+            float cosPhi = Mathf.Cos(phi);
+            wi = isect.LocalToWorld(new Vector3(sinTheta * cosPhi, sinTheta * sinPhi, cosTheta));
+            lightPdf = mapPdf;
+            lightPoint = isect.p + wi * 10000.0f;
+            return Vector3.one;
+        }
+        lightPdf = 0;
+        lightPoint = Vector3.zero;
+        wi = Vector3.zero;
+        return Vector3.zero;
+    }
 
+    public static GPUShadowRay SampleShadowRay(GPULight light, GPUInteraction isect, BVHAccel bvhAccel, int instBVHOffset, List<Vector2> Distributions1D,
+        List<MeshInstance> meshInstances, List<int> TriangleIndices, List<GPUVertex> Vertices, List<GPUMaterial> materials, List<GPUDistributionDiscript> gpuDistributionDiscripts)
+    {
         GPUShadowRay shadowRay = new GPUShadowRay();
-
-		//int distributionAddress = light.distributeAddress;
-		float u = UnityEngine.Random.Range(0.0f, 1.0f);
-		float triPdf = 0;
-		float lightPdf = 0;
-		MeshInstance meshInstance = meshInstances[light.meshInstanceID];
-        int triangleIndex = GPUDistributionTest.Sample1DDiscrete(u, gpuDistributionDiscripts[light.distributionDiscriptIndex], 
-            Distributions1D, out lightPdf) * 3 + meshInstance.triangleStartOffset;
-        //int triangleIndex = (SampleLightTriangle(distributionAddress, light.trianglesNum, u, out lightPdf) - gpuLights.Count) * 3 + meshInstance.triangleStartOffset;
-        int vertexStart = triangleIndex;
-		int vIndex0 = TriangleIndices[vertexStart];
-		int vIndex1 = TriangleIndices[vertexStart + 1];
-		int vIndex2 = TriangleIndices[vertexStart + 2];
-		Vector3 p0 = Vertices[vIndex0].position;
-		Vector3 p1 = Vertices[vIndex1].position;
-		Vector3 p2 = Vertices[vIndex2].position;
-        //convert to worldpos
-
-        p0 = meshInstance.localToWorld.MultiplyPoint(p0);
-		p1 = meshInstance.localToWorld.MultiplyPoint(p1);
-        p2 = meshInstance.localToWorld.MultiplyPoint(p2);
-
-        //Vector3 lightPointNormal;
-        Vector3 trianglePoint;
-		//SampleTrianglePoint(p0, p1, p2, rs.Get2D(threadId), lightPointNormal, trianglePoint, triPdf);
-		Vector3 wi;
-		Vector3 Li = SampleTriangleLightRadiance(p0, p1, p2, new Vector2(UnityEngine.Random.Range(0.0f, 1.0f), UnityEngine.Random.Range(0.0f, 1.0f)), isect, light, out wi, out trianglePoint, out triPdf);
-		lightPdf *= triPdf;
+        Vector3 wi;
+        float lightPdf = 0;
+        Vector3 samplePointOnLight;
+        Vector3 Li = SampleLightRadiance(Distributions1D, light, isect, meshInstances, TriangleIndices, Vertices, gpuDistributionDiscripts, out wi, out lightPdf, out samplePointOnLight);
 
         if (lightPdf > 0)
         {
             shadowRay.p0 = isect.p;
-            shadowRay.p1 = trianglePoint;
+            shadowRay.p1 = samplePointOnLight;
             //shadowRay.pdf = triPdf;
             shadowRay.lightPdf = lightPdf;
             //Vector3 Li = light.radiance;
@@ -302,46 +363,68 @@ public class RayTracingTest
                 shadowRay.visibility = 0;
             }
         }
-		
+
 
         return shadowRay;
+    }
+
+    public static GPUShadowRay SampleShadowRayTest(BVHAccel bvhAccel, int instBVHOffset, List<Vector2> Distributions1D, List<GPULight> gpuLights, GPUInteraction isect, 
+        List<MeshInstance> meshInstances, List<int> TriangleIndices, List<GPUVertex> Vertices, List<GPUMaterial> materials, List<GPUDistributionDiscript> gpuDistributionDiscripts)
+    {
+        
+
+		//int distributionAddress = light.distributeAddress;
+		float u = UnityEngine.Random.Range(0.0f, 1.0f);
+        float lightSourcePdf = 0;
+        int lightIndex = SampleLightSource(u, gpuLights.Count, Distributions1D, out lightSourcePdf);
+        GPULight light = gpuLights[lightIndex];
+
+        return SampleShadowRay(light, isect, bvhAccel, instBVHOffset, Distributions1D, meshInstances, TriangleIndices, Vertices, materials, gpuDistributionDiscripts);
 
 	}
 
     static float AreaLightPdf(BVHAccel bvhaccel, GPURay ray, GPULight light, int lightsNum, 
         List<MeshInstance> meshInstances, List<int> TriangleIndices, List<GPUVertex> Vertices, List<Vector2> distributions1D)
     {
-        //intersect the light mesh triangle
-        float bvhHit = ray.tmax;
-        int meshHitTriangleIndex;  //wood triangle addr
         float lightPdf = 0;
-        int distributionIndex = lightsNum;
-        //getting the mesh of the light
-        MeshInstance meshInstance = meshInstances[light.meshInstanceID];
-
-        //convert to mesh local space
-        GPURay rayTemp = GPURay.TransformRay(ref meshInstance.worldToLocal, ref ray);
-
-        //check the ray intersecting the light mesh
-        if (bvhaccel.IntersectMeshBVHP(rayTemp, meshInstance.bvhOffset, out bvhHit, out meshHitTriangleIndex))
+        //intersect the light mesh triangle
+        if (light.type == 0)
         {
-            int triAddr = meshHitTriangleIndex;
-            int vIndex0 = bvhaccel.m_woodTriangleIndices[triAddr];
-            int vIndex1 = bvhaccel.m_woodTriangleIndices[triAddr + 1];
-            int vIndex2 = bvhaccel.m_woodTriangleIndices[triAddr + 2];
-            Vector3 p0 = Vertices[vIndex0].position;
-            Vector3 p1 = Vertices[vIndex1].position;
-            Vector3 p2 = Vertices[vIndex2].position;
+            float bvhHit = ray.tmax;
+            int meshHitTriangleIndex;  //wood triangle addr
+            
+            int distributionIndex = lightsNum;
+            //getting the mesh of the light
+            MeshInstance meshInstance = meshInstances[light.meshInstanceID];
 
-            p0 = meshInstance.localToWorld.MultiplyPoint(p0);//mul(meshInstance.localToWorld, float4(p0, 1.0));
-            p1 = meshInstance.localToWorld.MultiplyPoint(p1);//mul(meshInstance.localToWorld, float4(p1, 1.0));
-            p2 = meshInstance.localToWorld.MultiplyPoint(p2);//mul(meshInstance.localToWorld, float4(p2, 1.0));
+            //convert to mesh local space
+            GPURay rayTemp = GPURay.TransformRay(ref meshInstance.worldToLocal, ref ray);
 
-            lightPdf = 1.0f / Vector3.Cross(p0 - p1, p0 - p2).magnitude;
+            //check the ray intersecting the light mesh
+            if (bvhaccel.IntersectMeshBVHP(rayTemp, meshInstance.bvhOffset, out bvhHit, out meshHitTriangleIndex))
+            {
+                int triAddr = meshHitTriangleIndex;
+                int vIndex0 = bvhaccel.m_woodTriangleIndices[triAddr];
+                int vIndex1 = bvhaccel.m_woodTriangleIndices[triAddr + 1];
+                int vIndex2 = bvhaccel.m_woodTriangleIndices[triAddr + 2];
+                Vector3 p0 = Vertices[vIndex0].position;
+                Vector3 p1 = Vertices[vIndex1].position;
+                Vector3 p2 = Vertices[vIndex2].position;
 
-            distributionIndex += vIndex0 / 3;
+                p0 = meshInstance.localToWorld.MultiplyPoint(p0);//mul(meshInstance.localToWorld, float4(p0, 1.0));
+                p1 = meshInstance.localToWorld.MultiplyPoint(p1);//mul(meshInstance.localToWorld, float4(p1, 1.0));
+                p2 = meshInstance.localToWorld.MultiplyPoint(p2);//mul(meshInstance.localToWorld, float4(p2, 1.0));
 
-            lightPdf *= distributions1D[distributionIndex].x;
+                lightPdf = 1.0f / Vector3.Cross(p0 - p1, p0 - p2).magnitude;
+
+                distributionIndex += vIndex0 / 3;
+
+                lightPdf *= distributions1D[distributionIndex].x;
+            }
+        }
+        else
+        {
+            lightPdf = 1.0f / (4.0f * Mathf.PI);
         }
 
         return lightPdf;

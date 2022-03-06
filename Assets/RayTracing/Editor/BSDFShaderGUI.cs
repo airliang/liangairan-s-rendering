@@ -32,8 +32,8 @@ public class BSDFShaderGUI : ShaderGUI
         public static GUIContent roughnessText = new GUIContent("Roughness", "Roughness");
         public static GUIContent roughnessUText = new GUIContent("Roughness U", "Roughness U");
         public static GUIContent roughnessVText = new GUIContent("Roughness V", "Roughness V");
-        public static GUIContent etaText = new GUIContent("Refraction Index", "Refraction Index");
-        public static GUIContent metallicAbsorptionText = new GUIContent("Metallic", "Metallic");
+        public static GUIContent etaText = new GUIContent("Eta", "Refraction Index");
+        public static GUIContent metallicAbsorptionText = new GUIContent("Metallic K", "Metallic");
 
         public static GUIContent materialTypeText = new GUIContent("Material choose", "matte, plastic, metal, glass");
 

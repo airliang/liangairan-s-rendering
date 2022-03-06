@@ -91,7 +91,7 @@ public class SplitBVHBuilder : BVHBuilder
     private int innerNodes = 0;
     private int leafNodes = 0;
 
-    SpatialBin[,] m_bins = new SpatialBin[3, NumSpatialBins];
+    SpatialBin[] m_bins = new SpatialBin[3 * NumSpatialBins];
     BucketInfo[] buckets = new BucketInfo[NumSpatialBins];
     GPUBounds[] rightBounds = new GPUBounds[NumSpatialBins - 1];
 
@@ -572,11 +572,12 @@ public class SplitBVHBuilder : BVHBuilder
 
         
 
-        for (int dim = 0; dim< 3; dim++)
+        for (int dim = 0; dim < 3; dim++)
         {
             for (int i = 0; i < NumSpatialBins; i++)
             {
-                m_bins[dim, i] = defaultBin; //new SpatialBin();
+                int index = dim * NumSpatialBins + i;
+                m_bins[index] = defaultBin; //new SpatialBin();
             }
         }
 
@@ -607,18 +608,21 @@ public class SplitBVHBuilder : BVHBuilder
                     Reference rightRef = defaultReference;
                     float splitPos = origin[dim] + binSize[dim] * (float)(i + 1);
                     //SplitReference(leftRef, rightRef, currRef, dim, splitPos);
+                    Profiler.BeginSample("SplitPrimRef");
                     if (SplitPrimRef(currRef, dim, splitPos, ref leftRef, ref rightRef))
                     {
                         //m_bins[dim, i].bounds = GPUBounds.Union(m_bins[dim, i].bounds, leftRef.bounds);
-                        m_bins[dim, i].bounds.Union(leftRef.bounds);
+                        int index = dim * NumSpatialBins + i;
+                        m_bins[index].bounds.Union(leftRef.bounds);
                         currRef = rightRef;
                     }
+                    Profiler.EndSample();
                 }
 
                 //m_bins[dim, (int)lastBin[dim]].bounds = GPUBounds.Union(m_bins[dim, (int)lastBin[dim]].bounds, currRef.bounds);
-                m_bins[dim, (int)lastBin[dim]].bounds.Union(currRef.bounds);
-                m_bins[dim, (int)firstBin[dim]].enter++;
-                m_bins[dim, (int)lastBin[dim]].exit++;
+                m_bins[dim * NumSpatialBins + (int)lastBin[dim]].bounds.Union(currRef.bounds);
+                m_bins[dim * NumSpatialBins + (int)firstBin[dim]].enter++;
+                m_bins[dim * NumSpatialBins + (int)lastBin[dim]].exit++;
             }
         }
 
@@ -634,7 +638,8 @@ public class SplitBVHBuilder : BVHBuilder
             for (int i = NumSpatialBins - 1; i > 0; i--)
             {
                 //rightBox = GPUBounds.Union(rightBox, m_bins[dim, i].bounds);
-                rightBox.Union(m_bins[dim, i].bounds);
+                int index = dim * NumSpatialBins + i;
+                rightBox.Union(m_bins[index].bounds);
                 rightBounds[i - 1] = rightBox;
             }
 
@@ -647,9 +652,10 @@ public class SplitBVHBuilder : BVHBuilder
             for (int i = 1; i < NumSpatialBins; i++)
             {
                 //leftBounds = GPUBounds.Union(leftBounds, m_bins[dim, i - 1].bounds);
-                leftBox.Union(m_bins[dim, i - 1].bounds);
-                leftNum += m_bins[dim, i - 1].enter;
-                rightNum -= m_bins[dim, i - 1].exit;
+                int index = dim * NumSpatialBins + i - 1;
+                leftBox.Union(m_bins[index].bounds);
+                leftNum += m_bins[index].enter;
+                rightNum -= m_bins[index].exit;
 
                 float sah = m_traversalCost + (leftBox.SurfaceArea() * GetTriangleCost(leftNum) + rightBounds[i - 1].SurfaceArea() * GetTriangleCost(rightNum)) /
                     spec.bounds.SurfaceArea();

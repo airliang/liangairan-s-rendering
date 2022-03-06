@@ -27,6 +27,33 @@ inline half3 LinearToGammaSpace(half3 linRGB)
     //return half3(LinearToGammaSpaceExact(linRGB.r), LinearToGammaSpaceExact(linRGB.g), LinearToGammaSpaceExact(linRGB.b));
 }
 
+half3 NeutralCurve(half3 x, half a, half b, half c, half d, half e, half f)
+{
+    return ((x * (a * x + c * b) + d * e) / (x * (a * x + b) + d * f)) - e / f;
+}
+
+half3 NeutralTonemap(half3 x)
+{
+    // Tonemap
+    const half a = 0.2;
+    const half b = 0.29;
+    const half c = 0.24;
+    const half d = 0.272;
+    const half e = 0.02;
+    const half f = 0.3;
+    const half whiteLevel = 5.3;
+    const half whiteClip = 1.0;
+
+    half3 whiteScale = (1.0).xxx / NeutralCurve(whiteLevel, a, b, c, d, e, f);
+    x = NeutralCurve(x * whiteScale, a, b, c, d, e, f);
+    x *= whiteScale;
+
+    // Post-curve white point adjustment
+    x /= whiteClip.xxx;
+
+    return x;
+}
+
 [numthreads(8,8,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
@@ -34,10 +61,11 @@ void CSMain (uint3 id : SV_DispatchThreadID)
         return;
 
     int threadId = id.x + id.y * rasterSize.x;
-    float4 color = outputTexture[id.xy];
+    float4 color; // = outputTexture[id.xy];
     PathRadiance pathRadiance = pathRadiances[threadId];
-    float3 radiance = LinearToGammaSpace(pathRadiance.li.rgb);//XYZToRGB(pathRadiance.li.rgb);
+    float3 radiance = LinearToGammaSpace(NeutralTonemap(pathRadiance.li.rgb));
     float3 spectrum = spectrums[threadId];
+
     spectrum.rgb += radiance;
     spectrums[threadId] = spectrum;
     color.rgb = spectrum / framesNum;

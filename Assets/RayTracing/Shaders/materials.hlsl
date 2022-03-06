@@ -127,7 +127,7 @@ void UnpackShadingMaterial(Material material, inout ShadingMaterial shadingMater
 		shadingMaterial.roughness = material.roughness;
 		shadingMaterial.roughnessV = material.anisotropy;
 		shadingMaterial.eta = material.eta;
-		shadingMaterial.metallic = material.k;
+		shadingMaterial.k = material.k;
 	}
 	
 	//mask = asuint(material.metallicMapMask);
@@ -174,28 +174,28 @@ void ComputeBxDFLambertReflection(ShadingMaterial shadingMaterial, out BxDFLambe
 	bxdf.R = shadingMaterial.reflectance;
 }
 
-void ComputeBxDFMicrofacetReflection(ShadingMaterial shadingMaterial, out BxDFMicrofacetReflection bxdf)
+void ComputeBxDFPlastic(ShadingMaterial shadingMaterial, out BxDFPlastic bxdf)
 {
-	bxdf = (BxDFMicrofacetReflection)0;
+	bxdf = (BxDFPlastic)0;
 	bxdf.alphax = RoughnessToAlpha(shadingMaterial.roughness);
 	bxdf.alphay = RoughnessToAlpha(shadingMaterial.roughnessV);
-	
-	if (shadingMaterial.materialType == Plastic)
-	{
-		bxdf.R = shadingMaterial.specular;
-		bxdf.fresnel.fresnelType = FresnelDielectric;
-		bxdf.fresnel.etaI = 1.5;
-		bxdf.fresnel.etaT = 1;
-		bxdf.fresnel.k = 0;
-	}
-	else if (shadingMaterial.materialType == Metal)
-	{
-		bxdf.R = 1;
-		bxdf.fresnel.fresnelType = FresnelConductor;
-		bxdf.fresnel.etaI = 1;
-		bxdf.fresnel.etaT = shadingMaterial.eta;
-		bxdf.fresnel.k = shadingMaterial.metallic;
-	}
+	bxdf.R = shadingMaterial.specular;
+	//bxdf.fresnel.fresnelType = FresnelDielectric;
+	bxdf.etaI = 1.5;
+	bxdf.etaT = 1;
+	//bxdf.fresnel.k = 0;
+
+}
+
+void ComputeBxDFMetal(ShadingMaterial shadingMaterial, out BxDFMetal bxdf)
+{
+	bxdf = (BxDFMetal)0;
+	bxdf.alphax = RoughnessToAlpha(shadingMaterial.roughness);
+	bxdf.alphay = RoughnessToAlpha(shadingMaterial.roughnessV);
+	bxdf.R = 1;
+	bxdf.etaI = float3(1, 1, 1);
+	bxdf.etaT = shadingMaterial.eta;
+	bxdf.K = shadingMaterial.k;
 }
 
 void ComputeBxDFMicrofacetTransmission(ShadingMaterial shadingMaterial, out BxDFMicrofacetTransmission bxdf)
@@ -231,18 +231,18 @@ float3 MaterialBRDF(Material material, Interaction isect, float3 wo, float3 wi, 
 			nComponent = 2;
 			f += LambertBRDF(wi, wo, shadingMaterial.reflectance);
 			pdf += LambertPDF(wi, wo);
-			BxDFMicrofacetReflection bxdf;
-			ComputeBxDFMicrofacetReflection(shadingMaterial, bxdf);
+			BxDFPlastic bxdfPlastic;
+			ComputeBxDFPlastic(shadingMaterial, bxdfPlastic);
 			float pdfMicroReflection = 0;
-			f += MicrofacetReflectionF(wo, wi, bxdf, pdfMicroReflection);
+			f += bxdfPlastic.F(wo, wi, pdfMicroReflection);//MicrofacetReflectionF(wo, wi, bxdf, pdfMicroReflection);
 			pdf += pdfMicroReflection;//MicrofacetReflectionPdf(wo, wi, bxdf.alphax, bxdf.alphay);
 		}
 		else if (shadingMaterial.materialType == Metal)
 		{
 			nComponent = 1;
-			BxDFMicrofacetReflection bxdf;
-			ComputeBxDFMicrofacetReflection(shadingMaterial, bxdf);
-			f += MicrofacetReflectionF(wo, wi, bxdf, pdf);
+			BxDFMetal bxdfMetal;
+			ComputeBxDFMetal(shadingMaterial, bxdfMetal);
+			f += bxdfMetal.F(wo, wi, pdf);  //MicrofacetReflectionF(wo, wi, bxdf, pdf);
 		}
 		else
 		{
@@ -274,8 +274,8 @@ float3 SamplePlastic(ShadingMaterial material, float3 wo, out float3 wi, inout R
 {
 	BxDFLambertReflection lambert;
 	ComputeBxDFLambertReflection(material, lambert);
-	BxDFMicrofacetReflection bxdf;
-	ComputeBxDFMicrofacetReflection(material, bxdf);
+	BxDFPlastic bxdfPlastic;
+	ComputeBxDFPlastic(material, bxdfPlastic);
 	float matchingComponent = 2;
 	float2 u = Get2D(rng);
 	int compIndex = min(floor(u[0] * matchingComponent), matchingComponent - 1);
@@ -287,7 +287,7 @@ float3 SamplePlastic(ShadingMaterial material, float3 wo, out float3 wi, inout R
 	if (compIndex == 0)
 		f = SampleLambert(material, wo, wi, uRemapped, pdf);
 	else
-		f = SampleMicrofacetReflectionF(bxdf, uRemapped, wo, wi, pdf);
+		f = bxdfPlastic.Sample_F(uRemapped, wo, wi, pdf);//SampleMicrofacetReflectionF(bxdf, uRemapped, wo, wi, pdf);
 	//choosing pdf caculate
 	pdf /= 2;
 
@@ -296,58 +296,42 @@ float3 SamplePlastic(ShadingMaterial material, float3 wo, out float3 wi, inout R
 
 float3 SampleMetal(ShadingMaterial material, float3 wo, out float3 wi, inout RNG rng, out float pdf)
 {
-	BxDFMicrofacetReflection bxdf;
-	ComputeBxDFMicrofacetReflection(material, bxdf);
+	BxDFMetal bxdf;
+	ComputeBxDFMetal(material, bxdf);
 	float2 u = Get2D(rng);
-	return SampleMicrofacetReflectionF(bxdf, u, wo, wi, pdf);
+	pdf = 0;
+	return bxdf.Sample_F(u, wo, wi, pdf);
 }
 
 //wi wo is a vector which in local space of the interfaction surface
 float3 SampleMaterialBRDF(Material material, Interaction isect, float3 wo, out float3 wi, out float pdf, inout RNG rng)
 {
-//#ifdef DISNEY_BRDF
-	//DisneyMaterial materialDisney;
-	//UnpackMaterial(material, materialDisney, uv);
-	//return SampleDisneyBRDF(wi, wo, materialDisney, pdf, rng);
-//#else
-	//if (material.materialType & BSDF_DISNEY)
-	//{
-	//	DisneyMaterial materialDisney;
-	//	UnpackDisneyMaterial(material, materialDisney, uv);
-	//	return SampleDisneyBRDF(wi, wo, materialDisney, pdf, rng);
-	//}
-	//else
+	ShadingMaterial shadingMaterial = (ShadingMaterial)0;
+	UnpackShadingMaterial(material, shadingMaterial, isect);
+		
+	switch (shadingMaterial.materialType)
 	{
-		ShadingMaterial shadingMaterial = (ShadingMaterial)0;
-		UnpackShadingMaterial(material, shadingMaterial, isect);
+	case Disney:
+		return 0;
+	case Matte:
+	{
 		float2 u = Get2D(rng);
-		switch (shadingMaterial.materialType)
-		{
-		case Disney:
-			break;
-		case Matte:
-			return SampleLambert(shadingMaterial, wo, wi, u, pdf);
-			break;
-		case Plastic:
-			return SamplePlastic(shadingMaterial, wo, wi, rng, pdf);
-			break;
-		case Metal:
-			return SampleMetal(shadingMaterial, wo, wi, rng, pdf);
-			break;
-		case Mirror:
-			break;
-		case Glass:
-			break;
-		default:
-			return SampleLambert(shadingMaterial, wo, wi, u, pdf);
-		}
-		//if (material.materialType & BSDF_DIFFUSE)
-		//{
-		//	return SampleLambert(shadingMaterial, wo, wi, u, pdf);
-		//}
 		return SampleLambert(shadingMaterial, wo, wi, u, pdf);
 	}
-//#endif
+	case Plastic:
+		return SamplePlastic(shadingMaterial, wo, wi, rng, pdf);
+	case Metal:
+		return SampleMetal(shadingMaterial, wo, wi, rng, pdf);
+	case Mirror:
+		return 0;
+	case Glass:
+		return 0;
+	default:
+	{
+		float2 u = Get2D(rng);
+		return SampleLambert(shadingMaterial, wo, wi, u, pdf);
+	}
+	}
 }
 
 

@@ -11,6 +11,7 @@
 
 uniform int   enviromentTextureMask;
 uniform float3 enviromentColor;
+uniform float3 enviromentColorScale;
 
 TextureCube _EnvMap;
 SamplerState _EnvMap_linear_repeat_sampler;
@@ -109,7 +110,8 @@ int SampleLightSource(float u, int lightCount, StructuredBuffer<float2> discribu
 {
 	DistributionDiscript discript = (DistributionDiscript)0;
 	discript.start = 0;
-	discript.num = lightCount;
+	//the length of cdfs is N+1
+	discript.num = lightCount + 1;
 	int index = Sample1DDiscrete(u, discript, discributions, pmf); //SampleDistribution1DDiscrete(rs.Get1D(threadId), 0, lightCount, pdf);
 	return index;
 }

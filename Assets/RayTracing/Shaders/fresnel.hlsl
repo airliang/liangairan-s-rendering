@@ -58,7 +58,7 @@ float3 FrConductor(float cosThetaI, float3 etai, float3 etat, float3 k) {
     cosThetaI = clamp(cosThetaI, -1, 1);
     float3 eta = etat / etai;
     float3 etak = k / etai;
-
+    
     float cosThetaI2 = cosThetaI * cosThetaI;
     float sinThetaI2 = 1. - cosThetaI2;
     float3 eta2 = eta * eta;
@@ -67,15 +67,15 @@ float3 FrConductor(float cosThetaI, float3 etai, float3 etat, float3 k) {
     float3 t0 = eta2 - etak2 - sinThetaI2;
     float3 a2plusb2 = sqrt(t0 * t0 + 4 * eta2 * etak2);
     float3 t1 = a2plusb2 + cosThetaI2;
-    float3 a = sqrt(0.5f * (a2plusb2 + t0));
-    float3 t2 = (float)2 * cosThetaI * a;
+    float3 a = sqrt((a2plusb2 + t0) * 0.5);
+    float3 t2 = 2.0 * cosThetaI * a;
     float3 Rs = (t1 - t2) / (t1 + t2);
 
     float3 t3 = cosThetaI2 * a2plusb2 + sinThetaI2 * sinThetaI2;
     float3 t4 = t2 * sinThetaI2;
     float3 Rp = Rs * (t3 - t4) / (t3 + t4);
 
-    return 0.5 * (Rp + Rs);
+    return (Rp + Rs) * 0.5;
 }
 
 #endif

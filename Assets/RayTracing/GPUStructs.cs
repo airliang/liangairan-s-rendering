@@ -292,11 +292,6 @@ public struct GPUBounds
 }
 
 
-public struct GPUSampler
-{
-    int dim;
-}
-
 public struct Vector4Int
 {
     public int x;
@@ -349,8 +344,8 @@ public struct GPUMaterial
     public float specular;      //when material is plastic, stand for ks
     public float roughness;     //roughnessU
     public float anisotropy;    //roughnessV
-    public float eta;
-    public float k;             //metal material absorption
+    public Vector3 eta;
+    public Vector3 k;             //metal material absorption
     public float albedoMapMask;
     public float normalMapMask;
     public float metallicMapMask;

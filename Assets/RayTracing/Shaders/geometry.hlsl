@@ -368,7 +368,7 @@ inline float CosDPhi(float3 wa, float3 wb) {
 
 float3 Faceforward(float3 normal, float3 v)
 {
-	return (dot(normal, v) < 0.f) ? -normal : normal;
+	return (dot(normal, v) < 0.0f) ? -normal : normal;
 }
 
 float3 SphericalDirection(float sinTheta, float cosTheta, float phi)
