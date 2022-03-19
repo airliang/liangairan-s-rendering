@@ -548,7 +548,8 @@ public class RayTracingTest
     public static float SampleDistribution1DContinous(float u, GPUDistributionDiscript discript, Vector2 domain, List<Vector2> funcs, out float pdf, out int off)
     {
         // Find surrounding CDF segments and _offset_
-        int offset = FindIntervalSmall(discript.start, discript.num, u, funcs);
+        int cdfSize = discript.num + 1;
+        int offset = FindIntervalSmall(discript.start, cdfSize, u, funcs);
         off = offset;
         // Compute offset along CDF segment
         float du = u - funcs[offset].y;
@@ -580,5 +581,33 @@ public class RayTracingTest
         //p(u,v) = p(v|u) * pv(u)
         pdf = pdfCondition * pdfMarginal;
         return new Vector2(d0, d1);
+    }
+
+    public static Vector2 ImportanceSampleEnvmap(Vector2 u, GPUDistributionDiscript discript, List<Vector2> marginal,
+        List<Vector2> conditions, out float pdf)
+    {
+        float mapPdf = 0;
+        pdf = 0;
+        Vector2 uv = SampleDistribution2DContinous(u, discript, marginal, conditions, out mapPdf);
+        if (mapPdf == 0)
+            return Vector2.zero;
+        // Convert infinite light sample point to direction
+        float theta = uv.y * Mathf.PI;
+        float phi = uv.x * 2 * Mathf.PI;
+        float cosTheta = Mathf.Cos(theta);
+        float sinTheta = Mathf.Sin(theta);
+        float sinPhi = Mathf.Sin(phi);
+        float cosPhi = Mathf.Cos(phi);
+        //wi = float3(sinTheta * cosPhi, sinTheta * sinPhi, cosTheta);
+
+        // Compute PDF for sampled infinite light direction
+        pdf = mapPdf / (2 * Mathf.PI * Mathf.PI * sinTheta);
+        if (sinTheta == 0)
+        {
+            pdf = 0;
+            return Vector2.zero;
+        }
+
+        return uv;
     }
 }

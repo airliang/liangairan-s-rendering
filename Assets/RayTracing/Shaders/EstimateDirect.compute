@@ -28,6 +28,8 @@ RWStructuredBuffer<uint> _RayQueue;
 RWStructuredBuffer<Ray>   Rays;
 //RWTexture2D<half4> outputTexture;
 
+
+
 float AreaLightPdf(Ray ray, Light light, float3 orig, float3 wi)
 {
     float lightPdf = 0;
@@ -128,7 +130,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
         if (lightPdf > 0)
         {
             //caculate the mis weight
-            float weight = PowerHeuristic(1, lightPdf, 1, scatteringPdf);
+            float weight = PowerHeuristic(1, scatteringPdf, 1, lightPdf);
             Li += Light_Le(wi, light) * beta * weight;
         }
     }

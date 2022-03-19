@@ -4,7 +4,7 @@ Shader "RayTracing/SkyboxHDR"
     {
         _MainTex ("Texture", 2D) = "white" {}
         [Gamma] _Exposure("Exposure", Range(0, 8)) = 1.0
-
+        _Rotation("Rotation", Range(0, 360)) = 0
     }
     SubShader
     {
@@ -25,19 +25,27 @@ Shader "RayTracing/SkyboxHDR"
             struct appdata
             {
                 float4 vertex : POSITION;
-                float2 uv : TEXCOORD0;
             };
 
             struct v2f
             {
-                float3 uv : TEXCOORD0;
                 float4 vertex : SV_POSITION;
+                float3 uv : TEXCOORD0;
             };
 
             sampler2D _MainTex;
             half4 _MainTex_HDR;
             half _Exposure;
+            half _Rotation;
             
+            float3 RotateAroundYInDegrees(float3 vertex, float degrees)
+            {
+                float alpha = degrees * UNITY_PI / 180.0;
+                float sina, cosa;
+                sincos(alpha, sina, cosa);
+                float2x2 m = float2x2(cosa, -sina, sina, cosa);
+                return float3(mul(m, vertex.xz), vertex.y).xzy;
+            }
 
             inline float2 DirectionToPolar(float3 direction)
             {
@@ -51,8 +59,9 @@ Shader "RayTracing/SkyboxHDR"
             v2f vert (appdata v)
             {
                 v2f o;
-                o.vertex = UnityObjectToClipPos(v.vertex);
-                o.uv = o.vertex.xyz;
+                float3 rotated = RotateAroundYInDegrees(v.vertex, _Rotation);
+                o.vertex = UnityObjectToClipPos(rotated);
+                o.uv = v.vertex.xyz;
                 return o;
             }
 

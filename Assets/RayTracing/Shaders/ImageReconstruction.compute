@@ -1,5 +1,5 @@
 #include "GPUStructs.hlsl"
-
+#include "colorConvert.hlsl"
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel CSMain
 
@@ -7,52 +7,12 @@
 // with cs.SetTexture
 float2 rasterSize;
 int framesNum;
+float _Exposure;
 StructuredBuffer<PathRadiance> pathRadiances;
-RWStructuredBuffer<float3>  spectrums;
+RWTexture2D<float4>  spectrums;
 RWTexture2D<half4> outputTexture;
 
-float3 XYZToRGB(float3 xyz) {
-    return float3(3.240479f * xyz.x - 1.537150f * xyz.y - 0.498535f * xyz.z,
-                 -0.969256f * xyz.x + 1.875991f * xyz.y + 0.041556f * xyz.z,
-                  0.055648f * xyz.x - 0.204043f * xyz.y + 1.057311f * xyz.z);
-}
 
-inline half3 LinearToGammaSpace(half3 linRGB)
-{
-    linRGB = max(linRGB, half3(0.h, 0.h, 0.h));
-    // An almost-perfect approximation from http://chilliant.blogspot.com.au/2012/08/srgb-approximations-for-hlsl.html?m=1
-    return max(1.055h * pow(linRGB, 0.416666667h) - 0.055h, 0.h);
-
-    // Exact version, useful for debugging.
-    //return half3(LinearToGammaSpaceExact(linRGB.r), LinearToGammaSpaceExact(linRGB.g), LinearToGammaSpaceExact(linRGB.b));
-}
-
-half3 NeutralCurve(half3 x, half a, half b, half c, half d, half e, half f)
-{
-    return ((x * (a * x + c * b) + d * e) / (x * (a * x + b) + d * f)) - e / f;
-}
-
-half3 NeutralTonemap(half3 x)
-{
-    // Tonemap
-    const half a = 0.2;
-    const half b = 0.29;
-    const half c = 0.24;
-    const half d = 0.272;
-    const half e = 0.02;
-    const half f = 0.3;
-    const half whiteLevel = 5.3;
-    const half whiteClip = 1.0;
-
-    half3 whiteScale = (1.0).xxx / NeutralCurve(whiteLevel, a, b, c, d, e, f);
-    x = NeutralCurve(x * whiteScale, a, b, c, d, e, f);
-    x *= whiteScale;
-
-    // Post-curve white point adjustment
-    x /= whiteClip.xxx;
-
-    return x;
-}
 
 [numthreads(8,8,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
@@ -61,13 +21,13 @@ void CSMain (uint3 id : SV_DispatchThreadID)
         return;
 
     int threadId = id.x + id.y * rasterSize.x;
-    float4 color; // = outputTexture[id.xy];
+    float4 color;
     PathRadiance pathRadiance = pathRadiances[threadId];
-    float3 radiance = LinearToGammaSpace(NeutralTonemap(pathRadiance.li.rgb));
-    float3 spectrum = spectrums[threadId];
+    float3 radiance = LinearToGammaSpace(ACESToneMapping(pathRadiance.li.rgb, _Exposure));
+    float3 spectrum = spectrums[id.xy];
 
     spectrum.rgb += radiance;
-    spectrums[threadId] = spectrum;
+    spectrums[id.xy] = half4(spectrum, 1);
     color.rgb = spectrum / framesNum;
     color.a = 1;
     outputTexture[id.xy] = color;

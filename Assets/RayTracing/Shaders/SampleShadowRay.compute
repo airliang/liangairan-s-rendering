@@ -29,34 +29,6 @@ StructuredBuffer<uint> _RayQueue;
 ShadowRay SampleShadowRay(Light light, Interaction isect, inout RNG rng)
 {
 	ShadowRay shadowRay = (ShadowRay)0;
-	/*
-	int discriptIndex = light.distributionDiscriptIndex;
-	DistributionDiscript lightDistributionDiscript = DistributionDiscripts[discriptIndex];
-	float u = Get1D(rng);
-	float triPdf = 0;
-	float lightPdf = 0;
-	MeshInstance meshInstance = MeshInstances[light.meshInstanceID];
-	int triangleIndex = SampleTriangleIndexOfLightPoint(u, lightDistributionDiscript, Distributions1D, lightPdf) * 3 + meshInstance.triangleStartOffset;
-
-	int vertexStart = triangleIndex;
-	int vIndex0 = TriangleIndices[vertexStart];
-	int vIndex1 = TriangleIndices[vertexStart + 1];
-	int vIndex2 = TriangleIndices[vertexStart + 2];
-	float3 p0 = Vertices[vIndex0].position.xyz;
-	float3 p1 = Vertices[vIndex1].position.xyz;
-	float3 p2 = Vertices[vIndex2].position.xyz;
-	//convert to worldpos
-	
-	p0 = mul(meshInstance.localToWorld, float4(p0, 1)).xyz;
-	p1 = mul(meshInstance.localToWorld, float4(p1, 1)).xyz;
-	p2 = mul(meshInstance.localToWorld, float4(p2, 1)).xyz;
-
-	float3 samplePointOnLight;
-	float3 wi;
-	
-	float3 Li = SampleTriangleLight(p0, p1, p2, Get2D(rng), isect, light, wi, samplePointOnLight, triPdf);
-	lightPdf *= triPdf;
-	*/
 	
 	float3 wi;
 	float lightPdf = 0;
@@ -74,13 +46,7 @@ ShadowRay SampleShadowRay(Light light, Interaction isect, inout RNG rng)
 		//float3 wi = normalize(shadowRay.p1 - shadowRay.p0);
 
 		//sample bsdf
-		Material material = materials[isect.materialID];
-		float3 wiLocal = isect.WorldToLocal(wi);
-		float3 woLocal = isect.WorldToLocal(isect.wo.xyz);
-		float scatteringPdf = 0;
-		float mipmapLevel = 0;
-		float3 f = MaterialBRDF(material, isect, woLocal, wiLocal, scatteringPdf);
-		f *= abs(dot(wi, isect.normal));
+		
 		//float3 f = LambertBRDF(wiLocal, woLocal, material.kd.xyz) * abs(dot(wi, isect.normal));
 		//scatteringPdf = LambertPDF(wiLocal, woLocal);
 
@@ -88,11 +54,24 @@ ShadowRay SampleShadowRay(Light light, Interaction isect, inout RNG rng)
 
 		if (shadowRayVisible)
 		{
-			//sample psdf and compute the mis weight
-			float weight =
-				PowerHeuristic(1, lightPdf, 1, scatteringPdf);
-			shadowRay.radiance = f * Li * weight / lightPdf;
+			Material material = materials[isect.materialID];
+			float3 wiLocal = isect.WorldToLocal(wi);
+			float3 woLocal = isect.WorldToLocal(isect.wo.xyz);
+			float scatteringPdf = 0;
+
+			float3 f = MaterialBRDF(material, isect, woLocal, wiLocal, scatteringPdf);
+			if (!IsBlack(f))
+			{
+				f *= abs(dot(wi, isect.normal));
+				//sample psdf and compute the mis weight
+				float weight =
+					PowerHeuristic(1, lightPdf, 1, scatteringPdf);
+				//weight = 1;
+				shadowRay.radiance = f * Li * weight / lightPdf;
+			}
+			
 		}
+
 	}
 	
 	return shadowRay;

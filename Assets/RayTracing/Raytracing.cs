@@ -23,6 +23,7 @@ class LightInstance
     public LightType lightType;
     public float area = 0;
     public Vector3 radiance;
+    public Texture textureRadiance;
 }
 
 class AreaLightResource
@@ -47,7 +48,7 @@ class AreaLightInstance : LightInstance
     
     public float intensity;
     public float pointRadius;
-    public Texture2D textureRadiance;
+    
 }
 
 class EnviromentLight : LightInstance
@@ -56,9 +57,44 @@ class EnviromentLight : LightInstance
     {
         lightType = LightType.Envmap;
         area = Mathf.PI * 4.0f;
-        radiance = Vector3.zero;
+        radiance = Vector3.one;
     }
-    public Cubemap textureRadiance;
+    //public Cubemap textureRadiance;
+    public Vector3 colorScale = Vector3.one;
+
+    //public Texture2D envmap;
+    public Distribution2D envmapDistributions;
+
+    public void CreateDistributions()
+    {
+        int mipmap = 1;
+        Texture2D envmap = textureRadiance as Texture2D;
+        if (envmap != null)
+        {
+            int width = envmap.width >> mipmap;
+            int height = envmap.height >> mipmap;
+            float[] distributions = new float[width * height];
+            Color[] pixels = envmap.GetPixels(mipmap);
+            for (int v = 0; v < height; ++v)
+            {
+                float vp = (float)v / (float)height;
+                float sinTheta = Mathf.Sin(Mathf.PI * (float)(v + 0.5f) / (float)height);
+                for (int u = 0; u < width; ++u)
+                {
+                    float y = pixels[u + v * width].Y();
+                    float distribution = y;
+                    if (distribution == 0)
+                        distribution = float.Epsilon;
+                    distributions[u + v * width] = distribution * sinTheta;
+                }
+            }
+            Bounds2D domain = new Bounds2D();
+            domain.min = Vector2.zero;
+            domain.max = new Vector2(width, height);
+            envmapDistributions = new Distribution2D(distributions, width, height, domain);
+        }
+        
+    }
 }
 
 
@@ -102,10 +138,11 @@ public class Raytracing : MonoBehaviour
     public FilterType filterType = FilterType.Gaussian;
     public Vector2 fiterRadius = Vector2.one;
     public float gaussianSigma = 0.5f;
-    public Texture2D testTexture;
+    public Texture2D envmap;
     private CommandBuffer renderGBufferCmd;
     EnviromentLight envLight = new EnviromentLight();
     Bounds worldBound;
+    public float _Exposure = 1;
 
     public enum TracingView
     {
@@ -116,6 +153,7 @@ public class Raytracing : MonoBehaviour
         GBufferView,
         ShadowRayView,
         FresnelView,
+        EnvmapUVView,
     }
 
     public TracingView viewMode = TracingView.ColorView;
@@ -140,6 +178,9 @@ public class Raytracing : MonoBehaviour
     ComputeBuffer intersectBuffer;
     ComputeBuffer lightBuffer;
     ComputeBuffer materialBuffer;
+    ComputeBuffer envLightMarginalBuffer;
+    ComputeBuffer envLightConditionBuffer;
+
     ComputeBuffer rayBuffer;
     ComputeBuffer samplerBuffer;
     ComputeBuffer pathRadianceBuffer;
@@ -148,7 +189,7 @@ public class Raytracing : MonoBehaviour
     ComputeBuffer distribution1DBuffer;
     ComputeBuffer distributionDiscriptBuffer;
     ComputeBuffer shadowRayBuffer;
-    ComputeBuffer imageSpectrumsBuffer;
+    RenderTexture imageSpectrumsBuffer;
     //ComputeBuffer pathStatesBuffer;
     ComputeBuffer filterMarginalBuffer;
     ComputeBuffer filterConditionBuffer;
@@ -193,11 +234,22 @@ public class Raytracing : MonoBehaviour
         }
 
         InitScene();
-        //SampleLightTest();
 
-        
-        //IntersectionTest();
-        //TestPath();
+        //importance sampling envmap
+        GPUDistributionDiscript discript = new GPUDistributionDiscript();
+        discript.start = 0;
+        discript.num = envLight.envmapDistributions.size.y;
+        discript.unum = envLight.envmapDistributions.size.x;
+        discript.domain = new Vector4(0, 1, 0, 1);
+        List<Vector2> envLightMarginals = envLight.envmapDistributions.GetGPUMarginalDistributions();
+        List<Vector2> envLightConditionals = envLight.envmapDistributions.GetGPUConditionalDistributions();
+        for (int i = 0; i < 200; i++)
+        {
+            Vector2 u = new Vector2(UnityEngine.Random.Range(0.0f, 1.0f), UnityEngine.Random.Range(0.0f, 1.0f));
+            float pdf = 0;
+            Vector2 uv = RayTracingTest.ImportanceSampleEnvmap(u, discript, envLightMarginals, envLightConditionals, out pdf);
+            Debug.Log("Importance sampling uv=" + uv + " pdf=" + pdf);
+        }
     }
 
     // Update is called once per frame
@@ -261,6 +313,7 @@ public class Raytracing : MonoBehaviour
             }
 
             ImageReconstruction.SetInt("framesNum", ++framesNum);
+            ImageReconstruction.SetFloat("_Exposure", _Exposure);
             ImageReconstruction.Dispatch(kImageReconstruction, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
         }
         else
@@ -702,16 +755,21 @@ public class Raytracing : MonoBehaviour
             if (skyBoxMaterial.shader.name == "Skybox/Cubemap")
             {
                 envLight.textureRadiance = skyBoxMaterial.GetTexture("_Tex") as Cubemap;
-                if (envLight.textureRadiance == null)
-                {
-                    envLight.radiance = RenderSettings.ambientSkyColor.LinearToVector3();
-                    gpuEnvLight.radiance = envLight.radiance;
-                }
-                else
-                {
-                    uint mask = 1;
-                    gpuEnvLight.textureMask = MathUtil.UInt32BitsToSingle(mask);
-                }
+            }
+            else if (skyBoxMaterial.shader.name == "Skybox/Panoramic" || skyBoxMaterial.shader.name == "RayTracing/SkyboxHDR")
+            {
+                envLight.textureRadiance = skyBoxMaterial.GetTexture("_MainTex");
+                envLight.CreateDistributions();
+            }
+            if (envLight.textureRadiance == null)
+            {
+                envLight.radiance = RenderSettings.ambientSkyColor.LinearToVector3();
+                gpuEnvLight.radiance = envLight.radiance;
+            }
+            else
+            {
+                uint mask = 1;
+                gpuEnvLight.textureMask = MathUtil.UInt32BitsToSingle(mask);
             }
         }
 
@@ -791,7 +849,7 @@ public class Raytracing : MonoBehaviour
             num = lightObjectDistribution.Count,
             unum = 0,
             c = 0,
-            domain = new Vector4(lightObjDistribution.size.x, lightObjDistribution.size.y, 0, 0)
+            domain = new Vector4(lightObjDistribution.domain.x, lightObjDistribution.domain.y, 0, 0)
         };
         gpuDistributionDiscripts.Add(discript);
 
@@ -805,7 +863,7 @@ public class Raytracing : MonoBehaviour
                 num = areaLightResource.triangleAreas.Count + 1,
                 unum = 0,
                 c = 0,
-                domain = new Vector4(areaLightResource.triangleDistributions.size.x, areaLightResource.triangleDistributions.size.y, 0, 0)
+                domain = new Vector4(areaLightResource.triangleDistributions.domain.x, areaLightResource.triangleDistributions.domain.y, 0, 0)
             };
             areaLightResource.discriptAddress = gpuDistributionDiscripts.Count;
             gpuDistributionDiscripts.Add(discript);
@@ -998,17 +1056,7 @@ public class Raytracing : MonoBehaviour
         SampleShadowRay.SetInt("lightsNum", gpuLights.Count);
         SampleShadowRay.SetMatrix("WorldToRaster", WorldToRaster);
         SetTextures(SampleShadowRay, kSampleShadowRay);
-        if (envLight.textureRadiance != null)
-        {
-            SampleShadowRay.SetTexture(kSampleShadowRay, "_EnvMap", envLight.textureRadiance);
-            SampleShadowRay.SetInt("enviromentTextureMask", 1);
-        }
-        else
-        {
-            SampleShadowRay.SetInt("enviromentTextureMask", 0);
-            SampleShadowRay.SetVector("enviromentColor", envLight.radiance);
-        }
-        //SampleShadowRay.SetTexture(kSampleShadowRay, "outputTexture", outputTexture);
+        SetupGPUEnviromentMap(SampleShadowRay, kSampleShadowRay);
 
 
         kEstimateDirect = EstimateDirect.FindKernel("CSMain");
@@ -1041,18 +1089,7 @@ public class Raytracing : MonoBehaviour
         EstimateDirect.SetInt("lightsNum", gpuLights.Count);
         EstimateDirect.SetMatrix("WorldToRaster", WorldToRaster);
         SetTextures(EstimateDirect, kEstimateDirect);
-        if (envLight.textureRadiance != null)
-        {
-            EstimateDirect.SetTexture(kEstimateDirect, "_EnvMap", envLight.textureRadiance);
-            EstimateDirect.SetInt("enviromentTextureMask", 1);
-        }
-        else
-        {
-            EstimateDirect.SetInt("enviromentTextureMask", 0);
-            EstimateDirect.SetVector("enviromentColor", envLight.radiance);
-        }
-        //EstimateDirect.SetTexture(kSampleShadowRay, "outputTexture", outputTexture);
-        //EstimateDirect.Dispatch(kEstimateDirect, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
+        SetupGPUEnviromentMap(EstimateDirect, kEstimateDirect);
     }
 
     /*
@@ -1078,11 +1115,16 @@ public class Raytracing : MonoBehaviour
     void SetupImageReconstruction()
     {
         if (imageSpectrumsBuffer == null)
-            imageSpectrumsBuffer = new ComputeBuffer(Screen.width * Screen.height, System.Runtime.InteropServices.Marshal.SizeOf(typeof(Vector3)), ComputeBufferType.Structured);
+        {
+            imageSpectrumsBuffer = new RenderTexture(Screen.width, Screen.height, 0, RenderTextureFormat.ARGBFloat, 0);//new ComputeBuffer(Screen.width * Screen.height, System.Runtime.InteropServices.Marshal.SizeOf(typeof(Vector3)), ComputeBufferType.Structured);
+            imageSpectrumsBuffer.enableRandomWrite = true;
+            imageSpectrumsBuffer.filterMode = FilterMode.Point;
+        }
 
         kImageReconstruction = ImageReconstruction.FindKernel("CSMain");
         ImageReconstruction.SetBuffer(kImageReconstruction, "pathRadiances", pathRadianceBuffer);
-        ImageReconstruction.SetBuffer(kImageReconstruction, "spectrums", imageSpectrumsBuffer);
+        //ImageReconstruction.SetBuffer(kImageReconstruction, "spectrums", imageSpectrumsBuffer);
+        SetComputeTexture(ImageReconstruction, kImageReconstruction, "spectrums", imageSpectrumsBuffer);
         ImageReconstruction.SetTexture(kImageReconstruction, "outputTexture", outputTexture);
         ImageReconstruction.SetVector("rasterSize", new Vector4(Screen.width, Screen.height, 0, 0));
     }
@@ -1119,6 +1161,54 @@ public class Raytracing : MonoBehaviour
         cs.SetTexture(kernel, "normalTexArray", RayTracingTextures.Instance.GetNormal2DArray(128));
     }
 
+    void SetupGPUEnviromentMap(ComputeShader cs, int kernel)
+    {
+        if (envLight.textureRadiance != null)
+        {
+            cs.SetTexture(kRayTraversal, "_LatitudeLongitudeMap", envLight.textureRadiance);
+            cs.SetInt("enviromentTextureMask", 1);
+        }
+        else
+        {
+            cs.SetInt("enviromentTextureMask", 0);
+            cs.SetVector("enviromentColor", envLight.radiance);
+        }
+
+        int marginalsNum = 0;
+        if (envLightMarginalBuffer == null)
+        {
+            List<Vector2> marginals = envLight.envmapDistributions.GetGPUMarginalDistributions();
+            marginalsNum = marginals.Count;
+            envLightMarginalBuffer = new ComputeBuffer(marginals.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(Vector2)), ComputeBufferType.Structured);
+            envLightMarginalBuffer.SetData(marginals);
+        }
+
+        int conditionsNum = 0;
+        if (envLightConditionBuffer == null)
+        {
+            List<Vector2> conditions = envLight.envmapDistributions.GetGPUConditionalDistributions();
+            envLightConditionBuffer = new ComputeBuffer(conditions.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(Vector2)), ComputeBufferType.Structured);
+            envLightConditionBuffer.SetData(conditions);
+        }
+
+        SetComputeBuffer(cs, kernel, "EnvmapMarginals", envLightMarginalBuffer);
+        SetComputeBuffer(cs, kernel, "EnvmapConditions", envLightConditionBuffer);
+        cs.SetVector("envMapDistributionSize", new Vector2(envLight.envmapDistributions.size.x, envLight.envmapDistributions.size.y));
+    }
+
+    void SetupGPUSceneData(ComputeShader cs, int kernel)
+    {
+        cs.SetBuffer(kernel, "WoodTriangles", woodTriBuffer);
+        cs.SetBuffer(kernel, "Vertices", verticesBuffer);
+        cs.SetBuffer(kernel, "BVHTree", BVHBuffer);
+        cs.SetBuffer(kernel, "Intersections", intersectBuffer);
+        if (meshInstanceBuffer != null)
+            cs.SetBuffer(kernel, "MeshInstances", meshInstanceBuffer);
+        SetComputeBuffer(cs, kernel, "WoodTriangleIndices", woodTriIndexBuffer);
+        cs.SetInt("instBVHAddr", instBVHNodeAddr);
+        cs.SetInt("bvhNodesNum", bvhAccel.m_nodes.Count);
+    }
+
     void SetupRayTraversal()
     {
         if (intersectBuffer == null)
@@ -1137,12 +1227,10 @@ public class Raytracing : MonoBehaviour
         RayTravel.SetBuffer(kRayTraversal, "Rays", rayBuffer);
         RayTravel.SetBuffer(kRayTraversal, "WoodTriangles", woodTriBuffer);
         RayTravel.SetBuffer(kRayTraversal, "Vertices", verticesBuffer);
-        //RayTravel.SetBuffer(kRayTraversal, "Primitives", primtiveBuffer);
         RayTravel.SetBuffer(kRayTraversal, "BVHTree", BVHBuffer);
         RayTravel.SetBuffer(kRayTraversal, "Intersections", intersectBuffer);
         if (meshInstanceBuffer != null)
             RayTravel.SetBuffer(kRayTraversal, "MeshInstances", meshInstanceBuffer);
-        //RayTravel.SetBuffer(kRayTraversal, "WorldMatrices", transformBuffer);
         RayTravel.SetBuffer(kRayTraversal, "RNGs", samplerBuffer);
         RayTravel.SetBuffer(kRayTraversal, "pathRadiances", pathRadianceBuffer);
         SetComputeBuffer(RayTravel, kRayTraversal, "lights", lightBuffer);
@@ -1168,7 +1256,7 @@ public class Raytracing : MonoBehaviour
         //RayTravel.SetTexture(kRayTraversal, "outputTexture", outputTexture);
         if (envLight.textureRadiance != null)
         {
-            RayTravel.SetTexture(kRayTraversal, "_EnvMap", envLight.textureRadiance);
+            RayTravel.SetTexture(kRayTraversal, "_LatitudeLongitudeMap", envLight.textureRadiance);
             RayTravel.SetInt("enviromentTextureMask", 1);
         }
         else
@@ -1225,16 +1313,7 @@ public class Raytracing : MonoBehaviour
         }
 
         DebugView.SetTexture(kDebugView, "RayConeGBuffer", rayConeGBuffer);
-        if (envLight.textureRadiance != null)
-        {
-            DebugView.SetTexture(kDebugView, "_EnvMap", envLight.textureRadiance);
-            DebugView.SetInt("enviromentTextureMask", 1);
-        }
-        else
-        {
-            DebugView.SetInt("enviromentTextureMask", 0);
-            DebugView.SetVector("enviromentColor", envLight.radiance);
-        }
+        SetupGPUEnviromentMap(DebugView, kDebugView);
     }
 
     private void OnPostRender()
@@ -1331,6 +1410,15 @@ public class Raytracing : MonoBehaviour
             }
         }
 
+        void ReleaseTexture(Texture texture)
+        {
+            if (texture != null)
+            {
+                Destroy(texture);
+                texture = null;
+            }
+        }
+
         ReleaseComputeBuffer(rayBuffer);
         ReleaseComputeBuffer(samplerBuffer);
         ReleaseComputeBuffer(woodTriBuffer);
@@ -1342,11 +1430,14 @@ public class Raytracing : MonoBehaviour
         ReleaseComputeBuffer(intersectBuffer);
         ReleaseComputeBuffer(materialBuffer);
         ReleaseComputeBuffer(lightBuffer);
+        ReleaseComputeBuffer(envLightConditionBuffer);
+        ReleaseComputeBuffer(envLightMarginalBuffer);
         ReleaseComputeBuffer(distribution1DBuffer);
         ReleaseComputeBuffer(distributionDiscriptBuffer);
         ReleaseComputeBuffer(shadowRayBuffer);
         ReleaseComputeBuffer(pathRadianceBuffer);
-        ReleaseComputeBuffer(imageSpectrumsBuffer);
+        //ReleaseComputeBuffer(imageSpectrumsBuffer);
+        ReleaseRenderTexture(imageSpectrumsBuffer);
         //ReleaseComputeBuffer(pathStatesBuffer);
         ReleaseComputeBuffer(filterMarginalBuffer);
         ReleaseComputeBuffer(filterConditionBuffer);

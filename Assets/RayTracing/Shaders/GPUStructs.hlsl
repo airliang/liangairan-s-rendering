@@ -88,17 +88,7 @@ struct PathRadiance
 	float3 beta;  //one path compute throughput
 };
 
-struct DistributionDiscript
-{
-	//the distribution array index
-	int start;
-	//number of distribution, or number of the v-direction (marginals) if distribution is 2D
-	int num;
-	//number of 2D distribution, or number of the u-direction (conditionals) if distribution is 2D
-	int unum;
-	int c;
-	float4 domain;  //discript function domain, x as min y as max if 1D distribution, xy-domain of marginal zw-domain of conditional if 2D distribution
-};
+
 
 struct RayCone
 {

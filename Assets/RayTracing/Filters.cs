@@ -14,7 +14,7 @@ public class Distribution1D
     //p(v|u) = p(u, v) / pv(u)
     public List<float> cdf = new List<float>();
     public float distributionInt = 0;
-    public Vector2 size;
+    public Vector2 domain;
     int FindInterval<T>(int size, MatchFunc<T> match)
     {
         int first = 0, len = size;
@@ -68,8 +68,8 @@ public class Distribution1D
             }
         }
 
-        size.x = min;
-        size.y = max;
+        domain.x = min;
+        domain.y = max;
     }
 
     public int Count() 
@@ -92,7 +92,7 @@ public class Distribution1D
         pdf = (distributionInt > 0) ? distributions[offset] / distributionInt : 0;
 
         
-        return Mathf.Lerp(size.x, size.y, (offset + du) / Count());
+        return Mathf.Lerp(domain.x, domain.y, (offset + du) / Count());
     }
     public int SampleDiscrete(float u, out float pdf, out float uRemapped)  
     {
@@ -155,17 +155,19 @@ public class Distribution2D
 
         //caculate the marginal pdf
         List<float> marginals = new List<float>();
-        for (int u = 0; u < nu; ++u)
+        for (int v = 0; v < nv; ++v)
         {
             //pv(u) = ¡Æ[v=1,nv]p(u,v)
             //distributionInt = ¡Æ[v=1,nv]p(u,v)
-            marginals.Add(pConditionalV[u].distributionInt);
+            marginals.Add(pConditionalV[v].distributionInt);
         }
         pMarginal = new Distribution1D(marginals.ToArray(), 0, nv, domain.min[1], domain.max[1]);
+        size.x = nu;
+        size.y = nv;
     }
     public List<Distribution1D> pConditionalV = new List<Distribution1D>();
     public Distribution1D pMarginal;
-
+    public Vector2Int size = Vector2Int.zero;
 
     public Vector2 SampleContinuous(Vector2 u, out float pdf, out Vector2Int position) 
     {

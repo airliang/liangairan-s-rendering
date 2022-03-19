@@ -376,6 +376,15 @@ float3 SphericalDirection(float sinTheta, float cosTheta, float phi)
 	return float3(sinTheta * cos(phi), sinTheta * sin(phi), cosTheta);
 }
 
+float SphericalTheta(float3 v) {
+	return acos(clamp(v.z, -1, 1));
+}
+
+float SphericalPhi(float3 v) {
+	float p = atan2(v.y, v.x);
+	return (p < 0) ? (p + 2 * PI) : p;
+}
+
 bool IsBlack(float3 radiance)
 {
 	return (radiance.x + radiance.y + radiance.z) < 0.001;
