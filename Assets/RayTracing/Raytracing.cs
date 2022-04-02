@@ -90,7 +90,7 @@ class EnviromentLight : LightInstance
             }
             Bounds2D domain = new Bounds2D();
             domain.min = Vector2.zero;
-            domain.max = new Vector2(width, height);
+            domain.max = Vector3.one;//new Vector2(width, height);
             envmapDistributions = new Distribution2D(distributions, width, height, domain);
         }
         
@@ -143,6 +143,7 @@ public class Raytracing : MonoBehaviour
     EnviromentLight envLight = new EnviromentLight();
     Bounds worldBound;
     public float _Exposure = 1;
+    public bool _EnvironmentMapEnable = true;
 
     public enum TracingView
     {
@@ -180,6 +181,7 @@ public class Raytracing : MonoBehaviour
     ComputeBuffer materialBuffer;
     ComputeBuffer envLightMarginalBuffer;
     ComputeBuffer envLightConditionBuffer;
+    ComputeBuffer envLightConditionFuncIntsBuffer;
 
     ComputeBuffer rayBuffer;
     ComputeBuffer samplerBuffer;
@@ -193,6 +195,7 @@ public class Raytracing : MonoBehaviour
     //ComputeBuffer pathStatesBuffer;
     ComputeBuffer filterMarginalBuffer;
     ComputeBuffer filterConditionBuffer;
+    ComputeBuffer filterConditionsFuncIntsBuffer;
     ComputeBuffer rayQueueSizeBuffer;
     ComputeBuffer rayQueueBuffer;
     //ComputeBuffer shadingMaterialBuffer;
@@ -223,6 +226,7 @@ public class Raytracing : MonoBehaviour
 
     float cameraConeSpreadAngle = 0;
 
+
     void Start()
     {
         //BVHAccel.TestPartition();
@@ -235,21 +239,29 @@ public class Raytracing : MonoBehaviour
 
         InitScene();
 
-        //importance sampling envmap
-        GPUDistributionDiscript discript = new GPUDistributionDiscript();
-        discript.start = 0;
-        discript.num = envLight.envmapDistributions.size.y;
-        discript.unum = envLight.envmapDistributions.size.x;
-        discript.domain = new Vector4(0, 1, 0, 1);
-        List<Vector2> envLightMarginals = envLight.envmapDistributions.GetGPUMarginalDistributions();
-        List<Vector2> envLightConditionals = envLight.envmapDistributions.GetGPUConditionalDistributions();
-        for (int i = 0; i < 200; i++)
+        if (_EnvironmentMapEnable)
         {
-            Vector2 u = new Vector2(UnityEngine.Random.Range(0.0f, 1.0f), UnityEngine.Random.Range(0.0f, 1.0f));
-            float pdf = 0;
-            Vector2 uv = RayTracingTest.ImportanceSampleEnvmap(u, discript, envLightMarginals, envLightConditionals, out pdf);
-            Debug.Log("Importance sampling uv=" + uv + " pdf=" + pdf);
+            //importance sampling envmap
+            GPUDistributionDiscript discript = new GPUDistributionDiscript();
+            discript.start = 0;
+            discript.num = envLight.envmapDistributions.size.y;
+            discript.unum = envLight.envmapDistributions.size.x;
+            discript.domain = new Vector4(0, 1, 0, 1);
+            discript.funcInt = envLight.envmapDistributions.Intergal();
+            List<Vector2> envLightMarginals = envLight.envmapDistributions.GetGPUMarginalDistributions();
+            List<Vector2> envLightConditionals = envLight.envmapDistributions.GetGPUConditionalDistributions();
+            List<float> envLightConditionalFuncInts = envLight.envmapDistributions.GetGPUConditionFuncInts();
+            for (int i = 0; i < 200; i++)
+            {
+                Vector2 u = new Vector2(UnityEngine.Random.Range(0.0f, 1.0f), UnityEngine.Random.Range(0.0f, 1.0f));
+                float pdf = 0;
+                Vector2 uv = RayTracingTest.ImportanceSampleEnvmap(u, discript, envLightMarginals, envLightConditionals,
+                    envLightConditionalFuncInts, out pdf);
+                Debug.Log("Importance sampling uv=" + uv + " pdf=" + pdf);
+            }
         }
+
+        SampleLightTest();
     }
 
     // Update is called once per frame
@@ -303,7 +315,6 @@ public class Raytracing : MonoBehaviour
 
                 SampleShadowRay.SetInt("bounces", i);
                 SampleShadowRay.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
-                SampleShadowRay.SetInt("lightsNum", gpuLights.Count);
                 SampleShadowRay.SetInt("queueSizeIndex", queueSizeIndex);
                 SampleShadowRay.Dispatch(kSampleShadowRay, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
 
@@ -744,6 +755,7 @@ public class Raytracing : MonoBehaviour
         Profiler.EndSample();
 
         //environment light process
+
         Material skyBoxMaterial = RenderSettings.skybox;
         envLight.area = /*worldBound.extents.magnitude * */4.0f * Mathf.PI;
         GPULight gpuEnvLight = new GPULight();
@@ -773,11 +785,13 @@ public class Raytracing : MonoBehaviour
             }
         }
 
-        if (envLight.textureRadiance != null || envLight.radiance != Vector3.zero)
+        if (_EnvironmentMapEnable && (envLight.textureRadiance != null || envLight.radiance != Vector3.zero))
         {
             areaLightInstances.Add(envLight);
             gpuLights.Add(gpuEnvLight);
         }
+
+        
         if (gpuLights.Count > 0)
         {
             lightBuffer = new ComputeBuffer(gpuLights.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPULight)), ComputeBufferType.Structured);
@@ -848,7 +862,7 @@ public class Raytracing : MonoBehaviour
             start = 0,
             num = lightObjectDistribution.Count,
             unum = 0,
-            c = 0,
+            funcInt = lightObjDistribution.Intergal(),
             domain = new Vector4(lightObjDistribution.domain.x, lightObjDistribution.domain.y, 0, 0)
         };
         gpuDistributionDiscripts.Add(discript);
@@ -862,34 +876,13 @@ public class Raytracing : MonoBehaviour
                 start = Distributions1D.Count,
                 num = areaLightResource.triangleAreas.Count + 1,
                 unum = 0,
-                c = 0,
+                funcInt = areaLightResource.triangleDistributions.Intergal(),
                 domain = new Vector4(areaLightResource.triangleDistributions.domain.x, areaLightResource.triangleDistributions.domain.y, 0, 0)
             };
             areaLightResource.discriptAddress = gpuDistributionDiscripts.Count;
             gpuDistributionDiscripts.Add(discript);
             Distributions1D.AddRange(areaLightResource.triangleDistributions.GetGPUDistributions());
         }
-
-        if (distribution1DBuffer == null && Distributions1D.Count > 0)
-        {
-            distribution1DBuffer = new ComputeBuffer(Distributions1D.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(Vector2)), ComputeBufferType.Default);
-            distribution1DBuffer.SetData(Distributions1D.ToArray());
-        }
-
-        if (distributionDiscriptBuffer == null)
-        {
-            distributionDiscriptBuffer = new ComputeBuffer(gpuDistributionDiscripts.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUDistributionDiscript)), ComputeBufferType.Structured);
-            distributionDiscriptBuffer.SetData(gpuDistributionDiscripts.ToArray());
-        }
-
-        //Vector2Int distributionSize = filter.GetDistributionSize();
-        //GPUDistributionDiscript filterDiscript = new GPUDistributionDiscript
-        //{
-        //    start = gpuDistributionDiscripts.Count,
-        //    num = distributionSize.y,
-        //    unum = distributionSize.x,
-        //    c = 0
-        //};
 
     }
 
@@ -980,6 +973,7 @@ public class Raytracing : MonoBehaviour
         }
 
         Vector2Int filterSize = filter.GetDistributionSize();
+        Distribution2D filterDistribution = filter.SampleDistributions();
         if (filterMarginalBuffer == null)
         {
             List<Vector2> marginal = filter.GetGPUMarginalDistributions();
@@ -993,8 +987,15 @@ public class Raytracing : MonoBehaviour
             List<Vector2> conditional = filter.GetGPUConditionalDistributions();
             filterConditionBuffer = new ComputeBuffer(filterSize.x * (filterSize.y + 1), System.Runtime.InteropServices.Marshal.SizeOf(typeof(Vector2)), ComputeBufferType.Structured);
             filterConditionBuffer.SetData(conditional.ToArray());
-        }    
+        }
 
+        if (filterConditionsFuncIntsBuffer == null)
+        {
+            List<float> conditionFuncInts = filterDistribution.GetGPUConditionFuncInts();
+            filterConditionsFuncIntsBuffer =
+                new ComputeBuffer(conditionFuncInts.Count, sizeof(float), ComputeBufferType.Structured);
+            filterConditionsFuncIntsBuffer.SetData(conditionFuncInts);
+        }
         //if (gpuPathRadiances == null)
         //{
         //    gpuPathRadiances = new GPUPathRadiance[Screen.width * Screen.height];
@@ -1011,12 +1012,14 @@ public class Raytracing : MonoBehaviour
         //generateRay.SetBuffer(kGeneratePrimaryRay, "pathStates", pathStatesBuffer);
         generateRay.SetBuffer(kGeneratePrimaryRay, "FilterMarginals", filterMarginalBuffer);
         generateRay.SetBuffer(kGeneratePrimaryRay, "FilterConditions", filterConditionBuffer);
+        generateRay.SetBuffer(kGeneratePrimaryRay, "FilterConditionsFuncInts", filterConditionsFuncIntsBuffer);
         generateRay.SetBuffer(kGeneratePrimaryRay, "_RayQueueSizeBuffer", rayQueueSizeBuffer);
         generateRay.SetBuffer(kGeneratePrimaryRay, "_RayQueue", rayQueueBuffer);
         generateRay.SetInt("MarginalNum", filterSize.y);
         generateRay.SetInt("ConditionNum", filterSize.x);
         Bounds2D domain = filter.GetDomain();
         generateRay.SetVector("FilterDomain", new Vector4(domain.min[0], domain.max[0], domain.min[1], domain.max[1]));
+        generateRay.SetFloat("FilterFuncInt", filterDistribution.Intergal());
 
         cameraComponent = camera;
     }
@@ -1044,8 +1047,8 @@ public class Raytracing : MonoBehaviour
         //RayTravel.SetBuffer(kRayTraversal, "WorldMatrices", transformBuffer);
         SampleShadowRay.SetBuffer(kSampleShadowRay, "RNGs", samplerBuffer);
         SetComputeBuffer(SampleShadowRay, kSampleShadowRay, "WoodTriangleIndices", woodTriIndexBuffer);
-        SetComputeBuffer(SampleShadowRay, kSampleShadowRay, "Distributions1D", distribution1DBuffer);
-        SetComputeBuffer(SampleShadowRay, kSampleShadowRay, "DistributionDiscripts", distributionDiscriptBuffer);
+
+        SetGPUDistributions(SampleShadowRay, kSampleShadowRay);
         //SetComputeBuffer(SampleShadowRay, kSampleShadowRay, "pathStates", pathStatesBuffer);
         SetComputeBuffer(SampleShadowRay, kSampleShadowRay, "_RayQueueSizeBuffer", rayQueueSizeBuffer);
         SetComputeBuffer(SampleShadowRay, kSampleShadowRay, "_RayQueue", rayQueueBuffer);
@@ -1053,7 +1056,6 @@ public class Raytracing : MonoBehaviour
         SampleShadowRay.SetVector("rasterSize", new Vector4(Screen.width, Screen.height, 0, 0));
         SampleShadowRay.SetInt("instBVHAddr", instBVHNodeAddr);
         SampleShadowRay.SetInt("bvhNodesNum", bvhAccel.m_nodes.Count);
-        SampleShadowRay.SetInt("lightsNum", gpuLights.Count);
         SampleShadowRay.SetMatrix("WorldToRaster", WorldToRaster);
         SetTextures(SampleShadowRay, kSampleShadowRay);
         SetupGPUEnviromentMap(SampleShadowRay, kSampleShadowRay);
@@ -1078,39 +1080,18 @@ public class Raytracing : MonoBehaviour
         SetComputeBuffer(EstimateDirect, kEstimateDirect, "WoodTriangleIndices", woodTriIndexBuffer);
         //RayTravel.SetBuffer(kRayTraversal, "WorldMatrices", transformBuffer);
         EstimateDirect.SetBuffer(kEstimateDirect, "RNGs", samplerBuffer);
-        SetComputeBuffer(EstimateDirect, kEstimateDirect, "Distributions1D", distribution1DBuffer);
-        SetComputeBuffer(EstimateDirect, kEstimateDirect, "DistributionDiscripts", distributionDiscriptBuffer);
+        SetGPUDistributions(EstimateDirect, kEstimateDirect);
         SetComputeBuffer(EstimateDirect, kEstimateDirect, "pathRadiances", pathRadianceBuffer);
         //SetComputeBuffer(EstimateDirect, kEstimateDirect, "pathStates", pathStatesBuffer);
         SetComputeBuffer(EstimateDirect, kEstimateDirect, "_RayQueueSizeBuffer", rayQueueSizeBuffer);
         SetComputeBuffer(EstimateDirect, kEstimateDirect, "_RayQueue", rayQueueBuffer);
         //SetComputeBuffer(EstimateDirect, kEstimateDirect, "_ShadingMaterials", shadingMaterialBuffer);
         EstimateDirect.SetVector("rasterSize", new Vector4(Screen.width, Screen.height, 0, 0));
-        EstimateDirect.SetInt("lightsNum", gpuLights.Count);
         EstimateDirect.SetMatrix("WorldToRaster", WorldToRaster);
         SetTextures(EstimateDirect, kEstimateDirect);
         SetupGPUEnviromentMap(EstimateDirect, kEstimateDirect);
     }
 
-    /*
-    void SetupGeneratePath()
-    {
-        kGeneratePath = generatePath.FindKernel("GeneratePath");
-        generatePath.SetBuffer(kGeneratePath, "Rays", rayBuffer);
-        generatePath.SetBuffer(kGeneratePath, "materials", materialBuffer);
-        generatePath.SetBuffer(kGeneratePath, "RNGs", samplerBuffer);
-        generatePath.SetBuffer(kGeneratePath, "Intersections", intersectBuffer);
-        generatePath.SetBuffer(kGeneratePath, "pathRadiances", pathRadianceBuffer);
-        //generatePath.SetBuffer(kGeneratePath, "lights", lightBuffer);
-        SetComputeBuffer(generatePath, kGeneratePath, "lights", lightBuffer);
-        //generatePath.SetBuffer(kGeneratePath, "Distributions1D", distribution1DBuffer);
-        //SetComputeBuffer(generatePath, kGeneratePath, "Distributions1D", distribution1DBuffer);
-        //SetComputeBuffer(generatePath, kGeneratePath, "pathStates", pathStatesBuffer);
-        SetComputeBuffer(generatePath, kGeneratePath, "_RayQueueSizeBuffer", rayQueueSizeBuffer);
-        SetComputeBuffer(generatePath, kGeneratePath, "_RayQueue", rayQueueBuffer);
-        generatePath.SetVector("rasterSize", new Vector4(Screen.width, Screen.height, 0, 0));
-    }
-    */
 
     void SetupImageReconstruction()
     {
@@ -1165,7 +1146,7 @@ public class Raytracing : MonoBehaviour
     {
         if (envLight.textureRadiance != null)
         {
-            cs.SetTexture(kRayTraversal, "_LatitudeLongitudeMap", envLight.textureRadiance);
+            cs.SetTexture(kernel, "_LatitudeLongitudeMap", envLight.textureRadiance);
             cs.SetInt("enviromentTextureMask", 1);
         }
         else
@@ -1174,16 +1155,21 @@ public class Raytracing : MonoBehaviour
             cs.SetVector("enviromentColor", envLight.radiance);
         }
 
-        int marginalsNum = 0;
+        if (!_EnvironmentMapEnable)
+        {
+            cs.SetInt("enviromentTextureMask", 0);
+            cs.SetVector("enviromentColor", Vector3.zero);
+        }
+
+        cs.SetFloat("_EnvMapDistributionInt", envLight.envmapDistributions.Intergal());
+
         if (envLightMarginalBuffer == null)
         {
             List<Vector2> marginals = envLight.envmapDistributions.GetGPUMarginalDistributions();
-            marginalsNum = marginals.Count;
             envLightMarginalBuffer = new ComputeBuffer(marginals.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(Vector2)), ComputeBufferType.Structured);
             envLightMarginalBuffer.SetData(marginals);
         }
 
-        int conditionsNum = 0;
         if (envLightConditionBuffer == null)
         {
             List<Vector2> conditions = envLight.envmapDistributions.GetGPUConditionalDistributions();
@@ -1191,9 +1177,37 @@ public class Raytracing : MonoBehaviour
             envLightConditionBuffer.SetData(conditions);
         }
 
+        if (envLightConditionFuncIntsBuffer == null)
+        {
+            List<float> conditionalFuncInts = envLight.envmapDistributions.GetGPUConditionFuncInts();
+            envLightConditionFuncIntsBuffer =
+                new ComputeBuffer(conditionalFuncInts.Count, sizeof(float), ComputeBufferType.Structured);
+            envLightConditionFuncIntsBuffer.SetData(conditionalFuncInts);
+        }
+
         SetComputeBuffer(cs, kernel, "EnvmapMarginals", envLightMarginalBuffer);
         SetComputeBuffer(cs, kernel, "EnvmapConditions", envLightConditionBuffer);
+        SetComputeBuffer(cs, kernel, "EnvmapConditionFuncInts", envLightConditionFuncIntsBuffer);
+
         cs.SetVector("envMapDistributionSize", new Vector2(envLight.envmapDistributions.size.x, envLight.envmapDistributions.size.y));
+    }
+
+    void SetGPUDistributions(ComputeShader cs, int kernel)
+    {
+        if (distribution1DBuffer == null && Distributions1D.Count > 0)
+        {
+            distribution1DBuffer = new ComputeBuffer(Distributions1D.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(Vector2)), ComputeBufferType.Default);
+            distribution1DBuffer.SetData(Distributions1D.ToArray());
+        }
+
+        if (distributionDiscriptBuffer == null)
+        {
+            distributionDiscriptBuffer = new ComputeBuffer(gpuDistributionDiscripts.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUDistributionDiscript)), ComputeBufferType.Structured);
+            distributionDiscriptBuffer.SetData(gpuDistributionDiscripts.ToArray());
+        }
+        
+        SetComputeBuffer(cs, kernel, "Distributions1D", distribution1DBuffer);
+        SetComputeBuffer(cs, kernel, "DistributionDiscripts", distributionDiscriptBuffer);
     }
 
     void SetupGPUSceneData(ComputeShader cs, int kernel)
@@ -1293,13 +1307,11 @@ public class Raytracing : MonoBehaviour
         SetComputeBuffer(DebugView, kDebugView, "lights", lightBuffer);
         SetComputeBuffer(DebugView, kDebugView, "WoodTriangleIndices", woodTriIndexBuffer);
         DebugView.SetBuffer(kDebugView, "materials", materialBuffer);
-        SetComputeBuffer(DebugView, kDebugView, "Distributions1D", distribution1DBuffer);
-        SetComputeBuffer(DebugView, kDebugView, "DistributionDiscripts", distributionDiscriptBuffer);
+        SetGPUDistributions(DebugView, kDebugView);
         DebugView.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
         DebugView.SetInt("instBVHAddr", instBVHNodeAddr);
         DebugView.SetInt("bvhNodesNum", bvhAccel.m_nodes.Count);
         DebugView.SetFloat("cameraConeSpreadAngle", cameraConeSpreadAngle);
-        DebugView.SetInt("lightsNum", gpuLights.Count);
         DebugView.SetMatrix("WorldToRaster", WorldToRaster);
         DebugView.SetFloat("cameraFar", cameraComponent.farClipPlane);
         SetTextures(DebugView, kDebugView);
@@ -1432,6 +1444,7 @@ public class Raytracing : MonoBehaviour
         ReleaseComputeBuffer(lightBuffer);
         ReleaseComputeBuffer(envLightConditionBuffer);
         ReleaseComputeBuffer(envLightMarginalBuffer);
+        ReleaseComputeBuffer(envLightConditionFuncIntsBuffer);
         ReleaseComputeBuffer(distribution1DBuffer);
         ReleaseComputeBuffer(distributionDiscriptBuffer);
         ReleaseComputeBuffer(shadowRayBuffer);
@@ -1441,6 +1454,7 @@ public class Raytracing : MonoBehaviour
         //ReleaseComputeBuffer(pathStatesBuffer);
         ReleaseComputeBuffer(filterMarginalBuffer);
         ReleaseComputeBuffer(filterConditionBuffer);
+        ReleaseComputeBuffer(filterConditionsFuncIntsBuffer);
         ReleaseComputeBuffer(rayQueueBuffer);
         ReleaseComputeBuffer(rayQueueSizeBuffer);
 
@@ -1776,39 +1790,56 @@ public class Raytracing : MonoBehaviour
             return Li;
         }
 
-        float u = UnityEngine.Random.Range(0.0f, 1.0f);
-
         int lightIndex = 0;
         float lightSourcePdf = 0;
+        float u = UnityEngine.Random.Range(0.0f, 1.0f);
         GPULight gpuLight = SampleLightSource(u, out lightSourcePdf, out lightIndex);
 
-        u = UnityEngine.Random.Range(0.0f, 1.0f);
-        MeshInstance meshInstance = meshInstances[gpuLight.meshInstanceID];
-        float lightPdf = 0;
-        int triangleIndex = (GPUDistributionTest.Sample1DDiscrete(u, gpuDistributionDiscripts[gpuLight.distributionDiscriptIndex], Distributions1D, out lightPdf) - gpuLights.Count) * 3 + meshInstance.triangleStartOffset;
-        //(SampleLightTriangle(gpuLight.distributeAddress, gpuLight.trianglesNum, u, out lightPdf) - gpuLights.Count) * 3 + meshInstance.triangleStartOffset;
+        if (gpuLight.type == (int)AreaLightInstance.LightType.Envmap)
+        { 
+            Vector2 u2 = new Vector2(UnityEngine.Random.Range(0.0f, 1.0f), UnityEngine.Random.Range(0.0f, 1.0f));
+            GPUDistributionDiscript discript = new GPUDistributionDiscript();
+            
+            EnviromentLight envLight = areaLightInstances[lightIndex] as EnviromentLight;
+            discript.funcInt = envLight.envmapDistributions.Intergal();
+            discript.num = envLight.envmapDistributions.size.y;
+            discript.unum = envLight.envmapDistributions.size.x;
+            discript.domain = new Vector4(0, 1, 0, 1);
+            float lightPdf = 0;
+            RayTracingTest.ImportanceSampleEnvmap(u2, discript, envLight.envmapDistributions.GetGPUMarginalDistributions(), envLight.envmapDistributions.GetGPUConditionalDistributions(),
+                envLight.envmapDistributions.GetGPUConditionFuncInts(), out lightPdf);
+        }
+        else
+        {
+            u = UnityEngine.Random.Range(0.0f, 1.0f);
+            MeshInstance meshInstance = meshInstances[gpuLight.meshInstanceID];
+            float lightPdf = 0;
+            int triangleIndex = (GPUDistributionTest.Sample1DDiscrete(u, gpuDistributionDiscripts[gpuLight.distributionDiscriptIndex], Distributions1D, out lightPdf) - gpuLights.Count) * 3 + meshInstance.triangleStartOffset;
+            //(SampleLightTriangle(gpuLight.distributeAddress, gpuLight.trianglesNum, u, out lightPdf) - gpuLights.Count) * 3 + meshInstance.triangleStartOffset;
 
-        int vertexStart = triangleIndex;
-        int vIndex0 = triangles[vertexStart];
-        int vIndex1 = triangles[vertexStart + 1];
-        int vIndex2 = triangles[vertexStart + 2];
-        Vector3 p0 = gpuVertices[vIndex0].position;
-        Vector3 p1 = gpuVertices[vIndex1].position;
-        Vector3 p2 = gpuVertices[vIndex2].position;
-        //convert to worldpos
+            int vertexStart = triangleIndex;
+            int vIndex0 = triangles[vertexStart];
+            int vIndex1 = triangles[vertexStart + 1];
+            int vIndex2 = triangles[vertexStart + 2];
+            Vector3 p0 = gpuVertices[vIndex0].position;
+            Vector3 p1 = gpuVertices[vIndex1].position;
+            Vector3 p2 = gpuVertices[vIndex2].position;
+            //convert to worldpos
+
+            p0 = meshInstance.localToWorld.MultiplyPoint(p0);
+            p1 = meshInstance.localToWorld.MultiplyPoint(p1);
+            p2 = meshInstance.localToWorld.MultiplyPoint(p2);
+
+            //float3 lightPointNormal;
+            Vector3 trianglePoint;
+            //SampleTrianglePoint(p0, p1, p2, rs.Get2D(threadId), lightPointNormal, trianglePoint, triPdf);
+            Vector3 wi;
+            Vector2 uv = new Vector2(UnityEngine.Random.Range(0.0f, 1.0f), UnityEngine.Random.Range(0.0f, 1.0f));
+            float triPdf = 0.0f;
+            Vector3 Li = SampleTriangleLightRadiance(p0, p1, p2, uv, new Vector3(-1.8f, 2.7f, 2.2f), Vector3.up, gpuLight, out wi, out trianglePoint, out triPdf);
+            lightPdf *= triPdf;
+        }
         
-        p0 = meshInstance.localToWorld.MultiplyPoint(p0);
-        p1 = meshInstance.localToWorld.MultiplyPoint(p1);
-        p2 = meshInstance.localToWorld.MultiplyPoint(p2);
-
-        //float3 lightPointNormal;
-        Vector3 trianglePoint;
-        //SampleTrianglePoint(p0, p1, p2, rs.Get2D(threadId), lightPointNormal, trianglePoint, triPdf);
-        Vector3 wi;
-        Vector2 uv = new Vector2(UnityEngine.Random.Range(0.0f, 1.0f), UnityEngine.Random.Range(0.0f, 1.0f));
-        float triPdf = 0.0f;
-        Vector3 Li = SampleTriangleLightRadiance(p0, p1, p2, uv, new Vector3(-1.8f, 2.7f, 2.2f), Vector3.up, gpuLight, out wi, out trianglePoint, out triPdf);
-        lightPdf *= triPdf;
     }
 
     void FilterSampleTesting()
@@ -1825,6 +1856,8 @@ public class Raytracing : MonoBehaviour
 
         List<Vector2> conditional = filter.GetGPUConditionalDistributions();
 
+        List<float> conditionalFuncInts = filter.SampleDistributions().GetGPUConditionFuncInts();
+
         GPUDistributionDiscript discript = new GPUDistributionDiscript();
         discript.start = 0;
         discript.num = filterSize.y;
@@ -1832,7 +1865,8 @@ public class Raytracing : MonoBehaviour
         Bounds2D domain = filter.GetDomain();
         discript.domain = new Vector4(domain.min[0], domain.max[0], domain.min[1], domain.max[1]);
         float pdf = 0;
-        Vector2 testSample = RayTracingTest.SampleDistribution2DContinous(new Vector2(0.0859375000f, 0.0246913619f), discript, marginal, conditional, out pdf);
+        Vector2 testSample = RayTracingTest.SampleDistribution2DContinous(new Vector2(0.0859375000f, 0.0246913619f), discript, marginal, 
+            conditional, conditionalFuncInts, out pdf);
         Debug.Log(testSample);
     }
 }

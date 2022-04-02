@@ -18,11 +18,8 @@ StructuredBuffer<Interaction>  Intersections;
 StructuredBuffer<ShadowRay>  ShadowRays;
 StructuredBuffer<Light> lights;
 StructuredBuffer<Material> materials;
-//StructuredBuffer<ShadingMaterial>  _ShadingMaterials;
 RWStructuredBuffer<PathRadiance> pathRadiances;
-//StructuredBuffer<int>    pathStates;
-//x pdf y cdf
-StructuredBuffer<float2> Distributions1D;
+
 RWStructuredBuffer<uint> _RayQueueSizeBuffer;
 RWStructuredBuffer<uint> _RayQueue;
 RWStructuredBuffer<Ray>   Rays;
@@ -66,12 +63,12 @@ float AreaLightPdf(Ray ray, Light light, float3 orig, float3 wi)
 
             distributionIndex += vIndex0 / 3;
 
-            lightPdf *= DiscretePdf(distributionIndex, Distributions1D);
+            lightPdf *= DiscretePdf(distributionIndex, Distributions1D, discript.funcInt, discript.num);
         }
     }
     else if (light.type == EnvLightType)
     {
-        lightPdf = INV_FOUR_PI;
+        lightPdf = EnvLightLiPdf(wi);//INV_FOUR_PI;
     }
 
     return lightPdf;

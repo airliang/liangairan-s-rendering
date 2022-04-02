@@ -7,7 +7,6 @@
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel CSMain
 
-uniform int    lightsNum;
 uniform int    bounces;
 uniform float2 rasterSize;
 uniform int    queueSizeIndex;
@@ -19,7 +18,7 @@ StructuredBuffer<Material> materials;
 //StructuredBuffer<ShadingMaterial>  _ShadingMaterials;
 //StructuredBuffer<int>    pathStates;
 //x pdf y cdf
-StructuredBuffer<float2> Distributions1D;
+
 StructuredBuffer<uint> _RayQueueSizeBuffer;
 StructuredBuffer<uint> _RayQueue;
 //RWTexture2D<half4> outputTexture;
@@ -96,7 +95,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 	float lightSourcePdf = 1.0;
 	//some error happen in SampleLightSource
 	float u = Get1D(rng);//rs.Get1D(workIndex);
-	int lightIndex = SampleLightSource(u, lightsNum, Distributions1D, lightSourcePdf);
+	int lightIndex = SampleLightSource(u, DistributionDiscripts[0], Distributions1D, lightSourcePdf);
 	Light light = lights[lightIndex];
 	//float testD = Distributions1D[0].y;
 	Interaction isect = Intersections[workIndex];

@@ -528,7 +528,7 @@ public class RayTracingTest
         discript.domain = new Vector4(domain.min[0], domain.max[0], domain.min[1], domain.max[1]);
         float pdf = 0;
         Vector2 sample = GPUDistributionTest.Sample2DContinuous(u, discript, 
-            filter.GetGPUMarginalDistributions(), filter.GetGPUConditionalDistributions(), out pdf);
+            filter.SampleDistributions(), out pdf);
 
         sample += new Vector2(x, y) + new Vector2(0.5f, 0.5f);
 
@@ -559,13 +559,13 @@ public class RayTracingTest
         }
 
         // Compute PDF for sampled offset
-        pdf = funcs[offset].x;//(distribution.funcInt > 0) ? funcs[offset].x / distribution.funcInt : 0;
+        pdf = funcs[offset].x / discript.funcInt;//(distribution.funcInt > 0) ? funcs[offset].x / distribution.funcInt : 0;
 
         // Return $x\in{}[0,1)$ corresponding to sample
         return Mathf.Lerp(domain.x, domain.y, (offset - discript.start + du) / discript.num);
     }
 
-    public static Vector2 SampleDistribution2DContinous(Vector2 u, GPUDistributionDiscript discript, List<Vector2> marginal, List<Vector2> conditions, out float pdf)
+    public static Vector2 SampleDistribution2DContinous(Vector2 u, GPUDistributionDiscript discript, List<Vector2> marginal, List<Vector2> conditions, List<float> conditaionalFuncInts, out float pdf)
     {
         float pdfMarginal;
         int v;
@@ -575,6 +575,7 @@ public class RayTracingTest
         GPUDistributionDiscript dCondition = new GPUDistributionDiscript();
         dCondition.start = v * (discript.unum + 1);
         dCondition.num = discript.unum;
+        dCondition.funcInt = conditaionalFuncInts[v];
         float d0 = SampleDistribution1DContinous(u.x, dCondition, new Vector2(discript.domain.z, discript.domain.w), conditions, out pdfCondition, out nu);
         //p(v|u) = p(u,v) / pv(u)
         //so 
@@ -584,11 +585,11 @@ public class RayTracingTest
     }
 
     public static Vector2 ImportanceSampleEnvmap(Vector2 u, GPUDistributionDiscript discript, List<Vector2> marginal,
-        List<Vector2> conditions, out float pdf)
+        List<Vector2> conditions, List<float> conditionalFuncInts, out float pdf)
     {
         float mapPdf = 0;
         pdf = 0;
-        Vector2 uv = SampleDistribution2DContinous(u, discript, marginal, conditions, out mapPdf);
+        Vector2 uv = SampleDistribution2DContinous(u, discript, marginal, conditions, conditionalFuncInts, out mapPdf);
         if (mapPdf == 0)
             return Vector2.zero;
         // Convert infinite light sample point to direction

@@ -34,7 +34,7 @@ public class GPUDistributionTest
         }
 
         // Compute PDF for sampled offset
-        pdf = gpuDistributions[offset].x;
+        pdf = gpuDistributions[offset].x / discript.funcInt;
 
 
         return Mathf.Lerp(domain.x, domain.y, (float)(offset - discript.start + du) / discript.num);
@@ -51,26 +51,26 @@ public class GPUDistributionTest
         }
 
         // Compute PDF for sampled offset
-        pdf = gpuDistributions[offset].x;
+        pdf = gpuDistributions[offset].x / discript.funcInt;
 
         return offset - discript.start; // (int)(offset - discript.start + du) / discript.num;
     }
 
-    public static Vector2 Sample2DContinuous(Vector2 u, GPUDistributionDiscript discript, List<Vector2> marginal, List<Vector2> condition, out float pdf)
+    public static Vector2 Sample2DContinuous(Vector2 u, GPUDistributionDiscript discript, Distribution2D distribution2D, out float pdf)
     {
         float pdfMarginal;
         int v;
-        float d1 = Sample1DContinuous(u.y, discript, new Vector2(discript.domain.x, discript.domain.y), marginal, out pdfMarginal, out v);
+        float d1 = Sample1DContinuous(u.y, discript, new Vector2(discript.domain.x, discript.domain.y), distribution2D.pMarginal.GetGPUDistributions(), out pdfMarginal, out v);
         int nu;
         float pdfCondition;
         GPUDistributionDiscript dCondition;
         dCondition.start = discript.num + 1 + v * (discript.unum + 1);
         dCondition.num = discript.unum;
         dCondition.unum = 0;
-        dCondition.c = 0;
+        dCondition.funcInt = distribution2D.pConditionalV[v].Intergal();
         dCondition.domain = Vector4.zero;
         int cOffset = 0;
-        float d0 = Sample1DContinuous(u.x, dCondition, new Vector2(discript.domain.z, discript.domain.w), condition, out pdfCondition, out cOffset);
+        float d0 = Sample1DContinuous(u.x, dCondition, new Vector2(discript.domain.z, discript.domain.w), distribution2D.GetGPUConditionalDistributions(), out pdfCondition, out cOffset);
         //p(v|u) = p(u,v) / pv(u)
         //so 
         //p(u,v) = p(v|u) * pv(u)

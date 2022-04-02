@@ -4,17 +4,21 @@
 #include "geometry.hlsl"
 #include "GPUStructs.hlsl"
 #include "distributions.hlsl"
-#include "colorConvert.hlsl"
+#include "bvhaccel.hlsl"
+#include "sampler.hlsl"
 
 #define AreaLightType 0
 #define EnvLightType 1
 #define PointLightType 2
 
-uniform int   enviromentTextureMask;
-uniform float3 enviromentColor;
-uniform float3 enviromentColorScale;
-uniform float2  envMapDistributionSize;
-uniform float _EnvmapRotation;
+
+int   enviromentTextureMask;
+float3 enviromentColor;
+float3 enviromentColorScale;
+float2  envMapDistributionSize;
+float _EnvmapRotation;
+float _EnvMapDistributionInt;
+
 
 //TextureCube _EnvMap;
 //SamplerState _EnvMap_linear_repeat_sampler;
@@ -23,6 +27,7 @@ SamplerState _LatitudeLongitudeMap_linear_repeat_sampler;
 
 StructuredBuffer<float2> EnvmapMarginals;
 StructuredBuffer<float2> EnvmapConditions;
+StructuredBuffer<float>  EnvmapConditionFuncInts;
 
 float3 RotateAroundYInDegrees(float3 vertex, float degrees)
 {
@@ -44,22 +49,22 @@ inline float2 DirectionToPolar(float3 direction)
 
 float3 SampleEnviromentLight(float2 uv)
 {
-	if (enviromentTextureMask == 1)
-	{
-		return _LatitudeLongitudeMap.SampleLevel(_LatitudeLongitudeMap_linear_repeat_sampler, uv, 0).rgb;
-	}
-	return enviromentColor;
+	return _LatitudeLongitudeMap.SampleLevel(_LatitudeLongitudeMap_linear_repeat_sampler, uv, 0).rgb;
 }
 
 float3 EnviromentLightLe(float3 dir)
 {
-	float3 vertex = RotateAroundYInDegrees(normalize(dir), _EnvmapRotation);
-	float2 uv = DirectionToPolar(vertex);
-	float4 col = _LatitudeLongitudeMap.SampleLevel(_LatitudeLongitudeMap_linear_repeat_sampler, uv, 0);
-	return col.rgb;
+	if (enviromentTextureMask == 1)
+	{
+		float3 vertex = RotateAroundYInDegrees(normalize(dir), _EnvmapRotation);
+		float2 uv = DirectionToPolar(vertex);
+		float3 col = SampleEnviromentLight(uv);
+		return col.rgb;
+	}
+	return enviromentColor;
 }
 
-float EnvLightLiPdf(Light light, float3 wi)
+float EnvLightLiPdf(float3 wi)
 {
 	float theta = SphericalTheta(wi);
 	float phi = SphericalPhi(wi);
@@ -71,6 +76,7 @@ float EnvLightLiPdf(Light light, float3 wi)
 	discript.num = (int)envMapDistributionSize.y;
 	discript.unum = (int)envMapDistributionSize.x;
 	discript.domain = float4(0, 1, 0, 1);
+	discript.funcInt = _EnvMapDistributionInt;
 	return Distribution2DPdf(float2(phi * INV_TWO_PI, theta * INV_PI), discript, EnvmapMarginals, EnvmapConditions) /
 		(2 * PI * PI * sinTheta);
 }
@@ -83,10 +89,11 @@ float3 ImportanceSampleEnviromentLight(float2 u, out float pdf, out float3 wi)
 	discript.num = (int)envMapDistributionSize.y;
 	discript.unum = (int)envMapDistributionSize.x;
 	discript.domain = float4(0, 1, 0, 1);
+	discript.funcInt = _EnvMapDistributionInt;
 	float mapPdf = 0;
 	pdf = 0;
 	wi = 0;
-	float2 uv = Sample2DContinuous(u, discript, EnvmapMarginals, EnvmapConditions, mapPdf);
+	float2 uv = Sample2DContinuous(u, discript, EnvmapMarginals, EnvmapConditions, EnvmapConditionFuncInts, mapPdf);
 	if (mapPdf == 0)
 		return float3(0, 0, 0);
 	// Convert infinite light sample point to direction
@@ -106,7 +113,7 @@ float3 ImportanceSampleEnviromentLight(float2 u, out float pdf, out float3 wi)
 		return 0;
 	}
 	
-	return _LatitudeLongitudeMap.SampleLevel(_LatitudeLongitudeMap_linear_repeat_sampler, uv, 0) * 100;
+	return SampleEnviromentLight(uv);
 }
 
 float3 UniformSampleEnviromentLight(float2 u, out float pdf, out float3 wi)
@@ -121,7 +128,7 @@ float3 UniformSampleEnviromentLight(float2 u, out float pdf, out float3 wi)
 	wi = float3(sinTheta * cosPhi, sinTheta * sinPhi, cosTheta);
 	float2 uv = DirectionToPolar(wi);
 	pdf = mapPdf;
-	return _LatitudeLongitudeMap.SampleLevel(_LatitudeLongitudeMap_linear_repeat_sampler, uv, 0);
+	return SampleEnviromentLight(uv);
 }
 
 
@@ -190,19 +197,6 @@ float3 SampleLightRadiance(StructuredBuffer<float2> lightDistribution, Light lig
 		float3 Li = ImportanceSampleEnviromentLight(u, lightPdf, wi);
 		lightPoint = isect.p + wi * 10000.0f;
 		return Li;
-		/*
-		float mapPdf = 1.0 / (4 * PI);
-		float theta = u[1] * PI;
-		float phi = u[0] * 2 * PI;
-		float cosTheta = cos(theta);
-		float sinTheta = sin(theta);
-		float sinPhi = sin(phi);
-		float cosPhi = cos(phi);
-		wi = isect.LocalToWorld(float3(sinTheta * cosPhi, sinTheta * sinPhi, cosTheta));
-		lightPdf = mapPdf;
-		lightPoint = isect.p + wi * 10000.0f;
-		return SampleEnviromentLight(wi);
-		*/
 	}
 
 	wi = float3(0, 0, 0);
@@ -211,12 +205,13 @@ float3 SampleLightRadiance(StructuredBuffer<float2> lightDistribution, Light lig
 	return float3(0, 0, 0);
 }
 
-int SampleLightSource(float u, int lightCount, StructuredBuffer<float2> discributions, out float pmf)
+int SampleLightSource(float u, DistributionDiscript discript, StructuredBuffer<float2> discributions, out float pmf)
 {
-	DistributionDiscript discript = (DistributionDiscript)0;
-	discript.start = 0;
-	//the length of cdfs is N+1
-	discript.num = lightCount;
+	//DistributionDiscript discript = (DistributionDiscript)0;
+	//discript.start = 0;
+	////the length of cdfs is N+1
+	//discript.num = lightCount;
+	//discript.funcInt = 
 	int index = Sample1DDiscrete(u, discript, discributions, pmf); //SampleDistribution1DDiscrete(rs.Get1D(threadId), 0, lightCount, pdf);
 	return index;
 }

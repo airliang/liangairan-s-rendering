@@ -9,10 +9,10 @@ struct DistributionDiscript
     int num;
     //number of 2D distribution, or number of the u-direction (conditionals) if distribution is 2D
     int unum;
-    int c;
+    float funcInt;
     float4 domain;  //discript function domain, x as min y as max if 1D distribution, xy-domain of marginal zw-domain of conditional if 2D distribution
 };
-
+StructuredBuffer<float2> Distributions1D;
 StructuredBuffer<DistributionDiscript> DistributionDiscripts;
 
 //binary search
@@ -44,14 +44,16 @@ int Sample1DDiscrete(float u, DistributionDiscript discript, StructuredBuffer<fl
 {
     int cdfSize = discript.num + 1;
     int offset = FindIntervalSmall(discript.start, cdfSize, u, funcs);
-    float du = u - funcs[offset].y;
-    if ((funcs[offset + 1].y - funcs[offset].y) > 0)
+    float cdfOffset = funcs[offset].y;
+    float cdfOffset1 = funcs[offset + 1].y;
+    float du = u - cdfOffset;
+    if ((cdfOffset1 - cdfOffset) > 0)
     {
-        du /= (funcs[offset + 1].y - funcs[offset].y);
+        du /= (cdfOffset1 - cdfOffset);
     }
 
     // Compute PDF for sampled offset
-    pdf = funcs[offset].x;
+    pdf = discript.funcInt > 0 ? funcs[offset].x / discript.funcInt : 0;
 
 
     return offset - discript.start; //(int)(offset - discript.start + du) / discript.num;
@@ -64,25 +66,27 @@ float Sample1DContinuous(float u, DistributionDiscript discript, float2 domain, 
     int offset = FindIntervalSmall(discript.start, cdfSize, u, funcs);
     off = offset;
     // Compute offset along CDF segment
-    float du = u - funcs[offset].y;
-    if ((funcs[offset + 1].y - funcs[offset].y) > 0)
+    float cdfOffset = funcs[offset].y;
+    float cdfOffset1 = funcs[offset + 1].y;
+    float du = u - cdfOffset;
+    if ((cdfOffset1 - cdfOffset) > 0)
     {
-        du /= (funcs[offset + 1].y - funcs[offset].y);
+        du /= (cdfOffset1 - cdfOffset);
     }
 
     // Compute PDF for sampled offset
-    pdf = funcs[offset].x;//(distribution.funcInt > 0) ? funcs[offset].x / distribution.funcInt : 0;
+    pdf = (discript.funcInt > 0) ? funcs[offset].x / discript.funcInt : 0;
 
     // Return $x\in{}[0,1)$ corresponding to sample
     return lerp(domain.x, domain.y, (offset - discript.start + du) / discript.num);
 }
 
-float DiscretePdf(int index, StructuredBuffer<float2> funcs)
+float DiscretePdf(int index, StructuredBuffer<float2> funcs, float funcInt, int funcsSize)
 {
-    return funcs[index].x;
+    return funcs[index].x / funcInt;
 }
 
-float2 Sample2DContinuous(float2 u, DistributionDiscript discript, StructuredBuffer<float2> marginal, StructuredBuffer<float2> conditions, out float pdf)
+float2 Sample2DContinuous(float2 u, DistributionDiscript discript, StructuredBuffer<float2> marginal, StructuredBuffer<float2> conditions, StructuredBuffer<float> conditionFuncInts, out float pdf)
 {
     float pdfMarginal;
     int v;
@@ -92,6 +96,7 @@ float2 Sample2DContinuous(float2 u, DistributionDiscript discript, StructuredBuf
     DistributionDiscript dCondition = (DistributionDiscript)0;
     dCondition.start = v * (discript.unum + 1);   //the size of structuredbuffer is func.size + 1, because the cdfs size is func.size + 1 
     dCondition.num = discript.unum;
+    dCondition.funcInt = conditionFuncInts[v];
     float d0 = Sample1DContinuous(u.x, dCondition, discript.domain.zw, conditions, pdfCondition, nu);
     //p(v|u) = p(u,v) / pv(u)
     //so 
@@ -104,7 +109,8 @@ float Distribution2DPdf(float2 u, DistributionDiscript discript, StructuredBuffe
 {
     int iu = clamp(int(u[0] * discript.unum), 0, discript.unum - 1);
     int iv = clamp(int(u[1] * discript.num), 0, discript.num - 1);
-    return 0;//conditions[iv]->func[iu] / pMarginal->funcInt;
+    int conditionVOffset = iv * (discript.unum + 1);
+    return conditions[conditionVOffset].x / discript.funcInt;
 }
 
 #endif

@@ -390,7 +390,7 @@ public struct GPUDistributionDiscript
     public int start;
     public int num;
     public int unum; //2D distribution
-    public int c;
+    public float funcInt;
     //discript function domain, x as min y as max if 1D distribution, xy-domain of marginal zw-domain of conditional if 2D distribution
     public Vector4 domain; 
 }

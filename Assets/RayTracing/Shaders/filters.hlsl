@@ -4,9 +4,11 @@
 
 StructuredBuffer<float2> FilterMarginals;
 StructuredBuffer<float2> FilterConditions;
+StructuredBuffer<float>  FilterConditionsFuncInts;
 uniform int MarginalNum;
 uniform int ConditionNum;
 uniform float4 FilterDomain;
+uniform float FilterFuncInt;
 
 float2 ImportanceFilterSample(float2 u)
 {
@@ -15,8 +17,9 @@ float2 ImportanceFilterSample(float2 u)
 	discript.num = MarginalNum;
 	discript.unum = ConditionNum;
 	discript.domain = FilterDomain;
+	discript.funcInt = FilterFuncInt;
 	float pdf = 0;
-	return Sample2DContinuous(u, discript, FilterMarginals, FilterConditions, pdf);
+	return Sample2DContinuous(u, discript, FilterMarginals, FilterConditions, FilterConditionsFuncInts, pdf);
 }
 
 float2 BoxFilterSample(float2 u)

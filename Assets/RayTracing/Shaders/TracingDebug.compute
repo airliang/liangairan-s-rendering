@@ -20,14 +20,12 @@ uniform int    bounces;
 uniform int   queueSizeIndex;
 uniform float cameraConeSpreadAngle;
 uniform float cameraFar;
-uniform int    lightsNum;
 
 //use the matrix to calculate the world space ray
 StructuredBuffer<Ray>    Rays;
 //StructuredBuffer<Light>  lights;
 StructuredBuffer<Material> materials;
 RWStructuredBuffer<Interaction>       Intersections;
-StructuredBuffer<float2> Distributions1D;
 StructuredBuffer<Light> lights;
 
 Texture2D<half2>  RayConeGBuffer;
@@ -101,7 +99,7 @@ float2 ImportanceSampleEnvmapUV(float2 u)
     discript.domain = float4(0, 1, 0, 1);
     float mapPdf = 0;
 
-    float2 uv = Sample2DContinuous(u, discript, EnvmapMarginals, EnvmapConditions, mapPdf);
+    float2 uv = Sample2DContinuous(u, discript, EnvmapMarginals, EnvmapConditions, EnvmapConditionFuncInts, mapPdf);
     return uv;
 }
 
@@ -247,7 +245,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
         {
             float u = Get1D(rng);
             float lightSourcePdf = 0;
-            int lightIndex = SampleLightSource(u, lightsNum, Distributions1D, lightSourcePdf);
+            int lightIndex = SampleLightSource(u, DistributionDiscripts[0], Distributions1D, lightSourcePdf);
             Light light = lights[lightIndex];
             float3 wi;
             float lightPdf = 0;
@@ -284,16 +282,20 @@ void CSMain (uint3 id : SV_DispatchThreadID)
             break;
         case EnvmapUVView:
 	        {
-		        for (int i = 0; i < lightsNum; ++i)
+            DistributionDiscript lightSourceDiscript = DistributionDiscripts[0];
+		        for (int i = 0; i < lightSourceDiscript.num; ++i)
 		        {
                     Light light = lights[i];
                     if (light.type == EnvLightType)
                     {
+                        float lightSourcePdf = DiscretePdf(0, Distributions1D, lightSourceDiscript.funcInt, 0);
                         float2 u = Get2D(rng);
                         float3 wi;
                         float pdf = 0;
-                        //color = ImportanceSampleEnviromentLight(u, pdf, wi);
-                        color.rg = ImportanceSampleEnvmapUV(u);
+                        float lightSourcePdf1 = DiscretePdf(1, Distributions1D, lightSourceDiscript.funcInt, 0);
+                        color = ImportanceSampleEnviromentLight(u, pdf, wi);
+                        color = pdf;
+                        //color.rg = ImportanceSampleEnvmapUV(u);
                         break;
                     }
 		        }

@@ -33,6 +33,7 @@ half3 NeutralCurve(half3 x, half a, half b, half c, half d, half e, half f)
 
 half3 NeutralTonemap(half3 x, float exposure)
 {
+    return x;
     // Tonemap
     const half a = 0.2;
     const half b = 0.29;
