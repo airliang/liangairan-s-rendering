@@ -61,41 +61,7 @@ struct BSDFSample
 	float  pdf;
 };
 
-struct Interaction  //64byte
-{
-	float3 p;   //交点
-	float  hitT;
-	//float time;        //应该是相交的ray的参数t
-	float3 wo;
-	float2 uv;
-	float3 normal;
-	float3 tangent;  //the same as pbrt's ss(x)
-	float3 bitangent; //the same as pbrt's ts(y)
-	uint   materialID;
-	uint   meshInstanceID;
-	float  spreadAngle;   //ray cone angle use for mipmapping
-	float  coneWidth;     //ray cone width at this surface point
-	int3   vertexIndices;
-	//int    primitive; //intersect with primitives index, -1 represents no intersection
-	bool IsHit()
-	{
-		return hitT > 0;
-	}
 
-	float3 WorldToLocal(float3 v)
-	{
-		return float3(dot(tangent, v), dot(bitangent, v), dot(normal, v));
-	}
-
-	float3 LocalToWorld(float3 v)
-	{
-		//return float3(tangent.x * v.x + bitangent.x * v.y + normal.x * v.z,
-		//	tangent.y * v.x + bitangent.y * v.y + normal.y * v.z,
-		//	tangent.z * v.x + bitangent.z * v.y + normal.z * v.z
-		//	);
-		return tangent * v.x + bitangent * v.y + normal * v.z;
-	}
-};
 
 struct AreaLight
 {

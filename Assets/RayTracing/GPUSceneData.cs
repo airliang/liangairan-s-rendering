@@ -1,36 +1,143 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using System.Threading;
 using UnityEngine;
 using UnityEngine.Profiling;
 using UnityEngine.Rendering;
 
+public class LightInstance
+{
+    public enum LightType
+    {
+        Area,
+        Envmap,
+        Point,
+    }
+
+    public LightType lightType;
+    public float area = 0;
+    public Vector3 radiance;
+    public Texture textureRadiance;
+}
+
+public class AreaLightResource
+{
+
+    //public List<Vector2> triangleDistributions = new List<Vector2>();
+    //在GPUDistributionDiscript中的地址
+    public int discriptAddress = -1;
+    public Distribution1D triangleDistributions = null;
+    public List<float> triangleAreas = new List<float>();
+
+}
+
+class AreaLightInstance : LightInstance
+{
+    public AreaLightInstance()
+    {
+        lightType = LightType.Area;
+    }
+    public AreaLightResource light;
+    public int meshInstanceID = -1;
+
+    public float intensity;
+    public float pointRadius;
+
+}
+
+class EnviromentLight : LightInstance
+{
+    public EnviromentLight()
+    {
+        lightType = LightType.Envmap;
+        area = Mathf.PI * 4.0f;
+        radiance = Vector3.one;
+    }
+    //public Cubemap textureRadiance;
+    public Vector3 colorScale = Vector3.one;
+
+    //public Texture2D envmap;
+    public Distribution2D envmapDistributions;
+
+    //just for test
+    //public  ComputeBuffer computeBuffer;
+
+    public void CreateDistributions()
+    {
+        int mipmap = 1;
+        Texture2D envmap = textureRadiance as Texture2D;
+        if (envmap != null)
+        {
+            int width = envmap.width >> mipmap;
+            int height = envmap.height >> mipmap;
+            float[] distributions = new float[width * height];
+            Color[] pixels = envmap.GetPixels(mipmap);
+            for (int v = 0; v < height; ++v)
+            {
+                float vp = ((float)(height - 1 - v) + 0.5f) / (float) height;
+                float sinTheta = Mathf.Sin(Mathf.PI * vp);
+                for (int u = 0; u < width; ++u)
+                {
+                    float y = pixels[u + v * width].ToVector3().magnitude;
+                    float distribution = y;
+                    if (distribution == 0)
+                        distribution = float.Epsilon;
+                    distributions[u + v * width] = distribution * sinTheta;
+                }
+            }
+
+            Bounds2D domain = new Bounds2D();
+            domain.min = Vector2.zero;
+            domain.max = Vector2.one; //new Vector2(width, height);
+            envmapDistributions = new Distribution2D(distributions, width, height, domain);
+
+            //computeBuffer = new ComputeBuffer(distributions.Length, sizeof(float), ComputeBufferType.Structured);
+            //computeBuffer.SetData(distributions);
+        }
+    }
+}
+
+
+
 public class GPUSceneData
 {
-    public ComputeBuffer woodTriBuffer;
-    public ComputeBuffer woodTriIndexBuffer;
-    public ComputeBuffer verticesBuffer;
-    public ComputeBuffer triangleBuffer;
-    public ComputeBuffer meshInstanceBuffer;
-    public ComputeBuffer BVHBuffer;
-    public ComputeBuffer intersectBuffer;
-    public ComputeBuffer lightBuffer;
-    public ComputeBuffer materialBuffer;
+    ComputeBuffer woodTriBuffer;
+    ComputeBuffer woodTriIndexBuffer;
+    ComputeBuffer verticesBuffer;
+    ComputeBuffer triangleBuffer;
+    ComputeBuffer meshInstanceBuffer;
+    ComputeBuffer BVHBuffer;
+    ComputeBuffer intersectBuffer;
+    ComputeBuffer lightBuffer;
+    ComputeBuffer materialBuffer;
+    ComputeBuffer distribution1DBuffer;
+    ComputeBuffer distributionDiscriptBuffer;
+    ComputeBuffer envLightMarginalBuffer;
+    ComputeBuffer envLightConditionBuffer;
+    ComputeBuffer envLightConditionFuncIntsBuffer;
 
-    List<Primitive> primitives = new List<Primitive>();
-    List<MeshHandle> meshHandles = new List<MeshHandle>();
-    List<MeshInstance> meshInstances = new List<MeshInstance>();
-    List<int> triangles = new List<int>();
-    List<GPUVertex> gpuVertices = new List<GPUVertex>();
-    List<GPULight> gpuLights = new List<GPULight>();
-    List<GPUMaterial> gpuMaterials = new List<GPUMaterial>();
-    Dictionary<Material, int> materialIds = new Dictionary<Material, int>();
-    Dictionary<Mesh, AreaLightResource> meshDistributions = new Dictionary<Mesh, AreaLightResource>();
-    List<LightInstance> areaLightInstances = new List<LightInstance>();
+    public List<Primitive> primitives = new List<Primitive>();
+    public List<MeshHandle> meshHandles = new List<MeshHandle>();
+    public List<MeshInstance> meshInstances = new List<MeshInstance>();
+    public List<int> triangles = new List<int>();
+    public List<GPUVertex> gpuVertices = new List<GPUVertex>();
+    public List<GPULight> gpuLights = new List<GPULight>();
+    public List<GPUMaterial> gpuMaterials = new List<GPUMaterial>();
+    public Dictionary<Material, int> materialIds = new Dictionary<Material, int>();
+
+    public Dictionary<Mesh, AreaLightResource> meshDistributions = new Dictionary<Mesh, AreaLightResource>();
+    public List<LightInstance> areaLightInstances = new List<LightInstance>();
+    public List<Vector2> Distributions1D = new List<Vector2>();
+    public List<GPUDistributionDiscript> gpuDistributionDiscripts = new List<GPUDistributionDiscript>();
 
     Bounds worldBound;
     BVHAccel bvhAccel = new BVHAccel();
     int instBVHNodeAddr = -1;
     EnviromentLight envLight = new EnviromentLight();
+    int envLightIndex = -1;
+    bool _uniformSampleLight = false;
+    bool _envmapEnable = true;
 
     public int InstanceBVHNodeAddr
     {
@@ -40,15 +147,16 @@ public class GPUSceneData
         }
     }
 
-    public void Setup(bool useInstanceBVH, MeshRenderer[] meshRenderers)
+    public GPUSceneData(bool uniformSampleLight, bool envmapEnable)
     {
-        if (meshRenderers.Length == 0)
-            return;
+        _uniformSampleLight = uniformSampleLight;
+        _envmapEnable = envmapEnable;
+    }
 
-        int renderObjectsNum = 0;
-
+    private void SetupSceneData(MeshRenderer[] meshRenderers)
+    {
         Profiler.BeginSample("Scene Mesh Data Process");
-        if (useInstanceBVH)
+        //if (useInstanceBVH)
         {
             //Dictionary<Mesh, int> sharedMeshes = new Dictionary<Mesh, int>();
 
@@ -306,85 +414,7 @@ public class GPUSceneData
             meshInstanceBuffer = new ComputeBuffer(meshInstances.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(MeshInstance)), ComputeBufferType.Structured);
             meshInstanceBuffer.SetData(meshInstances);
         }
-        else
-        {
-            for (int i = 0; i < meshRenderers.Length; ++i)
-            {
-                MeshRenderer meshRenderer = meshRenderers[i];
-                //worldMatrices[i] = shapes[i].transform.localToWorldMatrix;
-                //BSDFMaterial bsdfMaterial = shapes[i].GetComponent<BSDFMaterial>();
-                //if (shapes[i].shapeType == Shape.ShapeType.triangleMesh && bsdfMaterial != null)
-                {
-                    MeshFilter meshFilter = meshRenderer.GetComponent<MeshFilter>();
-                    Mesh mesh = meshFilter.sharedMesh;
 
-                    if (mesh.subMeshCount > 1)
-                    {
-                        int primitiveTriangleOffset = gpuVertices.Count;
-                        int primitiveVertexOffset = triangles.Count;
-
-                        for (int j = 0; j < mesh.vertices.Length; ++j)
-                        {
-                            //positions.Add(shapes[i].transform.localToWorldMatrix.MultiplyPoint(mesh.vertices[j]));
-                            //uvs.Add(mesh.uv[j]);
-                            GPUVertex vertex = new GPUVertex();
-                            vertex.position = meshRenderer.transform.localToWorldMatrix.MultiplyPoint(mesh.vertices[j]);
-                            vertex.uv = mesh.uv[j];
-                            vertex.normal = mesh.normals[j];
-                            gpuVertices.Add(vertex);
-                        }
-                        for (int j = 0; j < mesh.triangles.Length; ++j)
-                        {
-                            triangles.Add(mesh.triangles[j] + primitiveVertexOffset);
-                        }
-
-                        int faceNum = mesh.triangles.Length / 3;
-
-                        for (int f = 0; f < faceNum; ++f)
-                        {
-                            int tri0 = triangles[f * 3 + primitiveTriangleOffset];
-                            int tri1 = triangles[f * 3 + 1 + primitiveTriangleOffset];
-                            int tri2 = triangles[f * 3 + 2 + primitiveTriangleOffset];
-                            primitives.Add(new Primitive(tri0, tri1, tri2, gpuVertices[tri0].position, gpuVertices[tri1].position, gpuVertices[tri2].position, renderObjectsNum, -1));
-                        }
-                    }
-                    else
-                    {
-                        int primitiveTriangleOffset = gpuVertices.Count;
-                        int primitiveVertexOffset = triangles.Count;
-
-                        for (int j = 0; j < mesh.vertices.Length; ++j)
-                        {
-                            //positions.Add(shapes[i].transform.localToWorldMatrix.MultiplyPoint(mesh.vertices[j]));
-                            //uvs.Add(mesh.uv[j]);
-                            GPUVertex vertex = new GPUVertex();
-                            vertex.position = meshRenderer.transform.localToWorldMatrix.MultiplyPoint(mesh.vertices[j]);
-                            vertex.uv = mesh.uv[j];
-                            vertex.normal = mesh.normals[j];
-                            gpuVertices.Add(vertex);
-                        }
-                        for (int j = 0; j < mesh.triangles.Length; ++j)
-                        {
-                            triangles.Add(mesh.triangles[j] + primitiveTriangleOffset);
-                        }
-
-                        int faceNum = mesh.triangles.Length / 3;
-
-                        for (int f = 0; f < faceNum; ++f)
-                        {
-                            int tri0 = triangles[f * 3 + primitiveVertexOffset];
-                            int tri1 = triangles[f * 3 + 1 + primitiveVertexOffset];
-                            int tri2 = triangles[f * 3 + 2 + primitiveVertexOffset];
-                            primitives.Add(new Primitive(tri0, tri1, tri2, gpuVertices[tri0].position, gpuVertices[tri1].position, gpuVertices[tri2].position, renderObjectsNum, -1));
-                        }
-                    }
-
-                    renderObjectsNum++;
-                }
-            }
-
-            //bvhAccel.Build(primitives, gpuVertices, triangles);
-        }
         Profiler.EndSample();
 
         Profiler.BeginSample("Create Scene Compute Buffers");
@@ -428,31 +458,54 @@ public class GPUSceneData
         Profiler.EndSample();
 
         //environment light process
+
         Material skyBoxMaterial = RenderSettings.skybox;
-        envLight.area = /*worldBound.extents.magnitude * */4.0f * Mathf.PI;
+        envLight.area = worldBound.extents.magnitude * 4.0f * Mathf.PI;
         GPULight gpuEnvLight = new GPULight();
         gpuEnvLight.type = (int)envLight.lightType;
         gpuEnvLight.meshInstanceID = -1;
         gpuEnvLight.distributionDiscriptIndex = gpuLights.Count + 1;
+
+        bool envmapEnable = false;
         if (skyBoxMaterial != null)
         {
             if (skyBoxMaterial.shader.name == "Skybox/Cubemap")
             {
                 envLight.textureRadiance = skyBoxMaterial.GetTexture("_Tex") as Cubemap;
-                if (envLight.textureRadiance == null)
-                {
-                    envLight.radiance = RenderSettings.ambientSkyColor.LinearToVector3();
-                    gpuEnvLight.radiance = envLight.radiance;
-                }
-                else
-                {
-                    uint mask = 1;
-                    gpuEnvLight.textureMask = MathUtil.UInt32BitsToSingle(mask);
-                }
             }
+            else if (skyBoxMaterial.shader.name == "Skybox/Panoramic" || skyBoxMaterial.shader.name == "RayTracing/SkyboxHDR")
+            {
+                envLight.textureRadiance = skyBoxMaterial.GetTexture("_MainTex");
+                envLight.CreateDistributions();
+            }
+            if (envLight.textureRadiance == null)
+            {
+                envLight.radiance = RenderSettings.ambientSkyColor.LinearToVector3();
+                gpuEnvLight.radiance = envLight.radiance;
+            }
+            else
+            {
+                uint mask = 1;
+                gpuEnvLight.textureMask = MathUtil.UInt32BitsToSingle(mask);
+            }
+
+            envmapEnable = true;
         }
-        areaLightInstances.Add(envLight);
-        gpuLights.Add(gpuEnvLight);
+        else
+            envmapEnable = false;
+
+        if (envmapEnable)
+            envmapEnable = _envmapEnable;
+
+        if (envmapEnable)
+        {
+            areaLightInstances.Add(envLight);
+            envLightIndex = gpuLights.Count;
+            gpuLights.Add(gpuEnvLight);
+        }
+        
+
+
         if (gpuLights.Count > 0)
         {
             lightBuffer = new ComputeBuffer(gpuLights.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPULight)), ComputeBufferType.Structured);
@@ -462,6 +515,24 @@ public class GPUSceneData
         {
             lightBuffer = new ComputeBuffer(1, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPULight)), ComputeBufferType.Structured);
         }
+
+        if (intersectBuffer == null)
+        {
+            intersectBuffer = new ComputeBuffer(Screen.width * Screen.height, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUInteraction)), ComputeBufferType.Structured);
+        }
+    }
+
+    public void Setup(MeshRenderer[] meshRenderers)
+    {
+        //MeshRenderer[] meshRenderers = GameObject.FindObjectsOfType<MeshRenderer>();
+        //worldMatrices = new Matrix4x4[shapes.Length];
+        if (meshRenderers.Length == 0)
+            return;
+
+
+        SetupSceneData(meshRenderers);
+
+        SetupDistributions();
     }
 
     int SetupMaterials(MeshRenderer renderer, int subMeshIndex)
@@ -488,6 +559,134 @@ public class GPUSceneData
         return id;
     }
 
+    void SetupDistributions()
+    {
+        Distributions1D.Clear();
+        //first, 
+        List<float> lightObjectDistribution = new List<float>();
+        for (int i = 0; i < areaLightInstances.Count; ++i)
+        {
+            lightObjectDistribution.Add(areaLightInstances[i].area * areaLightInstances[i].radiance.magnitude);
+        }
+        Distribution1D lightObjDistribution = new Distribution1D(lightObjectDistribution.ToArray(), 0, lightObjectDistribution.Count, 0, lightObjectDistribution.Count);
+
+        Distributions1D.AddRange(lightObjDistribution.GetGPUDistributions());
+        GPUDistributionDiscript discript = new GPUDistributionDiscript
+        {
+            start = 0,
+            num = lightObjectDistribution.Count,
+            unum = 0,
+            funcInt = lightObjDistribution.Intergal(),
+            domain = new Vector4(lightObjDistribution.domain.x, lightObjDistribution.domain.y, 0, 0)
+        };
+        gpuDistributionDiscripts.Add(discript);
+        //test samplelightsource
+        float pdf = 0;
+        float uremmap = 0;
+        int lightIndex = lightObjDistribution.SampleDiscrete(UnityEngine.Random.Range(0.0f, 1.0f), out pdf, out uremmap);
+        Debug.Log("lightIndex = " + lightIndex);
+        //test end
+
+        var areaLightEnumerator = meshDistributions.GetEnumerator();
+        while (areaLightEnumerator.MoveNext())
+        {
+            AreaLightResource areaLightResource = areaLightEnumerator.Current.Value;
+            discript = new GPUDistributionDiscript
+            {
+                start = Distributions1D.Count,
+                num = areaLightResource.triangleAreas.Count,
+                unum = 0,
+                funcInt = areaLightResource.triangleDistributions.Intergal(),
+                domain = new Vector4(areaLightResource.triangleDistributions.domain.x, areaLightResource.triangleDistributions.domain.y, 0, 0)
+            };
+            areaLightResource.discriptAddress = gpuDistributionDiscripts.Count;
+            gpuDistributionDiscripts.Add(discript);
+            Distributions1D.AddRange(areaLightResource.triangleDistributions.GetGPUDistributions());
+        }
+    }
+
+    public void SetComputeShaderGPUData(ComputeShader cs, int kernel)
+    {
+
+        cs.SetBuffer(kernel, "WoodTriangles", woodTriBuffer);
+        cs.SetBuffer(kernel, "Vertices", verticesBuffer);
+        cs.SetBuffer(kernel, "TriangleIndices", triangleBuffer);
+        cs.SetBuffer(kernel, "BVHTree", BVHBuffer);
+        cs.SetBuffer(kernel, "Intersections", intersectBuffer);
+        cs.SetBuffer(kernel, "MeshInstances", meshInstanceBuffer);
+        cs.SetBuffer(kernel, "WoodTriangleIndices", woodTriIndexBuffer);
+        cs.SetBuffer(kernel, "lights", lightBuffer);
+        cs.SetBuffer(kernel, "materials", materialBuffer);
+        cs.SetInt("instBVHAddr", instBVHNodeAddr);
+        cs.SetInt("bvhNodesNum", bvhAccel.m_nodes.Count);
+        cs.SetFloat("worldRadius", worldBound.extents.magnitude);
+
+        //light distributions setting
+        if (distribution1DBuffer == null && Distributions1D.Count > 0)
+        {
+            distribution1DBuffer = new ComputeBuffer(Distributions1D.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(Vector2)), ComputeBufferType.Default);
+            distribution1DBuffer.SetData(Distributions1D.ToArray());
+        }
+
+        if (distributionDiscriptBuffer == null)
+        {
+            distributionDiscriptBuffer = new ComputeBuffer(gpuDistributionDiscripts.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUDistributionDiscript)), ComputeBufferType.Structured);
+            distributionDiscriptBuffer.SetData(gpuDistributionDiscripts.ToArray());
+        }
+
+        cs.SetBuffer(kernel, "Distributions1D", distribution1DBuffer);
+        cs.SetBuffer(kernel, "DistributionDiscripts", distributionDiscriptBuffer);
+
+        //enviroment map setting
+        if (envLight.textureRadiance != null)
+        {
+            cs.SetTexture(kernel, "_LatitudeLongitudeMap", envLight.textureRadiance);
+            cs.SetInt("enviromentTextureMask", 1);
+        }
+        else
+        {
+            cs.SetInt("enviromentTextureMask", 0);
+            cs.SetVector("enviromentColor", envLight.radiance);
+        }
+
+        if (envLight.envmapDistributions != null)
+        {
+            cs.SetFloat("_EnvMapDistributionInt", envLight.envmapDistributions.Intergal());
+
+            if (envLightMarginalBuffer == null)
+            {
+                List<Vector2> marginals = envLight.envmapDistributions.GetGPUMarginalDistributions();
+                envLightMarginalBuffer = new ComputeBuffer(marginals.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(Vector2)), ComputeBufferType.Structured);
+                envLightMarginalBuffer.SetData(marginals);
+            }
+
+            if (envLightConditionBuffer == null)
+            {
+                List<Vector2> conditions = envLight.envmapDistributions.GetGPUConditionalDistributions();
+                envLightConditionBuffer = new ComputeBuffer(conditions.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(Vector2)), ComputeBufferType.Structured);
+                envLightConditionBuffer.SetData(conditions);
+            }
+
+            if (envLightConditionFuncIntsBuffer == null)
+            {
+                List<float> conditionalFuncInts = envLight.envmapDistributions.GetGPUConditionFuncInts();
+                envLightConditionFuncIntsBuffer =
+                    new ComputeBuffer(conditionalFuncInts.Count, sizeof(float), ComputeBufferType.Structured);
+                envLightConditionFuncIntsBuffer.SetData(conditionalFuncInts);
+            }
+
+            cs.SetBuffer(kernel, "EnvmapMarginals", envLightMarginalBuffer);
+            cs.SetBuffer(kernel, "EnvmapConditions", envLightConditionBuffer);
+            cs.SetBuffer(kernel, "EnvmapConditionFuncInts", envLightConditionFuncIntsBuffer);
+            cs.SetVector("envMapDistributionSize", new Vector2(envLight.envmapDistributions.size.x, envLight.envmapDistributions.size.y));
+            
+            //just for test
+            //cs.SetBuffer(kernel, "EnvmapDistributions", envLight.computeBuffer);
+        }
+        cs.SetInt("_EnvLightIndex", envLightIndex);
+        cs.SetBool("_UniformSampleLight", _uniformSampleLight);
+    }
+
     public void Release()
     {
         void ReleaseComputeBuffer(ComputeBuffer buffer)
@@ -508,5 +707,82 @@ public class GPUSceneData
         ReleaseComputeBuffer(intersectBuffer);
         ReleaseComputeBuffer(materialBuffer);
         ReleaseComputeBuffer(lightBuffer);
+        ReleaseComputeBuffer(distribution1DBuffer);
+        ReleaseComputeBuffer(distributionDiscriptBuffer);
+        ReleaseComputeBuffer(envLightMarginalBuffer);
+        ReleaseComputeBuffer(envLightConditionBuffer);
+        ReleaseComputeBuffer(envLightConditionFuncIntsBuffer);
+        //just for test
+        //ReleaseComputeBuffer(envLight.computeBuffer);
+    }
+}
+
+public class GPUFilterData
+{
+    private Filter _filter;
+
+    ComputeBuffer filterMarginalBuffer;
+    ComputeBuffer filterConditionBuffer;
+    ComputeBuffer filterConditionsFuncIntsBuffer;
+
+    public void Setup(Filter filter)
+    {
+        _filter = filter;
+
+    }
+
+    public void SetComputeShaderGPUData(ComputeShader cs, int kernel)
+    {
+        Vector2Int filterSize = _filter.GetDistributionSize();
+        Distribution2D filterDistribution = _filter.SampleDistributions();
+
+        if (filterMarginalBuffer == null)
+        {
+            List<Vector2> marginal = _filter.GetGPUMarginalDistributions();
+            filterMarginalBuffer = new ComputeBuffer(marginal.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(Vector2)), ComputeBufferType.Structured);
+
+            filterMarginalBuffer.SetData(marginal.ToArray());
+        }
+
+        if (filterConditionBuffer == null)
+        {
+            List<Vector2> conditional = _filter.GetGPUConditionalDistributions();
+            filterConditionBuffer = new ComputeBuffer(filterSize.x * (filterSize.y + 1), System.Runtime.InteropServices.Marshal.SizeOf(typeof(Vector2)), ComputeBufferType.Structured);
+            filterConditionBuffer.SetData(conditional.ToArray());
+        }
+
+        if (filterConditionsFuncIntsBuffer == null)
+        {
+            List<float> conditionFuncInts = filterDistribution.GetGPUConditionFuncInts();
+            filterConditionsFuncIntsBuffer =
+                new ComputeBuffer(conditionFuncInts.Count, sizeof(float), ComputeBufferType.Structured);
+            filterConditionsFuncIntsBuffer.SetData(conditionFuncInts);
+        }
+
+        cs.SetBuffer(kernel, "FilterMarginals", filterMarginalBuffer);
+        cs.SetBuffer(kernel, "FilterConditions", filterConditionBuffer);
+        cs.SetBuffer(kernel, "FilterConditionsFuncInts", filterConditionsFuncIntsBuffer);
+
+        cs.SetInt("MarginalNum", filterSize.y);
+        cs.SetInt("ConditionNum", filterSize.x);
+        Bounds2D domain = _filter.GetDomain();
+        cs.SetVector("FilterDomain", new Vector4(domain.min[0], domain.max[0], domain.min[1], domain.max[1]));
+        cs.SetFloat("FilterFuncInt", filterDistribution.Intergal());
+    }
+
+    public void Release()
+    {
+        void ReleaseComputeBuffer(ComputeBuffer buffer)
+        {
+            if (buffer != null)
+            {
+                buffer.Release();
+                buffer = null;
+            }
+        }
+
+        ReleaseComputeBuffer(filterMarginalBuffer);
+        ReleaseComputeBuffer(filterConditionBuffer);
+        ReleaseComputeBuffer(filterConditionsFuncIntsBuffer);
     }
 }

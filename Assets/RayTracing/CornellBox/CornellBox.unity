@@ -145,7 +145,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!1 &11
 GameObject:
   m_ObjectHideFlags: 0
@@ -182,7 +182,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!1 &13
 GameObject:
   m_ObjectHideFlags: 0
@@ -202,7 +202,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!1 &14
 GameObject:
   m_ObjectHideFlags: 0
@@ -222,7 +222,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!1 &15
 GameObject:
   m_ObjectHideFlags: 0
@@ -242,7 +242,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!1 &16
 GameObject:
   m_ObjectHideFlags: 0
@@ -262,7 +262,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!1 &17
 GameObject:
   m_ObjectHideFlags: 0
@@ -2002,20 +2002,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f6bcd70c86bfc09478f82f035f589c7a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  generateRay: {fileID: 7200000, guid: 89a21110d834b3a45a61b50ba8e85ddf, type: 3}
-  RayTravel: {fileID: 7200000, guid: 8c98bbc01ef926a4991c6ab29793b90a, type: 3}
-  initRandom: {fileID: 7200000, guid: f09f3de862413a74781d4d49b8cbd9ee, type: 3}
-  SampleShadowRay: {fileID: 7200000, guid: 04a3649e79e1b39499bc6f3019e9e3dc, type: 3}
-  EstimateDirect: {fileID: 7200000, guid: 0e9388db8ef7da84fa9512dbe530a0f8, type: 3}
-  ImageReconstruction: {fileID: 7200000, guid: 0df577181ba92c140b93275cf6a21642, type: 3}
-  DebugView: {fileID: 7200000, guid: 07dd9c5452a1b83488ccde81a1e4f9bd, type: 3}
-  useInstanceBVH: 1
-  filterType: 1
-  fiterRadius: {x: 1.5, y: 1.5}
-  gaussianSigma: 0.5
-  envmap: {fileID: 0}
-  _Exposure: 1
-  viewMode: 0
+  _RayTracingData:
+    _kernelType: 0
+    viewMode: 0
+    SamplesPerPixel: 1024
+    filterType: 1
+    fiterRadius: {x: 1, y: 1}
+    gaussianSigma: 0.5
+    HDR: 1
+    _Exposure: 1
+    _EnviromentMapEnable: 0
+    _UniformSampleLight: 0
+  wavefrontResource: {fileID: 11400000, guid: 55fe1f73a78651046953267ee8a1160f, type: 2}
+  megaResource: {fileID: 11400000, guid: d532d486724e10e4796bf18ef4903fa8, type: 2}
 --- !u!108 &62
 Light:
   m_ObjectHideFlags: 0
@@ -2192,6 +2191,36 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 25648568}
   m_Mesh: {fileID: 4300002, guid: 86bedd9454af008439f030a507af8e93, type: 3}
+--- !u!1 &105832790
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 105832791}
+  m_Layer: 0
+  m_Name: origCameraPos
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &105832791
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 105832790}
+  m_LocalRotation: {x: 0, y: 1, z: 0, w: -0.00000004371139}
+  m_LocalPosition: {x: -2.7551997, y: 2.7315707, z: 13.16}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 6
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &224714519
 GameObject:
   m_ObjectHideFlags: 0
@@ -2491,7 +2520,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!64 &995298317
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -3056,4 +3085,4 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0

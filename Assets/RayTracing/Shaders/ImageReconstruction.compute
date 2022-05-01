@@ -23,12 +23,12 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     int threadId = id.x + id.y * rasterSize.x;
     float4 color;
     PathRadiance pathRadiance = pathRadiances[threadId];
-    float3 radiance = LinearToGammaSpace(ACESToneMapping(pathRadiance.li.rgb, _Exposure));
+    float3 radiance = pathRadiance.li.rgb;
     float3 spectrum = spectrums[id.xy];
 
     spectrum.rgb += radiance;
-    spectrums[id.xy] = half4(spectrum, 1);
-    color.rgb = spectrum / framesNum;
+    spectrums[id.xy] = float4(spectrum, 1);
+    color.rgb = LinearToGammaSpace(ACESToneMapping(spectrum / framesNum, _Exposure));
     color.a = 1;
     outputTexture[id.xy] = color;
 }

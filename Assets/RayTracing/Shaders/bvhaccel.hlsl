@@ -1,23 +1,13 @@
-#include "geometry.hlsl"
-#include "GPUStructs.hlsl"
+
 #ifndef BVHACCEL_HLSL
 #define BVHACCEL_HLSL
+
+#include "gpuSceneData.hlsl"
 
 #define STACK_SIZE 64
 #define EntrypointSentinel 0x76543210
 
-StructuredBuffer<BVHNode>  BVHTree;
-StructuredBuffer<float4>   WoodTriangles;
-StructuredBuffer<Vertex>   Vertices;
-StructuredBuffer<int>      TriangleIndices;
-StructuredBuffer<int>      WoodTriangleIndices;
-StructuredBuffer<MeshInstance> MeshInstances;
 
-cbuffer cb
-{
-	uniform int instBVHAddr;
-	uniform int bvhNodesNum;
-};
 
 int min_min(int a, int b, int c)
 {
@@ -1145,6 +1135,7 @@ bool ClosestHit(Ray ray, out Interaction interaction)
 	
 	return hitted;
 }
+
 
 bool ShadowRayVisibilityTest(ShadowRay shadowRay, float3 normal)
 {

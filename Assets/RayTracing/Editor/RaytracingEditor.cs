@@ -8,6 +8,7 @@ public class RaytracingEditor
     [MenuItem("Tools/RunPathTracingCPU")]
     private static void RunPathTracingCPU()
     {
+        /*
         Raytracing mono = Component.FindObjectOfType<Raytracing>();
         if (mono != null)
         {
@@ -37,5 +38,6 @@ public class RaytracingEditor
             Object.Destroy(output);
             mono.ReleaseGPUDatas();
         }
+        */
     }
 }

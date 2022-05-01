@@ -53,4 +53,14 @@ float Luminance(in const float3 c) {
 	return 0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b;
 }
 
+bool IsInf(float3 val)
+{
+	return isinf(val.x) || isinf(val.y) || isinf(val.z);
+}
+
+bool IsNan(float3 val)
+{
+	return isnan(val.x) || isnan(val.y) || isnan(val.z);
+}
+
 #endif

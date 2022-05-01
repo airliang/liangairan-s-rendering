@@ -19,7 +19,6 @@ cbuffer cb
 RWStructuredBuffer<Ray>   Rays;
 StructuredBuffer<Interaction>  Intersections;
 RWStructuredBuffer<PathRadiance> pathRadiances;
-StructuredBuffer<Material> materials;
 RWStructuredBuffer<uint> _RayQueueSizeBuffer;
 RWStructuredBuffer<uint> _RayQueue;
 //RWStructuredBuffer<int>    pathStates;

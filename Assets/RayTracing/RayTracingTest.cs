@@ -611,4 +611,282 @@ public class RayTracingTest
 
         return uv;
     }
+
+    /*
+    private void TestRay(Camera camera, float duration)
+    {
+        float rasterWidth = Screen.width;
+        float rasterHeight = Screen.height;
+        Ray testRay = camera.ScreenPointToRay(new Vector3(rasterWidth - 1, 0, 0));
+        Debug.DrawRay(testRay.origin, testRay.direction * 20.0f, Color.white, duration);
+        Ray testRay2 = camera.ScreenPointToRay(new Vector3(0, 530, 0));
+        Debug.DrawRay(testRay2.origin, testRay2.direction * 20.0f, Color.blue, duration);
+
+
+        rayBuffer.GetData(gpuRays);
+
+
+        int x = 226;//(int)rasterWidth / 2 + 60;
+        int y = 280;//(int)rasterHeight / 2;
+        int index = x + y * (int)rasterWidth;
+        //index = 700 + 360 * (int)rasterWidth;
+        GPURay gpuRay = gpuRays[index];
+
+        //bIntersectTest = IntersectRay(bvhAccel.linearNodes[0].bounds, gpuRay);
+        float hitT = float.MaxValue;
+        GPUInteraction interaction;
+        bool bIntersectTest = useInstanceBVH ? bvhAccel.IntersectInstTest(gpuRay, meshInstances, meshHandles, bvhAccel.instBVHNodeAddr, out hitT, out interaction) : bvhAccel.IntersectBVHTriangleTest(gpuRay, 0, out hitT);//SceneIntersectTest(gpuRay);
+        if (bIntersectTest)
+        {
+            Debug.DrawRay(gpuRay.orig, gpuRay.direction * hitT, Color.blue, duration);
+        }
+        else
+        {
+            Debug.DrawRay(gpuRay.orig, gpuRay.direction * 20.0f, Color.red, duration);
+        }
+        //testRay2 = camera.ScreenPointToRay(new Vector3(0, (int)rasterHeight / 2, 0));
+        //Debug.DrawRay(testRay2.origin, testRay2.direction * 20.0f, Color.yellow, 100.0f);
+
+        Vector3 nearPlanePoint = RasterToCamera.MultiplyPoint(new Vector3(rasterWidth - 1, 0, 0));
+        Vector3 orig = camera.cameraToWorldMatrix.MultiplyPoint(Vector3.zero);
+        Vector3 dir = camera.cameraToWorldMatrix.MultiplyPoint(nearPlanePoint) - orig;
+        dir.Normalize();
+        Ray cpuRay = new Ray();
+        cpuRay.origin = orig;
+        cpuRay.direction = dir;
+        Debug.DrawRay(cpuRay.origin, cpuRay.direction * 20.0f, Color.cyan, duration);
+        //test end
+    }
+
+
+    private void TestPath()
+    {
+        float rasterWidth = Screen.width;
+        float rasterHeight = Screen.height;
+        //rayBuffer.GetData(gpuRays);
+
+        int x = 358;//216;//(int)rasterWidth / 2 + 60;
+        int y = 477;//206;//(int)rasterHeight / 2;
+        //int x = 361;
+        //int y = 420;
+        OnePathTracing(x, y, (int)rasterWidth, 1);
+    }
+
+
+
+    public Vector3 OnePathTracing(int x, int y, int rasterWidth, int spp, GPUSceneData scene)
+    {
+        Debug.Log("###############OnePathtracing debug begin:x=" + x + " y=" + y);
+        int index = x + y * rasterWidth;
+        //index = 700 + 360 * (int)rasterWidth;
+        //GPURay gpuRay = gpuRays[index];
+        Vector3 rgbSum = Vector3.zero;
+        Vector3 finalRadiance = Vector3.zero;
+        for (int i = 0; i < spp; ++i)
+        {
+            GPURay gpuRay = RayTracingTest.GenerateRay(x, y, RasterToCamera, cameraComponent.cameraToWorldMatrix, filter);
+
+            //bIntersectTest = IntersectRay(bvhAccel.linearNodes[0].bounds, gpuRay);
+            float hitT = float.MaxValue;
+            GPUInteraction interaction = new GPUInteraction();
+            GPUPathRadiance pathRadiance = new GPUPathRadiance();
+            pathRadiance.beta = Vector3.one;
+            for (int p = 0; p < MAX_PATH; ++p)
+            {
+                bool bIntersectTest = useInstanceBVH ? bvhAccel.IntersectInstTest(gpuRay, meshInstances, meshHandles, bvhAccel.instBVHNodeAddr, out hitT, out interaction) : bvhAccel.IntersectBVHTriangleTest(gpuRay, 0, out hitT);//SceneIntersectTest(gpuRay);
+                if (bIntersectTest)
+                {
+                    GPUShadowRay shadowRay = RayTracingTest.SampleShadowRayTest(bvhAccel, instBVHNodeAddr, Distributions1D, gpuLights, interaction, meshInstances, triangles, gpuVertices, gpuMaterials, gpuDistributionDiscripts);
+                    Debug.Log("bounce=" + p + " shadowray radiance=" + shadowRay.radiance.ToDetailString() + " pdf=" + shadowRay.lightPdf);
+                    float scatteringpdf = 0;
+                    Vector3 onePathLightRadiance = RayTracingTest.EstimateDirect(bvhAccel, shadowRay, interaction, new Vector2(UnityEngine.Random.Range(0.0f, 1.0f), UnityEngine.Random.Range(0.0f, 1.0f)),
+                        gpuMaterials, gpuLights, meshInstances, triangles, gpuVertices, Distributions1D, out scatteringpdf);
+                    Debug.Log("bounce=" + p + " after estimateDirect, pathLightRadiance=" + onePathLightRadiance.ToDetailString() + " pdf=" + scatteringpdf);
+                    pathRadiance.li += pathRadiance.beta.Mul(onePathLightRadiance);
+                    bool breakLoop = false;
+
+                    gpuRay = RayTracingTest.GeneratePath(ref interaction, ref pathRadiance, gpuRay, gpuMaterials, out breakLoop, out scatteringpdf);
+                    Debug.Log("bounce=" + p + " generatePath, beta=" + pathRadiance.beta.ToDetailString() + " scatteringPdf=" + scatteringpdf);
+
+                    if (breakLoop)
+                    {
+                        break;
+                    }
+
+                    if (p > 3)
+                    {
+                        float q = Mathf.Max(0.05f, 1 - pathRadiance.beta.MaxComponent());
+                        if (UnityEngine.Random.Range(0.0f, 1.0f) < q)
+                        {
+                            break;
+                        }
+                        else
+                            pathRadiance.beta /= 1 - q;
+                    }
+
+                    Vector3 screenPoint = WorldToRaster.MultiplyPoint(interaction.p);
+                    Debug.Log("Interaction screen point is:" + screenPoint);
+                }
+                else
+                {
+                    if (i == 0)
+                    {
+                        //sample the cubemap
+                    }
+                    break;
+                }
+            }
+            rgbSum += pathRadiance.li;
+            int frameNum = i + 1;
+            finalRadiance = rgbSum / frameNum;
+            Debug.Log("###############OnePathtracing debug end:finalRadiance=" + finalRadiance.ToDetailString());
+        }
+
+        return finalRadiance;
+    }
+
+    
+    public void IntersectionTest()
+    {
+        GPURay gpuRay = new GPURay();
+        gpuRay.orig = new Vector3(0.02604653f, 4.881493f, -4.587191f);
+        gpuRay.direction = new Vector3(-0.4131184f, 0.4631883f, 0.7840853f);
+        Debug.DrawRay(gpuRay.orig, gpuRay.direction * 10.0f, Color.green, 100.0f);
+        gpuRay.tmax = float.MaxValue;
+        gpuRay.tmin = 0;
+        float hitT = float.MaxValue;
+        GPUInteraction interaction = new GPUInteraction();
+        bool bIntersectTest = bvhAccel.IntersectInstTest(gpuRay, meshInstances, meshHandles, bvhAccel.instBVHNodeAddr, out hitT, out interaction);
+        if (!bIntersectTest)
+        {
+            Debug.Log("IntersectionTest failed!");
+        }
+    }
+
+    //test the light sampling
+    
+    void SampleLightTest(GPUSceneData gpuScene)
+    {
+        GPULight SampleLightSource(float u, out float pdf, out int index)
+        {
+            index = GPUDistributionTest.Sample1DDiscrete(u, gpuScene.gpuDistributionDiscripts[0], gpuScene.Distributions1D, out pdf);
+            return gpuScene.gpuLights[index];
+        }
+
+        Vector3 SampleTrianglePoint(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 u, out Vector3 normal, out float pdf)
+        {
+            //caculate bery centric uv w = 1 - u - v
+            float t = Mathf.Sqrt(u.x);
+            Vector2 uv = new Vector2(1.0f - t, t * u.y);
+            float w = 1 - uv.x - uv.y;
+
+            Vector3 position = p0 * w + p1 * uv.x + p2 * uv.y;
+            Vector3 crossVector = Vector3.Cross(p1 - p0, p2 - p0);
+            normal = crossVector.normalized;
+            pdf = 1.0f / crossVector.magnitude;
+
+            return position;
+        }
+
+        Vector3 SampleTriangleLightRadiance(Vector3 p0, Vector3 p1, Vector3 p2, Vector2 u, Vector3 p, Vector3 normal, GPULight light, out Vector3 wi, out Vector3 position, out float pdf)
+        {
+            Vector3 Li = light.radiance;
+            Vector3 lightPointNormal;
+            float triPdf = 0;
+            position = SampleTrianglePoint(p0, p1, p2, u, out lightPointNormal, out triPdf);
+            pdf = triPdf;
+            wi = position - p;
+            float wiLength = Vector3.Magnitude(wi);
+            if (wiLength == 0)
+            {
+                Li = Vector3.zero;
+                pdf = 0;
+            }
+            wi = Vector3.Normalize(wi);
+            pdf *= wiLength * wiLength / Mathf.Abs(Vector3.Dot(lightPointNormal, -wi));
+
+            return Li;
+        }
+
+        int lightIndex = 0;
+        float lightSourcePdf = 0;
+        float u = UnityEngine.Random.Range(0.0f, 1.0f);
+        GPULight gpuLight = SampleLightSource(u, out lightSourcePdf, out lightIndex);
+
+        if (gpuLight.type == (int)AreaLightInstance.LightType.Envmap)
+        { 
+            Vector2 u2 = new Vector2(UnityEngine.Random.Range(0.0f, 1.0f), UnityEngine.Random.Range(0.0f, 1.0f));
+            GPUDistributionDiscript discript = new GPUDistributionDiscript();
+            
+            EnviromentLight envLight = gpuScene.areaLightInstances[lightIndex] as EnviromentLight;
+            discript.funcInt = envLight.envmapDistributions.Intergal();
+            discript.num = envLight.envmapDistributions.size.y;
+            discript.unum = envLight.envmapDistributions.size.x;
+            discript.domain = new Vector4(0, 1, 0, 1);
+            float lightPdf = 0;
+            RayTracingTest.ImportanceSampleEnvmap(u2, discript, envLight.envmapDistributions.GetGPUMarginalDistributions(), envLight.envmapDistributions.GetGPUConditionalDistributions(),
+                envLight.envmapDistributions.GetGPUConditionFuncInts(), out lightPdf);
+        }
+        else
+        {
+            u = UnityEngine.Random.Range(0.0f, 1.0f);
+            MeshInstance meshInstance = gpuScene.meshInstances[gpuLight.meshInstanceID];
+            float lightPdf = 0;
+            int triangleIndex = (GPUDistributionTest.Sample1DDiscrete(u, gpuScene.gpuDistributionDiscripts[gpuLight.distributionDiscriptIndex], 
+                gpuScene.Distributions1D, out lightPdf) - gpuScene.gpuLights.Count) * 3 + meshInstance.triangleStartOffset;
+            //(SampleLightTriangle(gpuLight.distributeAddress, gpuLight.trianglesNum, u, out lightPdf) - gpuLights.Count) * 3 + meshInstance.triangleStartOffset;
+
+            int vertexStart = triangleIndex;
+            int vIndex0 = gpuScene.triangles[vertexStart];
+            int vIndex1 = gpuScene.triangles[vertexStart + 1];
+            int vIndex2 = gpuScene.triangles[vertexStart + 2];
+            Vector3 p0 = gpuScene.gpuVertices[vIndex0].position;
+            Vector3 p1 = gpuScene.gpuVertices[vIndex1].position;
+            Vector3 p2 = gpuScene.gpuVertices[vIndex2].position;
+            //convert to worldpos
+
+            p0 = meshInstance.localToWorld.MultiplyPoint(p0);
+            p1 = meshInstance.localToWorld.MultiplyPoint(p1);
+            p2 = meshInstance.localToWorld.MultiplyPoint(p2);
+
+            //float3 lightPointNormal;
+            Vector3 trianglePoint;
+            //SampleTrianglePoint(p0, p1, p2, rs.Get2D(threadId), lightPointNormal, trianglePoint, triPdf);
+            Vector3 wi;
+            Vector2 uv = new Vector2(UnityEngine.Random.Range(0.0f, 1.0f), UnityEngine.Random.Range(0.0f, 1.0f));
+            float triPdf = 0.0f;
+            Vector3 Li = SampleTriangleLightRadiance(p0, p1, p2, uv, new Vector3(-1.8f, 2.7f, 2.2f), Vector3.up, gpuLight, out wi, out trianglePoint, out triPdf);
+            lightPdf *= triPdf;
+        }
+        
+    }
+    */
+
+    void FilterSampleTesting(Filter filter)
+    {
+        //GPUFilterSample uv = filter.Sample(MathUtil.GetRandom01());
+        GPUFilterSample uv = filter.Sample(new Vector2(0.0546875000f, 0.802469254f));
+        Debug.Log(uv.p);
+        uv = filter.Sample(new Vector2(0.0859375000f, 0.0246913619f));
+        Debug.Log(uv.p);
+
+        Vector2Int filterSize = filter.GetDistributionSize();
+
+        List<Vector2> marginal = filter.GetGPUMarginalDistributions();
+
+        List<Vector2> conditional = filter.GetGPUConditionalDistributions();
+
+        List<float> conditionalFuncInts = filter.SampleDistributions().GetGPUConditionFuncInts();
+
+        GPUDistributionDiscript discript = new GPUDistributionDiscript();
+        discript.start = 0;
+        discript.num = filterSize.y;
+        discript.unum = filterSize.x;
+        Bounds2D domain = filter.GetDomain();
+        discript.domain = new Vector4(domain.min[0], domain.max[0], domain.min[1], domain.max[1]);
+        float pdf = 0;
+        Vector2 testSample = RayTracingTest.SampleDistribution2DContinous(new Vector2(0.0859375000f, 0.0246913619f), discript, marginal,
+            conditional, conditionalFuncInts, out pdf);
+        Debug.Log(testSample);
+    }
 }

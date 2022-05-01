@@ -3,7 +3,6 @@
 #define SAMPLER_HLSL
 #include "mathdef.hlsl"
 #include "GPUStructs.hlsl"
-#include "distributions.hlsl"
 
 //----------------------------------------------------------------------------------------
 //  1 out, 1 in...
@@ -107,24 +106,19 @@ float3 CosineSampleHemisphere(float2 u)
 RWStructuredBuffer<RNG>    RNGs;
 
 
-//int SampleDistribution1DDiscrete(float u, int start, int num, out float pdf)
-//{
-//    int offset = FindIntervalSmall(start, num, u, Distributions1D);
-//    pdf = Distributions1D[start + offset].x;
-//    return offset;
-//}
-
-
-
-//float DiscretePdf(int index)
-//{
-//    return Distributions1D[index].x;
-//}
-
 float PowerHeuristic(int nf, float fPdf, int ng, float gPdf)
 {
-    float f = nf * fPdf, g = ng * gPdf;
+    float f = nf * fPdf;
+    float g = ng * gPdf;
     return (f * f) / (f * f + g * g);
+}
+
+float BalanceHeuristic(int nf,
+    float f_PDF,
+    int ng,
+    float g_PDF) 
+{
+    return (nf * f_PDF) / (nf * f_PDF + ng * g_PDF);
 }
 
 float UniformFloat(inout RNG rng)
@@ -164,30 +158,6 @@ void WriteRNG(uint threadId, in RNG rng)
     RNGs[threadId] = rng;
 }
 
-/*
-class RandomSampler
-{
-    float Get1D(uint threadId)
-    {
-        RNG rng = RNGs[threadId];
-        float u = UniformFloat(rng);
-        RNGs[threadId] = rng;
-        return u;
-    }
-
-    float2 Get2D(int rngIndex)
-    {
-        RNG rng = RNGs[rngIndex];
-        float2 u = float2(UniformFloat(rng), UniformFloat(rng));
-        RNGs[rngIndex] = rng;
-        return u;
-    }
-
-
-};
-
-RandomSampler rs;
-*/
 
 #endif
 

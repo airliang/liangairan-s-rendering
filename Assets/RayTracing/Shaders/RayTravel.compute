@@ -14,8 +14,6 @@ uniform float cameraConeSpreadAngle;
 
 //use the matrix to calculate the world space ray
 StructuredBuffer<Ray>    Rays;
-StructuredBuffer<Light>  lights;
-StructuredBuffer<Material> materials;
 RWStructuredBuffer<Interaction>       Intersections;
 RWStructuredBuffer<PathRadiance> pathRadiances;
 //RWStructuredBuffer<int>    pathStates;
@@ -70,10 +68,8 @@ void RayTraversal(uint3 id : SV_DispatchThreadID)
         int meshInstanceIndex = isect.meshInstanceID;
         MeshInstance meshInstance = MeshInstances[meshInstanceIndex];
         int lightIndex = meshInstance.GetLightIndex();
-        //ShadingMaterial shadingMaterial;
-        //Material material = materials[isect.materialID];
-        //UnpackShadingMaterial(material, shadingMaterial, isect, 0);
-        //_ShadingMaterials[workIndex] = shadingMaterial;
+
+       
         half2 surfaceBeta = RayConeGBuffer[id.xy];
         if (bounces == 0)
         {
@@ -89,7 +85,7 @@ void RayTraversal(uint3 id : SV_DispatchThreadID)
             isect.spreadAngle = rayCone.spreadAngle;
             isect.coneWidth = rayCone.width;
         }
-        
+
         //isect.p.w = 1;
         if (lightIndex >= 0 && bounces == 0)
         {
@@ -112,6 +108,7 @@ void RayTraversal(uint3 id : SV_DispatchThreadID)
         uint index;
         InterlockedAdd(_RayQueueSizeBuffer[queueSizeIndex + 1], 1, index);
         _RayQueue[index] = workIndex;
+        //outputTexture[id.xy] = float4(pathRadiance.li.xyz, 1);
     }
     else
     {
@@ -124,5 +121,4 @@ void RayTraversal(uint3 id : SV_DispatchThreadID)
         //outputTexture[id.xy] = half4(0, 0, 0, 1);
     }
 //}
-    
 }

@@ -13,8 +13,6 @@ uniform int    queueSizeIndex;
 
 StructuredBuffer<Interaction>  Intersections;
 RWStructuredBuffer<ShadowRay>  ShadowRays;
-StructuredBuffer<Light> lights;
-StructuredBuffer<Material> materials;
 //StructuredBuffer<ShadingMaterial>  _ShadingMaterials;
 //StructuredBuffer<int>    pathStates;
 //x pdf y cdf
@@ -32,7 +30,7 @@ ShadowRay SampleShadowRay(Light light, Interaction isect, inout RNG rng)
 	float3 wi;
 	float lightPdf = 0;
 	float3 samplePointOnLight;
-	float3 Li = SampleLightRadiance(Distributions1D, light, isect, rng, wi, lightPdf, samplePointOnLight);
+	float3 Li = SampleLightRadiance(Distributions1D, light, isect, rng, wi, lightPdf, samplePointOnLight, false);
 
 	if (lightPdf > 0 && !IsBlack(Li))
 	{
@@ -95,7 +93,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 	float lightSourcePdf = 1.0;
 	//some error happen in SampleLightSource
 	float u = Get1D(rng);//rs.Get1D(workIndex);
-	int lightIndex = SampleLightSource(u, DistributionDiscripts[0], Distributions1D, lightSourcePdf);
+	int lightIndex = SampleLightSource(u, DistributionDiscripts[0], Distributions1D, lightSourcePdf, false);
 	Light light = lights[lightIndex];
 	//float testD = Distributions1D[0].y;
 	Interaction isect = Intersections[workIndex];
