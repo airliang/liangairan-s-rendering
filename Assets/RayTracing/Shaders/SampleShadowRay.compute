@@ -23,7 +23,7 @@ StructuredBuffer<uint> _RayQueue;
 
 
 
-ShadowRay SampleShadowRay(Light light, Interaction isect, inout RNG rng)
+ShadowRay SampleShadowRay(Light light, Interaction isect, float lightSourcePdf, inout RNG rng)
 {
 	ShadowRay shadowRay = (ShadowRay)0;
 	
@@ -34,18 +34,11 @@ ShadowRay SampleShadowRay(Light light, Interaction isect, inout RNG rng)
 
 	if (lightPdf > 0 && !IsBlack(Li))
 	{
+		lightPdf *= lightSourcePdf;
 		shadowRay.p0 = isect.p.xyz;
 		shadowRay.p1 = samplePointOnLight;
 		//shadowRay.pdf = triPdf;
 		shadowRay.lightPdf = lightPdf;
-		//float3 Li = light.radiance;
-		//shadowRay.lightNormal = lightPointNormal;
-		//float3 wi = normalize(shadowRay.p1 - shadowRay.p0);
-
-		//sample bsdf
-		
-		//float3 f = LambertBRDF(wiLocal, woLocal, material.kd.xyz) * abs(dot(wi, isect.normal));
-		//scatteringPdf = LambertPDF(wiLocal, woLocal);
 
 		bool shadowRayVisible = ShadowRayVisibilityTest(shadowRay, isect.normal);
 
@@ -93,11 +86,11 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 	float lightSourcePdf = 1.0;
 	//some error happen in SampleLightSource
 	float u = Get1D(rng);//rs.Get1D(workIndex);
-	int lightIndex = SampleLightSource(u, DistributionDiscripts[0], Distributions1D, lightSourcePdf, false);
+	int lightIndex = SampleLightSource(u, DistributionDiscripts[0], Distributions1D, lightSourcePdf, _UniformSampleLight);
 	Light light = lights[lightIndex];
 	//float testD = Distributions1D[0].y;
 	Interaction isect = Intersections[workIndex];
-	ShadowRay shadowRay = SampleShadowRay(light, isect, rng);
+	ShadowRay shadowRay = SampleShadowRay(light, isect, lightSourcePdf, rng);
 	shadowRay.lightSourcePdf = lightSourcePdf;
 	shadowRay.lightIndex = asfloat(lightIndex);
 	ShadowRays[workIndex] = shadowRay;

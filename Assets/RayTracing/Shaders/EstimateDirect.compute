@@ -66,40 +66,46 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     float3 f = EstimateDirect(isect, material, rng, scatteringPdf, wi);
     float3 Li = shadowRay.radiance;  
     Ray ray;
-    if (scatteringPdf > 0)
+    if (!IsBlack(f) && scatteringPdf > 0)
     {
+        ray = SpawnRay(isect.p.xyz, wi, isect.normal, FLT_MAX);
         beta = f * abs(dot(wi, isect.normal)) / scatteringPdf;
         int shadowLightIndex = asint(shadowRay.lightIndex);
         Light light = lights[shadowLightIndex];
+		Interaction lightISect = (Interaction)0;
+        bool found = ClosestHit(ray, lightISect);
+        float3 li = 0;
+        float weight = 0;
+        float lightPdf = 0;
+		if (found)
+		{
+			lightPdf = AreaLightPdf(light, isect, wi, _UniformSampleLight) * shadowRay.lightSourcePdf;
+			if (lightPdf > 0)
+			{
+				//caculate the mis weight
+				int meshInstanceIndex = lightISect.meshInstanceID;
+				MeshInstance meshInstance = MeshInstances[meshInstanceIndex];
 
-        ray = SpawnRay(isect.p.xyz, wi, isect.normal, FLT_MAX);
-
-        float lightPdf = AreaLightPdf(light, isect, wi, false);
-        if (lightPdf > 0)
-        {
-            float3 li = 0;
-            //caculate the mis weight
-
-            Interaction lightISect = (Interaction)0;
-            bool found = ClosestHit(ray, lightISect);
-            if (found)
+				if (meshInstance.GetLightIndex() == shadowLightIndex)
+					li = Light_Le(wi, light);
+			}
+		}
+		else if (_EnvLightIndex >= 0)
+		{
+            Light envlight = lights[shadowLightIndex];
+			li = Light_Le(wi, envlight);
+            if (light.type != EnvLightType)
             {
-                int meshInstanceIndex = lightISect.meshInstanceID;
-                MeshInstance meshInstance = MeshInstances[meshInstanceIndex];
+                float lightSourcePdf = LightSourcePmf(_EnvLightIndex, _UniformSampleLight);
+                lightPdf = EnvLightLiPdf(wi, _UniformSampleLight) * lightSourcePdf;
+            }
+		}
 
-                if (meshInstance.GetLightIndex() == shadowLightIndex)
-                    li = Light_Le(wi, light);
-            }
-            else if (light.type == EnvLightType)
-            {
-                li = Light_Le(wi, light);
-            }
-            
-            float weight = PowerHeuristic(1, scatteringPdf, 1, lightPdf);
-            Li += li * weight * beta;
-        }
+        weight = PowerHeuristic(1, scatteringPdf, 1, lightPdf);
+		
+		Li += li * weight * beta;
     }
-    Li /= shadowRay.lightSourcePdf;
+    //Li /= shadowRay.lightSourcePdf;
     pathRadiance.li += Li * pathRadiance.beta;
 
     if (scatteringPdf > 0)

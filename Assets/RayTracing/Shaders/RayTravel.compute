@@ -113,7 +113,7 @@ void RayTraversal(uint3 id : SV_DispatchThreadID)
     else
     {
         //sample enviroment map
-        if (bounces == 0)
+        if (bounces == 0 && _EnvLightIndex >= 0)
         {
             pathRadiance.li += pathRadiance.beta * EnviromentLightLe(ray.direction);
             pathRadiances[workIndex] = pathRadiance;
