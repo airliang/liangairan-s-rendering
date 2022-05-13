@@ -8,6 +8,7 @@ struct MeshInstance
 	int4     indices;  //x-meshhandle y-material index z-light index w-bvhoffset
 	int		 triangleStartOffset;  //triangle index start in trianglebuffer
 	int		 trianglesNum;
+	//int      indexStart;    //the index start offset.attually is the last mesh's total vertex count.
 
 	int GetLightIndex()
 	{
@@ -131,8 +132,10 @@ struct Interaction  //64byte
 	float3 normal;
 	float3 tangent;  //the same as pbrt's ss(x)
 	float3 bitangent; //the same as pbrt's ts(y)
+	float  primArea;
 	uint   materialID;
 	uint   meshInstanceID;
+	uint   triangleIndex;  //triangle index in this mesh
 	float  spreadAngle;   //ray cone angle use for mipmapping
 	float  coneWidth;     //ray cone width at this surface point
 	int3   vertexIndices;

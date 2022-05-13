@@ -309,17 +309,24 @@ float3 Light_Le(float3 wi, Light light)
 	return 0;
 }
 
-float AreaLightPdf(Light light, Interaction isect, float3 wi, bool isUniform)
+float AreaLightPdf(Light light, Interaction isect)
 {
 	float lightPdf = 0;
 	if (light.type == AreaLightType)
 	{
+		DistributionDiscript discript = DistributionDiscripts[light.distributionDiscriptIndex];
+		int distributionIndex = isect.triangleIndex;
+		float pmf = DiscretePdf(distributionIndex, discript, Distributions1D);
+		lightPdf = pmf * 1.0 / isect.primArea;
+		
+		/*
 		//intersect the light mesh triangle
 		Ray ray = SpawnRay(isect.p.xyz, wi, isect.normal, FLT_MAX);
 		float bvhHit = ray.tmax;
 		int meshHitTriangleIndex;  //wood triangle addr
 
 		DistributionDiscript discript = DistributionDiscripts[light.distributionDiscriptIndex];
+		//DistributionDiscript lightObjDiscript = DistributionDiscripts[0];
 		int distributionIndex = 0;
 		//getting the mesh of the light
 		MeshInstance meshInstance = MeshInstances[light.meshInstanceID];
@@ -342,17 +349,19 @@ float AreaLightPdf(Light light, Interaction isect, float3 wi, bool isUniform)
 			p1 = mul(meshInstance.localToWorld, float4(p1, 1.0));
 			p2 = mul(meshInstance.localToWorld, float4(p2, 1.0));
 
-			lightPdf = 1.0 / length(cross(p0 - p1, p0 - p2));
+			lightPdf = 2.0 / length(cross(p0 - p1, p0 - p2));
+			//lightPdf = 1.0 / isect.primArea;
 
-			distributionIndex += vIndex0 / 3;
+			distributionIndex = (vIndex0 - meshInstance.indexStart) / 3;
 
 			lightPdf *= DiscretePdf(distributionIndex, discript, Distributions1D);
 		}
+		*/
 	}
-	else if (light.type == EnvLightType)
-	{
-		lightPdf = EnvLightLiPdf(wi, isUniform); //INV_FOUR_PI;
-	}
+	//else if (light.type == EnvLightType)
+	//{
+	//	lightPdf = EnvLightLiPdf(wi, isUniform); //INV_FOUR_PI;
+	//}
 
 	return lightPdf;
 }

@@ -10,6 +10,7 @@ public struct MeshHandle
     public int vertexCount;
     public int triangleCount;
     public int bvhOffset;
+    //public int indexStart;    //the index start offset.attually is the last mesh's total vertex count.
     public GPUBounds localBounds;
 
     public MeshHandle(
@@ -18,6 +19,7 @@ public struct MeshHandle
         int _triangleOff,
         int _vertexCount,
         int _triangleCount,
+        //int _indexStart,
         Bounds bounds)
     {
         //index = _index;
@@ -26,6 +28,7 @@ public struct MeshHandle
         vertexCount = _vertexCount;
         triangleCount = _triangleCount;
         bvhOffset = -1;
+        //indexStart = _indexStart;
         localBounds = GPUBounds.ConvertUnityBounds(bounds);
     }
 }
@@ -40,8 +43,10 @@ public struct MeshInstance
     public int bvhOffset;
     public int triangleStartOffset;  //triangle index start in trianglebuffer
     public int trianglesNum;
+    //public int indexStart;  //the index start offset.attually is the last mesh's total vertex count.
 
-    public MeshInstance(Matrix4x4 _local2world, Matrix4x4 _world2local, int _meshHandleIndex, int _materialIndex, int _lightIndex, int _triangleOffset, int _trianglesNum)
+    public MeshInstance(Matrix4x4 _local2world, Matrix4x4 _world2local, int _meshHandleIndex, int _materialIndex, 
+        int _lightIndex, int _triangleOffset, int _trianglesNum)
     {
         localToWorld = _local2world;
         worldToLocal = _world2local;

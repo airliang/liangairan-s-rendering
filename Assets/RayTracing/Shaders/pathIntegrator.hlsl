@@ -99,15 +99,17 @@ float3 MIS_BSDF(Interaction isect, Material material, Light light, int lightInde
         if (found)
         {
             pathVertex.found = 1;
-            lightPdf = AreaLightPdf(light, isect, wi, _UniformSampleLight) * lightSourcePdf;
 
-            if (lightPdf > 0)
+            int meshInstanceIndex = pathVertex.nextISect.meshInstanceID;
+            MeshInstance meshInstance = MeshInstances[meshInstanceIndex];
+            if (meshInstance.GetLightIndex() == lightIndex)
             {
-                int meshInstanceIndex = pathVertex.nextISect.meshInstanceID;
-                MeshInstance meshInstance = MeshInstances[meshInstanceIndex];
+                lightPdf = AreaLightPdf(light, pathVertex.nextISect) * lightSourcePdf;
 
-                if (meshInstance.GetLightIndex() == lightIndex)
+                if (lightPdf > 0)
+                {
                     li = Light_Le(wi, light);
+                }
             }
         }
         else if (_EnvLightIndex >= 0)//(light.type == EnvLightType)

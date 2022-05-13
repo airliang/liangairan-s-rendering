@@ -74,23 +74,17 @@ public struct GPUInteraction
 {
     public Vector3 p;   //w is hitT
     public float hitT;
-    //float time;
-    //Vector4 pError; //floating point error
     public Vector3 wo;   //output direction
     
     //Vector4 primitive;
     public Vector2 uv;
-    //public Vector4 row1;
-    //public Vector4 row2;
-    //public Vector4 row3;
-    //Vector4 ns;  //shading normal
-    //Vector4 dpdu;
-    //Vector4 dpdv;
     public Vector3 normal; //geometry normal
     public Vector3 tangent;
     public Vector3 bitangent;
+    public float primArea;
     public uint materialID;
     public uint meshInstanceID;
+    public uint triangleIndex;   //triangle index in this mesh
     public float spreadAngle; //raycone angle use for mipmapping
     public float coneWidth;
     public Vector3Int vertexIndices;

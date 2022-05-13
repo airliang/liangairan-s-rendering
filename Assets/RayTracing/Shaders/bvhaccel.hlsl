@@ -382,7 +382,7 @@ bool IntersectBVHandTriangles(Ray ray, int bvhOffset, out Interaction interactio
 	return hitIndex != -1;
 }
 
-bool IntersectMeshBVH(Ray ray, int bvhOffset, float4x4 objectToWorld, float4x4 worldToObject, out float hitT, out int hitIndex, out Interaction interaction)
+bool IntersectMeshBVH(Ray ray, int bvhOffset, float4x4 objectToWorld, float4x4 worldToObject, int meshIndexStart, out float hitT, out int hitIndex, out Interaction interaction)
 {
 	interaction = (Interaction)0;
 	int INVALID_INDEX = EntrypointSentinel;
@@ -479,6 +479,7 @@ bool IntersectMeshBVH(Ray ray, int bvhOffset, float4x4 objectToWorld, float4x4 w
 		//遍历叶子
 		while (leafAddr < 0)
 		{
+			int triangleIndex = 0;
 			for (int triAddr = ~leafAddr; ; triAddr += 3)
 			{
 				float4 m0 = WoodTriangles[triAddr];     //matrix row 0 
@@ -503,6 +504,7 @@ bool IntersectMeshBVH(Ray ray, int bvhOffset, float4x4 objectToWorld, float4x4 w
 				//normal = normalize(cross(v1.xyz - v0.xyz, v2.xyz - v0.xyz));
 				if (dot(normal, rayDir.xyz) >= 0)
 				{
+					triangleIndex++;
 					continue;
 				}
 
@@ -526,6 +528,11 @@ bool IntersectMeshBVH(Ray ray, int bvhOffset, float4x4 objectToWorld, float4x4 w
 					hitPos.w = 1;
 					hitPos = mul(objectToWorld, hitPos);
 
+					float3 p0 = mul(objectToWorld, float4(v0.xyz, 1.0));
+					float3 p1 = mul(objectToWorld, float4(v1.xyz, 1.0));
+					float3 p2 = mul(objectToWorld, float4(v2.xyz, 1.0));
+					float triAreaInWorld = length(cross(p0 - p1, p0 - p2)) * 0.5;
+
 					float3 normal0 = vertex0.normal;
 					float3 normal1 = vertex1.normal;
 					float3 normal2 = vertex2.normal;
@@ -534,7 +541,7 @@ bool IntersectMeshBVH(Ray ray, int bvhOffset, float4x4 objectToWorld, float4x4 w
 
 					float3 worldNormal = normalize(mul(normal, (float3x3)worldToObject));
 
-					float4 v0World = mul(objectToWorld, float4(v0.xyz, 1));
+					//float4 v0World = mul(objectToWorld, float4(v0.xyz, 1));
 					//float4 v1World = mul(objectToWorld, float4(v1.xyz, 1));
 					//float4 v2World = mul(objectToWorld, float4(v2.xyz, 1));
 
@@ -570,6 +577,8 @@ bool IntersectMeshBVH(Ray ray, int bvhOffset, float4x4 objectToWorld, float4x4 w
 					CoordinateSystem(worldNormal, dpdu, dpdv);
 					interaction.tangent.xyz = normalize(dpdu.xyz);
 					interaction.bitangent.xyz = normalize(cross(interaction.tangent.xyz, worldNormal));
+					interaction.primArea = triAreaInWorld;
+					interaction.triangleIndex = triangleIndex;
 					//计算切线
 					/*
 					float3 dp02 = v0.xyz - v2.xyz;
@@ -593,7 +602,7 @@ bool IntersectMeshBVH(Ray ray, int bvhOffset, float4x4 objectToWorld, float4x4 w
 					interaction.bitangent.xyz = normalize(cross(interaction.tangent.xyz, normal));
 					*/
 				}
-
+				triangleIndex++;
 			} // triangle
 
 			// Another leaf was postponed => process it as well.
@@ -656,7 +665,7 @@ bool IntersectBVH(Ray ray, out Interaction interaction)
 		//invDir = GetInverseDirection(ray.direction);
 		float bvhHit = hitT;
 		int meshHitTriangleIndex = -1;
-		if (IntersectMeshBVH(rayTemp, 0, meshInstance.localToWorld, meshInstance.worldToLocal, bvhHit, meshHitTriangleIndex, tmpInteraction))
+		if (IntersectMeshBVH(rayTemp, 0, meshInstance.localToWorld, meshInstance.worldToLocal, meshInstance.triangleStartOffset, bvhHit, meshHitTriangleIndex, tmpInteraction))
 		{
 			if (bvhHit < hitT)
 			{
@@ -770,7 +779,7 @@ bool IntersectBVH(Ray ray, out Interaction interaction)
 					//invDir = GetInverseDirection(ray.direction);
 					float bvhHit = hitT;
 					int meshHitTriangleIndex = -1;
-					if (IntersectMeshBVH(rayTemp, next[i], meshInstance.localToWorld, meshInstance.worldToLocal, bvhHit, meshHitTriangleIndex, tmpInteraction))
+					if (IntersectMeshBVH(rayTemp, next[i], meshInstance.localToWorld, meshInstance.worldToLocal, meshInstance.triangleStartOffset, bvhHit, meshHitTriangleIndex, tmpInteraction))
 					{
 						if (bvhHit < hitT)
 						{

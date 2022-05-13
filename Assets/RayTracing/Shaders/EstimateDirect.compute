@@ -72,7 +72,7 @@ float3 MIS_BSDF_OLD(Interaction isect, Material material, ShadowRay shadowRay, i
         float lightPdf = 0;
         if (found)
         {
-            lightPdf = AreaLightPdf(light, isect, wi, _UniformSampleLight) * shadowRay.lightSourcePdf;
+            lightPdf = AreaLightPdf(light, isect) * shadowRay.lightSourcePdf;
             if (lightPdf > 0)
             {
                 //caculate the mis weight
@@ -134,16 +134,18 @@ float3 MIS_BSDF(Interaction isect, Material material, ShadowRay shadowRay, inout
 
         if (found)
         {
-            lightPdf = AreaLightPdf(light, isect, wi, _UniformSampleLight) * shadowRay.lightSourcePdf;
-
-            if (lightPdf > 0)
+            int meshInstanceIndex = lightISect.meshInstanceID;
+            MeshInstance meshInstance = MeshInstances[meshInstanceIndex];
+            if (meshInstance.GetLightIndex() == shadowLightIndex)
             {
-                int meshInstanceIndex = lightISect.meshInstanceID;
-                MeshInstance meshInstance = MeshInstances[meshInstanceIndex];
+                lightPdf = AreaLightPdf(light, lightISect) * shadowRay.lightSourcePdf;
 
-                if (meshInstance.GetLightIndex() == shadowLightIndex)
+                if (lightPdf > 0)
+                {
                     li = Light_Le(wi, light);
+                }
             }
+            
         }
         else if (_EnvLightIndex >= 0)//(light.type == EnvLightType)
         {

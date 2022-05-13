@@ -6,8 +6,10 @@
 
 StructuredBuffer<BVHNode>  BVHTree;
 StructuredBuffer<float4>   WoodTriangles;
-StructuredBuffer<Vertex>   Vertices;
-StructuredBuffer<int>      TriangleIndices;
+StructuredBuffer<Vertex>   Vertices;    //the origin mesh vertices of all meshes.
+//the origin mesh triangle indices of all meshes, we can consider all the meshes as a big mesh, and this indices is the triangle vertex index of the whole big mesh.
+//we can consider TriangleIndices as the index in Vertices declare about.
+StructuredBuffer<int>      TriangleIndices;    
 StructuredBuffer<int>      WoodTriangleIndices;
 StructuredBuffer<MeshInstance> MeshInstances;
 StructuredBuffer<Material> materials;
