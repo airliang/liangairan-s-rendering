@@ -21,6 +21,7 @@ RWStructuredBuffer<uint> _RayQueueSizeBuffer;
 RWStructuredBuffer<uint> _RayQueue;
 //RWStructuredBuffer<ShadingMaterial>  _ShadingMaterials;
 Texture2D<half2>  RayConeGBuffer;
+RWTexture2D<float3> LastISectRayCone;
 
 //RWTexture2D<half4> outputTexture;
 
@@ -32,11 +33,11 @@ RayCone Propagate(RayCone cone, float surfaceSpreadAngle, float hitT)
     return newCone;
 }
 
-RayCone ComputeRayCone(Interaction lastisect, float distance, float pixelSpreadAngle)
+RayCone ComputeRayCone(float lastisectHitT, half lastSpreadAngle, float distance, float pixelSpreadAngle)
 {
     RayCone rayCone;
-    rayCone.width = lastisect.spreadAngle * lastisect.hitT;
-    rayCone.spreadAngle = lastisect.spreadAngle;
+    rayCone.width = lastSpreadAngle * lastisectHitT;
+    rayCone.spreadAngle = lastSpreadAngle;
     //float gamma = cameraConeSpreadAngle;
     return Propagate(rayCone, pixelSpreadAngle, distance);
 }
@@ -55,70 +56,60 @@ void RayTraversal(uint3 id : SV_DispatchThreadID)
     if (threadId >= queueSize)
         return;
     uint workIndex = _RayQueue[threadId];
-    //int pathState = pathStates[threadId];
-    //if (pathState > 0)
-    //{
+
     Ray ray = Rays[workIndex];
     Interaction isect = (Interaction)0;//Intersections[threadId];
-
-    bool foundIntersect = ClosestHit(ray, isect);//IntersectBVH(ray, isect);
+    float3 lastCone = LastISectRayCone[id.xy];
     PathRadiance pathRadiance = pathRadiances[workIndex];
-    if (foundIntersect)
+    //bool foundIntersect = false;
+    if (bounces == 0)
     {
-        int meshInstanceIndex = isect.meshInstanceID;
-        MeshInstance meshInstance = MeshInstances[meshInstanceIndex];
-        int lightIndex = meshInstance.GetLightIndex();
-
-       
-        half2 surfaceBeta = RayConeGBuffer[id.xy];
-        if (bounces == 0)
+        bool foundIntersect = ClosestHit(ray, isect);
+        if (foundIntersect)
         {
-            //half2 surfaceBeta = RayConeGBuffer[id.xy];
-            isect.spreadAngle = cameraConeSpreadAngle;
-            isect.coneWidth = cameraConeSpreadAngle * isect.hitT;
+            int meshInstanceIndex = isect.meshInstanceID;
+            MeshInstance meshInstance = MeshInstances[meshInstanceIndex];
+            int lightIndex = meshInstance.GetLightIndex();
+
+            lastCone.x = cameraConeSpreadAngle;
+            lastCone.y = cameraConeSpreadAngle * isect.hitT;
+
+            lastCone.z = isect.hitT;
+            //LastISectRayCone[id.xy] = lastCone;
+
+            //isect.p.w = 1;
+            if (lightIndex >= 0)
+            {
+                Light light = lights[lightIndex];
+                pathRadiance.li += pathRadiance.beta * light.radiance;
+            }
+
+            Intersections[workIndex] = isect;
         }
         else
         {
-            Interaction isectLast = Intersections[workIndex];
-            half2 surfaceBeta = RayConeGBuffer[id.xy];
-            RayCone rayCone = ComputeRayCone(isectLast, isect.hitT, surfaceBeta.r);
-            isect.spreadAngle = rayCone.spreadAngle;
-            isect.coneWidth = rayCone.width;
+            //sample enviroment map
+            if (_EnvLightIndex >= 0)
+            {
+                pathRadiance.li += pathRadiance.beta * EnviromentLightLe(ray.direction);
+                pathRadiances[workIndex] = pathRadiance;
+                return;
+            }
         }
-
-        //isect.p.w = 1;
-        if (lightIndex >= 0 && bounces == 0)
-        {
-            Light light = lights[lightIndex];
-            pathRadiance.li += pathRadiance.beta * light.radiance;
-            //color = light.radiance;
-            //isect.p.w = 0;
-        }
-
-        //just for mipmap test
-        //float mipmapLevel = ComputeTextureLOD(isect);
-        //outputTexture[id.xy] = half4(mipmapLevel / 5, 0, 0, 1);
-
-        //outputTexture[id.xy] = half4(color, 1);//abs(ray.direction);
-        //if (bounces == 1)
-        //    outputTexture[id.xy] = half4(abs(ray.direction), 1);
-        Intersections[workIndex] = isect;
-        pathRadiances[workIndex] = pathRadiance;
-        //pathStates[threadId] = 1;
-        uint index;
-        InterlockedAdd(_RayQueueSizeBuffer[queueSizeIndex + 1], 1, index);
-        _RayQueue[index] = workIndex;
-        //outputTexture[id.xy] = float4(pathRadiance.li.xyz, 1);
     }
     else
     {
-        //sample enviroment map
-        if (bounces == 0 && _EnvLightIndex >= 0)
-        {
-            pathRadiance.li += pathRadiance.beta * EnviromentLightLe(ray.direction);
-            pathRadiances[workIndex] = pathRadiance;
-        }
-        //outputTexture[id.xy] = half4(0, 0, 0, 1);
+        isect = Intersections[workIndex];
+        half2 surfaceBeta = RayConeGBuffer[id.xy];
+        RayCone rayCone = ComputeRayCone(isect.hitT, lastCone.x, lastCone.z, surfaceBeta.r);
+        lastCone.x = rayCone.spreadAngle;
+        lastCone.y = rayCone.width;
+        lastCone.z = isect.hitT;
     }
-//}
+
+    pathRadiances[workIndex] = pathRadiance;
+    LastISectRayCone[id.xy] = lastCone;
+	uint index;
+    InterlockedAdd(_RayQueueSizeBuffer[queueSizeIndex + 1], 1, index);
+    _RayQueue[index] = workIndex;
 }
