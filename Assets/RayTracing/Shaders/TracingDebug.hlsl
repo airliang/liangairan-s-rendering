@@ -188,7 +188,7 @@ half3 TracingDebug(uint2 id, Ray ray, int view, float2 rayCone, float cameraCone
         int meshInstanceIndex = isect.meshInstanceID;
         MeshInstance meshInstance = MeshInstances[meshInstanceIndex];
 
-        isect.spreadAngle = cameraConeSpreadAngle;
+        //isect.spreadAngle = cameraConeSpreadAngle;
         isect.coneWidth = cameraConeSpreadAngle * isect.hitT;
         Material material = materials[isect.materialID];
 

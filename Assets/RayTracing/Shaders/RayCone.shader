@@ -52,7 +52,7 @@ Shader "RayTracing/RayCone"
                 return o;
             }
 
-            half2 frag(v2f i) : SV_Target
+            half4 frag(v2f i) : SV_Target
             {
                 float dpdx = ddx(i.posWorld);
                 float dpdy = ddy(i.posWorld);
@@ -62,7 +62,7 @@ Shader "RayTracing/RayCone"
                 float chain = dpdx * dndx + dpdy * dndy;
                 float s = sign(chain);
                 float beta = 2 * s * sqrt(chain);   //eq.32
-                return half2(beta, 1);
+                return half4(beta, 0, 0, 0);
             }
             ENDCG
         }

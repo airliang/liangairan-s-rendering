@@ -85,9 +85,11 @@ public struct GPUInteraction
     public uint materialID;
     public uint meshInstanceID;
     public uint triangleIndex;   //triangle index in this mesh
-    public float spreadAngle; //raycone angle use for mipmapping
+    //public float spreadAngle; //raycone angle use for mipmapping
     public float coneWidth;
-    public Vector3Int vertexIndices;
+    public float screenSpaceArea;
+    public float uvArea;
+    //public Vector3Int vertexIndices;
 
     public Vector3 WorldToLocal(Vector3 v)
     {

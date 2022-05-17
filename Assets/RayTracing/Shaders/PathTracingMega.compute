@@ -7,8 +7,8 @@
 #include "colorConvert.hlsl"
 #include "TracingDebug.hlsl"
 
-matrix RasterToCamera;
-matrix CameraToWorld;
+//matrix RasterToCamera;
+//matrix CameraToWorld;
 float2 rasterSize;
 float _Exposure;
 int framesNum;

@@ -136,9 +136,11 @@ struct Interaction  //64byte
 	uint   materialID;
 	uint   meshInstanceID;
 	uint   triangleIndex;  //triangle index in this mesh
-	float  spreadAngle;   //ray cone angle use for mipmapping
+	//float  spreadAngle;   //ray cone angle use for mipmapping
 	float  coneWidth;     //ray cone width at this surface point
-	int3   vertexIndices;
+	float  screenSpaceArea;
+	float  uvArea;
+	//int3   vertexIndices;
 	//int    primitive; //intersect with primitives index, -1 represents no intersection
 	bool IsHit()
 	{
@@ -168,5 +170,22 @@ struct PathVertex
 	Interaction nextISect;
 	int    found;
 };
+
+RayCone Propagate(RayCone preCone, float surfaceSpreadAngle, float hitT)
+{
+	RayCone newCone;
+	newCone.width = preCone.spreadAngle * hitT + preCone.width;
+	newCone.spreadAngle = preCone.spreadAngle + surfaceSpreadAngle;
+	return newCone;
+}
+
+RayCone ComputeRayCone(RayCone preCone, float distance, float pixelSpreadAngle)
+{
+	//RayCone rayCone;
+	//rayCone.width = preSpreadAngle * distance;
+	//rayCone.spreadAngle = lastSpreadAngle;
+	//float gamma = cameraConeSpreadAngle;
+	return Propagate(preCone, pixelSpreadAngle, distance);
+}
 
 #endif

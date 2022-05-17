@@ -10,7 +10,7 @@ uniform float2 rasterSize;
 
 Texture2D<half2>  RayConeGBuffer;
 RWTexture2D<half4> outputTexture;
-uniform float cameraConeSpreadAngle;
+//uniform float cameraConeSpreadAngle;
 uniform int    bounces;
 uniform int   queueSizeIndex;
 

@@ -46,12 +46,11 @@ public class WavefrontKernel : TracingKernel
 
     RenderTexture outputTexture;
     RenderTexture rayConeGBuffer;
-    RenderTexture rayConeLastISect;
 
     //screen is [-1,1]
-    Matrix4x4 RasterToScreen;
-    Matrix4x4 RasterToCamera;
-    Matrix4x4 WorldToRaster;
+    //Matrix4x4 RasterToScreen;
+    //Matrix4x4 RasterToCamera;
+    //Matrix4x4 WorldToRaster;
 
 
     const int MAX_PATH = 5;
@@ -63,7 +62,7 @@ public class WavefrontKernel : TracingKernel
     //image pixel filter
     Filter filter;
 
-    float cameraConeSpreadAngle = 0;
+    //float cameraConeSpreadAngle = 0;
     uint[] RayQueueSizeArray;
     GPURandomSampler[] gpuRandomSamplers = null;
 
@@ -92,7 +91,7 @@ public class WavefrontKernel : TracingKernel
 
         gpuSceneData = new GPUSceneData(data._UniformSampleLight, data._EnviromentMapEnable);
         meshRenderers = GameObject.FindObjectsOfType<MeshRenderer>();
-        gpuSceneData.Setup(meshRenderers);
+        gpuSceneData.Setup(meshRenderers, camera);
 
         gpuFilterData = new GPUFilterData();
         if (data.filterType == FilterType.Gaussian)
@@ -184,13 +183,6 @@ public class WavefrontKernel : TracingKernel
             rayConeGBuffer = null;
         }
 
-        if (rayConeLastISect != null)
-        {
-            rayConeLastISect.Release();
-            Object.Destroy(rayConeLastISect);
-            rayConeLastISect = null;
-        }
-
         ReleaseRenderTexture(imageSpectrumsBuffer);
 
         ReleaseComputeBuffer(samplerBuffer);
@@ -234,7 +226,7 @@ public class WavefrontKernel : TracingKernel
 
         int queueSizeIndex = 0;
 
-        generateRay.SetMatrix("RasterToCamera", RasterToCamera);
+        generateRay.SetMatrix("RasterToCamera", gpuSceneData.RasterToCamera);
         generateRay.SetMatrix("CameraToWorld", camera.cameraToWorldMatrix);
         generateRay.Dispatch(kGeneratePrimaryRay, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
 
@@ -349,25 +341,6 @@ public class WavefrontKernel : TracingKernel
         float rasterWidth = Screen.width;
         float rasterHeight = Screen.height;
         //init the camera parameters
-        
-        Matrix4x4 screenToRaster = new Matrix4x4();
-
-        screenToRaster = Matrix4x4.Scale(new Vector3(rasterWidth, rasterHeight, 1)) *
-            Matrix4x4.Scale(new Vector3(0.5f, 0.5f, 0.5f)) *
-            Matrix4x4.Translate(new Vector3(1, 1, 1));
-
-        RasterToScreen = screenToRaster.inverse;
-
-        float aspect = rasterWidth / rasterHeight;
-
-        Matrix4x4 cameraToScreen = camera.orthographic ? Matrix4x4.Ortho(-camera.orthographicSize * aspect, camera.orthographicSize * aspect,
-            -camera.orthographicSize, camera.orthographicSize, camera.nearClipPlane, camera.farClipPlane)
-            : Matrix4x4.Perspective(camera.fieldOfView, aspect, camera.nearClipPlane, camera.farClipPlane);
-
-        cameraConeSpreadAngle = Mathf.Atan(2.0f * Mathf.Tan(Mathf.Deg2Rad * camera.fieldOfView * 0.5f) / Screen.height);
-
-        RasterToCamera = cameraToScreen.inverse * RasterToScreen;
-        WorldToRaster = screenToRaster * cameraToScreen * camera.worldToCameraMatrix;
 
         kGeneratePrimaryRay = generateRay.FindKernel("GeneratePrimary");
 
@@ -381,11 +354,6 @@ public class WavefrontKernel : TracingKernel
             pathRadianceBuffer = new ComputeBuffer(Screen.width * Screen.height, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUPathRadiance)), ComputeBufferType.Structured);
         }
 
-        //if (pathStatesBuffer == null)
-        //{
-        //    pathStatesBuffer = new ComputeBuffer(Screen.width * Screen.height, sizeof(int), ComputeBufferType.Structured);
-        //}
-
         if (rayQueueBuffer == null)
         {
             rayQueueBuffer = new ComputeBuffer(Screen.width * Screen.height, sizeof(int), ComputeBufferType.Structured);
@@ -396,17 +364,10 @@ public class WavefrontKernel : TracingKernel
             rayQueueSizeBuffer = new ComputeBuffer(RayQueueSizeArray.Length, sizeof(uint), ComputeBufferType.Structured);
         }
 
-        //if (gpuRays == null)
-        //{
-        //    gpuRays = new GPURay[Screen.width * Screen.height];
-        //    rayBuffer.SetData(gpuRays);
-        //}
-
-        
 
         generateRay.SetBuffer(kGeneratePrimaryRay, "Rays", rayBuffer);
         generateRay.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
-        generateRay.SetMatrix("RasterToCamera", RasterToCamera);
+        generateRay.SetMatrix("RasterToCamera", gpuSceneData.RasterToCamera);
         generateRay.SetMatrix("CameraToWorld", camera.cameraToWorldMatrix);
         generateRay.SetFloat("_time", Time.time);
         generateRay.SetBuffer(kGeneratePrimaryRay, "RNGs", samplerBuffer);
@@ -432,7 +393,7 @@ public class WavefrontKernel : TracingKernel
         SetComputeBuffer(SampleShadowRay, kSampleShadowRay, "_RayQueueSizeBuffer", rayQueueSizeBuffer);
         SetComputeBuffer(SampleShadowRay, kSampleShadowRay, "_RayQueue", rayQueueBuffer);
         SampleShadowRay.SetVector("rasterSize", new Vector4(Screen.width, Screen.height, 0, 0));
-        SampleShadowRay.SetMatrix("WorldToRaster", WorldToRaster);
+        //SampleShadowRay.SetMatrix("WorldToRaster", WorldToRaster);
         SetTextures(SampleShadowRay, kSampleShadowRay);
 
         kEstimateDirect = EstimateDirect.FindKernel("CSMain");
@@ -445,7 +406,7 @@ public class WavefrontKernel : TracingKernel
         SetComputeBuffer(EstimateDirect, kEstimateDirect, "_RayQueueSizeBuffer", rayQueueSizeBuffer);
         SetComputeBuffer(EstimateDirect, kEstimateDirect, "_RayQueue", rayQueueBuffer);
         EstimateDirect.SetVector("rasterSize", new Vector4(Screen.width, Screen.height, 0, 0));
-        EstimateDirect.SetMatrix("WorldToRaster", WorldToRaster);
+        //EstimateDirect.SetMatrix("WorldToRaster", WorldToRaster);
         SetTextures(EstimateDirect, kEstimateDirect);
     }
 
@@ -501,15 +462,15 @@ public class WavefrontKernel : TracingKernel
         DebugView.SetBuffer(kDebugView, "RNGs", samplerBuffer);
         DebugView.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
         
-        DebugView.SetFloat("cameraConeSpreadAngle", cameraConeSpreadAngle);
-        DebugView.SetMatrix("WorldToRaster", WorldToRaster);
+        //DebugView.SetFloat("cameraConeSpreadAngle", cameraConeSpreadAngle);
+        //DebugView.SetMatrix("WorldToRaster", WorldToRaster);
         DebugView.SetFloat("cameraFar", camera.farClipPlane);
         SetTextures(DebugView, kDebugView);
         DebugView.SetTexture(kDebugView, "outputTexture", outputTexture);
 
         if (rayConeGBuffer == null)
         {
-            rayConeGBuffer = new RenderTexture(Screen.width, Screen.height, 0, RenderTextureFormat.RGHalf);
+            rayConeGBuffer = new RenderTexture(Screen.width, Screen.height, 0, RenderTextureFormat.ARGBHalf);
             rayConeGBuffer.name = "RayConeGBuffer";
             rayConeGBuffer.enableRandomWrite = true;
         }
@@ -531,7 +492,7 @@ public class WavefrontKernel : TracingKernel
         SetComputeBuffer(RayTravel, kRayTraversal, "_RayQueueSizeBuffer", rayQueueSizeBuffer);
         SetComputeBuffer(RayTravel, kRayTraversal, "_RayQueue", rayQueueBuffer);
         RayTravel.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
-        RayTravel.SetFloat("cameraConeSpreadAngle", cameraConeSpreadAngle);
+        //RayTravel.SetFloat("cameraConeSpreadAngle", cameraConeSpreadAngle);
         SetTextures(RayTravel, kRayTraversal);
 
         if (rayConeGBuffer == null)
@@ -541,14 +502,6 @@ public class WavefrontKernel : TracingKernel
             rayConeGBuffer.enableRandomWrite = true;
         }
         RayTravel.SetTexture(kRayTraversal, "RayConeGBuffer", rayConeGBuffer);
-
-        if (rayConeLastISect == null)
-        {
-            rayConeLastISect = new RenderTexture(Screen.width, Screen.height, 0, RenderTextureFormat.RGB111110Float);
-            rayConeLastISect.name = "RayConeLastISect";
-            rayConeLastISect.enableRandomWrite = true;
-        }
-        RayTravel.SetTexture(kRayTraversal, "LastISectRayCone", rayConeLastISect);
         //RayTravel.SetTexture(kRayTraversal, "outputTexture", outputTexture);
     }
 }

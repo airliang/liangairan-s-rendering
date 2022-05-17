@@ -19,9 +19,9 @@ public class MegaKernel : TracingKernel
     ComputeBuffer samplerBuffer;
 
     //screen is [-1,1]
-    Matrix4x4 RasterToScreen;
-    Matrix4x4 RasterToCamera;
-    Matrix4x4 WorldToRaster;
+    //Matrix4x4 RasterToScreen;
+    //Matrix4x4 RasterToCamera;
+    //Matrix4x4 WorldToRaster;
 
     private MeshRenderer[] meshRenderers = null;
 
@@ -31,7 +31,7 @@ public class MegaKernel : TracingKernel
     //int samplesPerPixel = 128;
 
     int framesNum = 0;
-    float cameraConeSpreadAngle = 0;
+    //float cameraConeSpreadAngle = 0;
 
     public MegaKernel(MegaKernelResource resource)
     {
@@ -110,7 +110,7 @@ public class MegaKernel : TracingKernel
 
         gpuSceneData = new GPUSceneData(data._UniformSampleLight, data._EnviromentMapEnable);
         meshRenderers = GameObject.FindObjectsOfType<MeshRenderer>();
-        gpuSceneData.Setup(meshRenderers);
+        gpuSceneData.Setup(meshRenderers, camera);
 
         gpuFilterData = new GPUFilterData();
         Filter filter = null;
@@ -134,7 +134,7 @@ public class MegaKernel : TracingKernel
         //_InitSampler.Dispatch(_InitSamplerKernel, (int)Screen.width / 8 + 1, (int)Screen.height / 8 + 1, 1);
 
         RenderToGBuffer(camera);
-        _MegaCompute.SetMatrix("RasterToCamera", RasterToCamera);
+        _MegaCompute.SetMatrix("RasterToCamera", gpuSceneData.RasterToCamera);
         _MegaCompute.SetMatrix("CameraToWorld", camera.cameraToWorldMatrix);
         _MegaCompute.SetInt("framesNum", ++framesNum);
         _MegaCompute.Dispatch(_MegaComputeKernel, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
@@ -147,7 +147,7 @@ public class MegaKernel : TracingKernel
 
         if (rayConeGBuffer == null)
         {
-            rayConeGBuffer = new RenderTexture(Screen.width, Screen.height, 0, RenderTextureFormat.RGHalf);
+            rayConeGBuffer = new RenderTexture(Screen.width, Screen.height, 0, RenderTextureFormat.ARGBHalf);
             rayConeGBuffer.name = "RayConeGBuffer";
             rayConeGBuffer.enableRandomWrite = true;
         }
@@ -188,26 +188,6 @@ public class MegaKernel : TracingKernel
     {
         float rasterWidth = Screen.width;
         float rasterHeight = Screen.height;
-        //init the camera parameters
-
-        Matrix4x4 screenToRaster = new Matrix4x4();
-
-        screenToRaster = Matrix4x4.Scale(new Vector3(rasterWidth, rasterHeight, 1)) *
-                         Matrix4x4.Scale(new Vector3(0.5f, 0.5f, 0.5f)) *
-                         Matrix4x4.Translate(new Vector3(1, 1, 1));
-
-        RasterToScreen = screenToRaster.inverse;
-
-        float aspect = rasterWidth / rasterHeight;
-
-        Matrix4x4 cameraToScreen = camera.orthographic ? Matrix4x4.Ortho(-camera.orthographicSize * aspect, camera.orthographicSize * aspect,
-                -camera.orthographicSize, camera.orthographicSize, camera.nearClipPlane, camera.farClipPlane)
-            : Matrix4x4.Perspective(camera.fieldOfView, aspect, camera.nearClipPlane, camera.farClipPlane);
-
-        cameraConeSpreadAngle = Mathf.Atan(2.0f * Mathf.Tan(Mathf.Deg2Rad * camera.fieldOfView * 0.5f) / Screen.height);
-
-        RasterToCamera = cameraToScreen.inverse * RasterToScreen;
-        WorldToRaster = screenToRaster * cameraToScreen * camera.worldToCameraMatrix;
 
         if (samplerBuffer == null)
         {
@@ -225,9 +205,9 @@ public class MegaKernel : TracingKernel
         gpuFilterData.SetComputeShaderGPUData(_MegaCompute, _MegaComputeKernel);
 
         _MegaCompute.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
-        _MegaCompute.SetMatrix("RasterToCamera", RasterToCamera);
+        //_MegaCompute.SetMatrix("RasterToCamera", RasterToCamera);
         _MegaCompute.SetMatrix("CameraToWorld", camera.cameraToWorldMatrix);
-        _MegaCompute.SetFloat("cameraConeSpreadAngle", cameraConeSpreadAngle);
+        //_MegaCompute.SetFloat("cameraConeSpreadAngle", cameraConeSpreadAngle);
         _MegaCompute.SetInt("debugView", (int)_rayTracingData.viewMode);
         _MegaCompute.SetFloat("cameraFar", camera.farClipPlane);
 

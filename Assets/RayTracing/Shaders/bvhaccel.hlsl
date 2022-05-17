@@ -364,7 +364,7 @@ bool IntersectBVHandTriangles(Ray ray, int bvhOffset, out Interaction interactio
 					interaction.normal.xyz = normalize(normal0 * uv.x + normal1 * uv.y + normal2 * (1.0 - uv.x - uv.y));
 					interaction.p = hitPos;
 					interaction.uv = uv0 * uv.x + uv1 * uv.y + uv2 * (1.0 - uv.x - uv.y);
-					interaction.vertexIndices = int3(vertexIndex0, vertexIndex1, vertexIndex2);
+					//interaction.vertexIndices = int3(vertexIndex0, vertexIndex1, vertexIndex2);
 				}
 			} // triangle
 
@@ -564,7 +564,7 @@ bool IntersectMeshBVH(Ray ray, int bvhOffset, float4x4 objectToWorld, float4x4 w
 					//}
 					//计算法线
 					//change into worldnormal
-					interaction.vertexIndices = int3(vertexIndex0, vertexIndex1, vertexIndex2);
+					//interaction.vertexIndices = int3(vertexIndex0, vertexIndex1, vertexIndex2);
 					interaction.normal.xyz = worldNormal;
 					interaction.p.xyz = hitPos.xyz;//offset_ray(hitPos.xyz, worldNormal);
 					interaction.hitT = hitT;
@@ -579,6 +579,15 @@ bool IntersectMeshBVH(Ray ray, int bvhOffset, float4x4 objectToWorld, float4x4 w
 					interaction.bitangent.xyz = normalize(cross(interaction.tangent.xyz, worldNormal));
 					interaction.primArea = triAreaInWorld;
 					interaction.triangleIndex = triangleIndex;
+					interaction.uvArea = length(cross(float3(uv2, 1) - float3(uv0, 1), float3(uv1, 1) - float3(uv0, 1)));
+
+					float4 v0Screen = mul(WorldToRaster, float4(p0, 1));
+					float4 v1Screen = mul(WorldToRaster, float4(p1, 1));
+					float4 v2Screen = mul(WorldToRaster, float4(p2, 1));
+					v0Screen /= v0Screen.w;
+					v1Screen /= v1Screen.w;
+					v2Screen /= v2Screen.w;
+					interaction.screenSpaceArea = length(cross(v2Screen.xyz - v0Screen.xyz, v1Screen.xyz - v0Screen.xyz));
 					//计算切线
 					/*
 					float3 dp02 = v0.xyz - v2.xyz;

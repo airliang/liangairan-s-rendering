@@ -22,6 +22,10 @@ cbuffer cb
 	uniform int instBVHAddr;
 	uniform int bvhNodesNum;
 	uniform float worldRadius;
+	uniform float cameraConeSpreadAngle;
+	uniform matrix RasterToCamera;
+	uniform matrix CameraToWorld;
+	uniform matrix WorldToRaster;
 };
 
 #endif

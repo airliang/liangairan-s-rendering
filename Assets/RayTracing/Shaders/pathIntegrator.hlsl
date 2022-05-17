@@ -8,26 +8,11 @@
 #include "materials.hlsl"
 
 RWStructuredBuffer<Interaction>       Intersections;
-Texture2D<half2>  RayConeGBuffer;
-float cameraConeSpreadAngle;
+RWTexture2D<half4>  RayConeGBuffer;
+//RWTexture2D<float3> LastISectRayCone;
+//float cameraConeSpreadAngle;
 
 
-RayCone Propagate(RayCone cone, float surfaceSpreadAngle, float hitT)
-{
-    RayCone newCone;
-    newCone.width = cone.spreadAngle * hitT + cone.width;
-    newCone.spreadAngle = cone.spreadAngle + surfaceSpreadAngle;
-    return newCone;
-}
-
-RayCone ComputeRayCone(Interaction lastisect, float distance, float pixelSpreadAngle)
-{
-    RayCone rayCone;
-    rayCone.width = lastisect.spreadAngle * lastisect.hitT;
-    rayCone.spreadAngle = lastisect.spreadAngle;
-    //float gamma = cameraConeSpreadAngle;
-    return Propagate(rayCone, pixelSpreadAngle, distance);
-}
 
 float3 MIS_ShadowRay(Light light, Interaction isect, Material material, float lightSourcePdf, inout RNG rng)
 {
@@ -194,18 +179,21 @@ float3 PathLi(Ray ray, uint2 id, inout RNG rng)
             int lightIndex = meshInstance.GetLightIndex();
 
 
-            half2 surfaceBeta = RayConeGBuffer[id.xy];
+            half4 surfaceBeta = RayConeGBuffer[id.xy];
+            RayCone preCone;
+            preCone.width = surfaceBeta.z;
+            preCone.spreadAngle = surfaceBeta.y;
             if (bounces == 0)
             {
                 //half2 surfaceBeta = RayConeGBuffer[id.xy];
-                isect.spreadAngle = cameraConeSpreadAngle;
+                //isect.spreadAngle = cameraConeSpreadAngle;
+                surfaceBeta.y = cameraConeSpreadAngle + surfaceBeta.x;
                 isect.coneWidth = cameraConeSpreadAngle * isect.hitT;
             }
             else
             {
-                half2 surfaceBeta = RayConeGBuffer[id.xy];
-                RayCone rayCone = ComputeRayCone(isectLast, isect.hitT, surfaceBeta.r);
-                isect.spreadAngle = rayCone.spreadAngle;
+                RayCone rayCone = ComputeRayCone(preCone, isect.hitT, surfaceBeta.r);
+                //isect.spreadAngle = rayCone.spreadAngle;
                 isect.coneWidth = rayCone.width;
             }
 

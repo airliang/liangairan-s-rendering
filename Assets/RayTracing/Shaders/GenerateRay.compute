@@ -41,7 +41,7 @@ void GeneratePrimary(uint3 id : SV_DispatchThreadID)
     RNG rng = GetRNG(threadId);
     float2 u = Get2D(rng);
     
-    CameraSample cSample = GetCameraSample(float2(id.x, id.y), u); //rs.GetCameraSample(float2(id.x, id.y), _time);
+    CameraSample cSample = GetCameraSample(float2(id.x, id.y), u); 
     float3 pFilm = float3(cSample.pFilm, 0);
     float4 nearplanePoint = mul(RasterToCamera, float4(pFilm, 1));
     nearplanePoint /= nearplanePoint.w;

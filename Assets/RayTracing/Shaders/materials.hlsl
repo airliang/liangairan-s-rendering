@@ -25,7 +25,7 @@
 #define GET_TEXTUREARRAY_ID(x) (((x) & 0x0000ff00) >> 8)
 #define GET_TEXTUREARRAY_INDEX(x) ((x) & 0x000000ff)
 
-uniform matrix WorldToRaster;
+
 
 //Texture2DArray albedoTexArray128;
 //Texture2DArray albedoTexArray256;
@@ -56,6 +56,7 @@ float4 SampleGlossySpecularTexture(float2 uv, int texIndex, float mipmapLevel)
 
 float GetTriangleLODConstant(Interaction isect)
 {
+	/*
 	Vertex vertex0 = Vertices[isect.vertexIndices.x];
 	Vertex vertex1 = Vertices[isect.vertexIndices.y];
 	Vertex vertex2 = Vertices[isect.vertexIndices.z];
@@ -84,6 +85,10 @@ float GetTriangleLODConstant(Interaction isect)
 
 	float P_a = length(cross(v2Screen.xyz - v0Screen.xyz, v1Screen.xyz - v0Screen.xyz)); //ComputeTriangleArea(); // Eq. 5
 	float T_a = 512 * 512 * length(cross(float3(uv2, 1) - float3(uv0, 1), float3(uv1, 1) - float3(uv0, 1))); //ComputeTextureCoordsArea(); // Eq. 4
+	return 0.5 * max(log2(T_a / P_a), 0); // Eq. 3
+	*/
+	float P_a = isect.screenSpaceArea;     // Eq. 5
+	float T_a = isect.uvArea * 512 * 512;  // Eq. 4
 	return 0.5 * max(log2(T_a / P_a), 0); // Eq. 3
 }
 

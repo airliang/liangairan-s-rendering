@@ -139,6 +139,11 @@ public class GPUSceneData
     bool _uniformSampleLight = false;
     bool _envmapEnable = true;
 
+    public Matrix4x4 RasterToScreen;
+    public Matrix4x4 RasterToCamera;
+    public Matrix4x4 WorldToRaster;
+    public float cameraConeSpreadAngle = 0;
+
     public int InstanceBVHNodeAddr
     {
         get
@@ -151,6 +156,11 @@ public class GPUSceneData
     {
         _uniformSampleLight = uniformSampleLight;
         _envmapEnable = envmapEnable;
+    }
+
+    public void Update(Camera camera)
+    {
+
     }
 
     private void SetupSceneData(MeshRenderer[] meshRenderers)
@@ -522,15 +532,42 @@ public class GPUSceneData
         }
     }
 
-    public void Setup(MeshRenderer[] meshRenderers)
+    private void SetupSceneCamera(Camera camera)
+    {
+        float rasterWidth = Screen.width;
+        float rasterHeight = Screen.height;
+        //init the camera parameters
+
+        Matrix4x4 screenToRaster = new Matrix4x4();
+
+        screenToRaster = Matrix4x4.Scale(new Vector3(rasterWidth, rasterHeight, 1)) *
+            Matrix4x4.Scale(new Vector3(0.5f, 0.5f, 0.5f)) *
+            Matrix4x4.Translate(new Vector3(1, 1, 1));
+
+        RasterToScreen = screenToRaster.inverse;
+
+        float aspect = rasterWidth / rasterHeight;
+
+        Matrix4x4 cameraToScreen = camera.orthographic ? Matrix4x4.Ortho(-camera.orthographicSize * aspect, camera.orthographicSize * aspect,
+            -camera.orthographicSize, camera.orthographicSize, camera.nearClipPlane, camera.farClipPlane)
+            : Matrix4x4.Perspective(camera.fieldOfView, aspect, camera.nearClipPlane, camera.farClipPlane);
+
+        cameraConeSpreadAngle = Mathf.Atan(2.0f * Mathf.Tan(Mathf.Deg2Rad * camera.fieldOfView * 0.5f) / Screen.height);
+
+        RasterToCamera = cameraToScreen.inverse * RasterToScreen;
+        WorldToRaster = screenToRaster * cameraToScreen * camera.worldToCameraMatrix;
+    }
+
+    public void Setup(MeshRenderer[] meshRenderers, Camera camera)
     {
         //MeshRenderer[] meshRenderers = GameObject.FindObjectsOfType<MeshRenderer>();
         //worldMatrices = new Matrix4x4[shapes.Length];
         if (meshRenderers.Length == 0)
             return;
 
-
         SetupSceneData(meshRenderers);
+
+        SetupSceneCamera(camera);
 
         SetupDistributions();
     }
@@ -685,6 +722,10 @@ public class GPUSceneData
         }
         cs.SetInt("_EnvLightIndex", envLightIndex);
         cs.SetBool("_UniformSampleLight", _uniformSampleLight);
+
+        cs.SetMatrix("WorldToRaster", WorldToRaster);
+        cs.SetMatrix("RasterToCamera", RasterToCamera);
+        cs.SetFloat("cameraConeSpreadAngle", cameraConeSpreadAngle);
     }
 
     public void Release()
