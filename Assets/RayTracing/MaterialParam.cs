@@ -38,6 +38,7 @@ public class MaterialParam
     //public Texture2D SpecularGlossMap;
     public Texture2D MetallicGlossMap;
     public Color GlossySpecularColor = Color.white;
+    public float fresnelType;
 
     //disney params
     public struct DisneyParam
@@ -109,6 +110,7 @@ public class MaterialParam
                 materialParam.Eta = material.GetVector("_eta");
                 materialParam.K = material.GetVector("_k");
             }
+            materialParam.fresnelType = material.GetFloat("_FresnelType");
         }
         else
         {

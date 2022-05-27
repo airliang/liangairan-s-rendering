@@ -54,13 +54,6 @@ struct ShadowRay
 	float  lightIndex; 
 };
 
-struct BSDFSample
-{
-	float3 direction;
-	float  weight;
-	float  pdf;
-};
-
 
 
 struct AreaLight

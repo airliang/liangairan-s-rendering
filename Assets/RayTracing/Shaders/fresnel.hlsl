@@ -1,17 +1,11 @@
 ﻿#ifndef FRESNEL_HLSL
 #define FRESNEL_HLSL
 
-#define FresnelSchlick 0
-#define FresnelDielectric 1
-#define FresnelConductor 2
 
-struct FresnelData
-{
-    int fresnelType;
-    float3 etaI;
-    float3 etaT;
-    float3 k;    //just for conductor
-};
+#define FresnelDielectric 0
+#define FresnelConductor 1
+#define FresnelSchlick 2
+#define FresnelConst 3
 
 inline float SchlickWeight(float cosTheta) {
     float m = clamp(1 - cosTheta, 0, 1);
@@ -77,6 +71,36 @@ float3 FrConductor(float cosThetaI, float3 etai, float3 etat, float3 k) {
 
     return (Rp + Rs) * 0.5;
 }
+
+struct FresnelData
+{
+    int fresnelType;
+    float3 etaI;
+    float3 etaT;
+    float3 K;    //just for conductor
+    float3 R;
+
+    float3 Evaluate(float cosThetaI)
+    {
+        if (fresnelType == FresnelSchlick)
+        {
+            return FrSchlick(R, cosThetaI);
+        }
+        else if (fresnelType == FresnelDielectric)
+        {
+            return FrDielectric(cosThetaI, etaI, etaT);
+        }
+        else if (fresnelType == FresnelConductor)
+        {
+            return FrConductor(cosThetaI, etaI, etaT, K);
+        }
+        else
+        {
+            return 1;
+        }
+    }
+};
+
 
 #endif
 

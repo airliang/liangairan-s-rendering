@@ -13,7 +13,9 @@ Shader "RayTracing/Uber"
         _roughnessV("RoughnessU", Range(0.0, 1.0)) = 0
         _eta("Eta", Vector) = (1, 1, 1, 1)
         _k("Metal Absorption", Vector) = (1, 1, 1, 1)
+            _t("Transmission", Vector) = (1, 1, 1, 1)
         _Cutoff("Alpha Cutoff", Range(0.0, 1.0)) = 0
+        [KeywordEnum(Dielectric, Conductor, Schlick, NoOp)] _FresnelType("Fresnel Type(Dielectric, Conductor, Schlick, NoOp)", float) = 0
     }
     SubShader
     {
@@ -64,6 +66,7 @@ Shader "RayTracing/Uber"
             float3 _eta;
             float3 _k;   //metal absorption
             half _Cutoff;
+            int _FresnelType;
 
             v2f vert (appdata v)
             {

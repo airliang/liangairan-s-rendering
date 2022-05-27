@@ -52,6 +52,7 @@ struct Material
 	float albedoMapMask;
 	float normalMapMask;
 	float metallicMapMask;
+	float fresnelType;
 };
 
 struct DisneyMaterial
@@ -108,6 +109,7 @@ struct ShadingMaterial
 	float  roughness;
 	float  roughnessV;
 	float3  eta;
+	float  fresnelType;
 };
 
 struct DistributionDiscript

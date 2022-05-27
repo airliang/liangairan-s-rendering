@@ -4,8 +4,41 @@
 #include "geometry.hlsl"
 #include "fresnel.hlsl"
 
+#define BXDF_REFLECTION 1
+#define BXDF_TRANSMISSION 1 << 1
+#define BXDF_DIFFUSE 1 << 2
+#define BXDF_SPECULAR 1 << 3
+
+struct BSDFSample
+{
+    float3 reflectance;
+    float3 wi;   //in local space (z up space)
+    float  pdf;
+    float  eta;
+    int    bxdfFlag;
+
+    bool IsSpecular()
+    {
+        return (bxdfFlag & BXDF_SPECULAR) > 0;
+    }
+};
+
 float3 Reflect(float3 wo, float3 n) {
     return -wo + 2 * dot(wo, n) * n;
+}
+
+bool Refract(float3 wi, float3 n, float eta, out float3 wt)
+{
+    float cosThetaI = dot(n, wi);
+    float sin2ThetaI = max(0, Float(1 - cosThetaI * cosThetaI));
+    float sin2ThetaT = eta * eta * sin2ThetaI;
+
+    // Handle total internal reflection for transmission
+    if (sin2ThetaT >= 1) 
+        return false;
+    float cosThetaT = sqrt(1.0 - sin2ThetaT);
+    wt = eta * -wi + (eta * cosThetaI - cosThetaT) * n;
+    return true;
 }
 
 float3 LambertBRDF(float3 wi, float3 wo, float3 R)
@@ -115,27 +148,31 @@ struct BxDFPlastic
         return SampleTrowbridgeReitzDistributionVector(wo, u, alphax, alphay);
     }
 
-    float3 Sample_F(float2 u, float3 wo, out float3 wi, out float pdf)
+    BSDFSample Sample_F(float2 u, float3 wo)
     {
+        BSDFSample bsdfSample = (BSDFSample)0;
+        bsdfSample.bxdfFlag = BXDF_REFLECTION;
         if (wo.z == 0)
-            return float3(0, 0, 0);
+            return bsdfSample;
 
         float3 wh = Sample_wh(u, wo);
         wh = normalize(wh);
         if (dot(wo, wh) < 0)
-            return float3(0, 0, 0);
+            return bsdfSample;
 
-        wi = reflect(-wo, wh);
+        float3 wi = reflect(-wo, wh);
+        bsdfSample.wi = wi;
         if (!SameHemisphere(wo, wi))
-            return float3(0, 0, 0);
+            return bsdfSample;
 
         float D = TrowbridgeReitzD(wh, alphax, alphay);
 
-        pdf = MicrofacetPdf(D, wh) / (4 * dot(wo, wh));
+        bsdfSample.pdf = MicrofacetPdf(D, wh) / (4 * dot(wo, wh));
         float cosThetaI = AbsCosTheta(wi);
         float cosThetaO = AbsCosTheta(wo);
         float3 F = FrDielectric(cosThetaI, etaI, etaT);
-        return R * D * MicrofacetG(wo, wi, alphax, alphay) * F * 0.25 / (cosThetaI * cosThetaO);
+        bsdfSample.reflectance = R * D * MicrofacetG(wo, wi, alphax, alphay) * F * 0.25 / (cosThetaI * cosThetaO);
+        return bsdfSample;
     }
 
     float Pdf(float3 wo, float3 wi)
@@ -187,30 +224,34 @@ struct BxDFMetal
         return SampleTrowbridgeReitzDistributionVector(wo, u, alphax, alphay);
     }
 
-    float3 Sample_F(float2 u, float3 wo, out float3 wi, out float pdf)
+    BSDFSample Sample_F(float2 u, float3 wo)
     {
+        BSDFSample bsdfSample = (BSDFSample)0;
+        bsdfSample.bxdfFlag = BXDF_REFLECTION;
         if (wo.z == 0)
-            return float3(0, 0, 0);
+            return bsdfSample;
 
         float3 wh = Sample_wh(u, wo);
         wh = normalize(wh);
         if (dot(wo, wh) < 0)
-            return float3(0, 0, 0);
+            return bsdfSample;
 
-        wi = normalize(reflect(-wo, wh));
+        float3 wi = normalize(reflect(-wo, wh));
+        bsdfSample.wi = wi;
         if (!SameHemisphere(wo, wi))
-            return float3(0, 0, 0);
+            return bsdfSample;
 
         float D = TrowbridgeReitzD(wh, alphax, alphay);
 
-        pdf = MicrofacetPdf(D, wh) * 0.25 / (dot(wo, wh));
+        bsdfSample.pdf = MicrofacetPdf(D, wh) * 0.25 / (dot(wo, wh));
         float cosThetaI = AbsCosTheta(wi);
         float cosThetaO = AbsCosTheta(wo);
         //etaI = float3(1, 1, 1);
         //etaT = float3(0, 0, 0);
         //K = 0; // float3(3.9747, 2.38, 1.5998);
         float3 Fresnel = FrConductor(abs(dot(wi, Faceforward(wh, float3(0, 0, 1)))), etaI, etaT, K);
-        return R * D * MicrofacetG(wo, wi, alphax, alphay) * Fresnel / (4 * cosThetaI * cosThetaO);
+        bsdfSample.reflectance = R * D * MicrofacetG(wo, wi, alphax, alphay) * Fresnel / (4 * cosThetaI * cosThetaO);
+        return bsdfSample;
     }
 
     float Pdf(float3 wo, float3 wi)
@@ -252,11 +293,93 @@ struct BxDFMetal
     }
 };
 
+struct BxDFSpecularReflection
+{
+    FresnelData fresnel;
+    float3 R;
+
+    BSDFSample Sample_F(float2 u, float3 wo)
+    {
+        BSDFSample bsdfSample = (BSDFSample)0;
+        bsdfSample.bxdfFlag = BXDF_REFLECTION | BXDF_SPECULAR;
+        float3 wi = float3(-wo.x, -wo.y, wo.z);
+        bsdfSample.wi = wi;
+        bsdfSample.pdf = 1;
+        float3 fr = fresnel.Evaluate(wi.z);
+        bsdfSample.reflectance = fr * R / AbsCosTheta(wi);
+        return bsdfSample;
+    }
+
+    float Pdf(float3 wo, float3 wi)
+    {
+        return 0;
+    }
+
+    float3 F(float3 wo, float3 wi, out float pdf)
+    {
+        pdf = 0;
+        return 0;
+    }
+
+    float3 Fresnel(float3 wo, float3 wi)
+    {
+        return fresnel.Evaluate(wi.z);
+    }
+};
+
+struct BxDFSpecularTransmission
+{
+    FresnelData fresnel;
+    float eta;
+    float3 T;
+
+    BSDFSample Sample_F(float2 u, float3 wo)
+    {
+        BSDFSample bsdfSample = (BSDFSample)0;
+        bsdfSample.bxdfFlag = BXDF_TRANSMISSION | BXDF_SPECULAR;
+        bool entering = CosTheta(wo) > 0;
+        float etaI = entering ? 1 : eta;
+        float etaT = entering ? eta : 1;
+
+        // Compute ray direction for specular transmission
+        float3 wi;
+        bool bValid = Refract(wo, Faceforward(float3(0, 0, 1), wo), etaI / etaT, wi);
+        bsdfSample.wi = wi;
+        if (!bValid)
+            return bsdfSample;
+        bsdfSample.pdf = 1;
+        float3 ft = T * (1 - fresnel.Evaluate(CosTheta(wi)));
+        // Account for non-symmetry with transmission to different medium
+        //if (mode == TransportMode::Radiance) ft *= (etaI * etaI) / (etaT * etaT);
+        bsdfSample.reflectance = ft / AbsCosTheta(wi);
+        return bsdfSample;
+    }
+
+    float Pdf(float3 wo, float3 wi)
+    {
+        return 0;
+    }
+
+    float3 F(float3 wo, float3 wi, out float pdf)
+    {
+        pdf = 0;
+        return 0;
+    }
+};
+
 struct BxDFMicrofacetTransmission
 {
+    FresnelData fresnel;
+    float alphax;
+    float alphay;
     float etaA;
     float etaB;
     float3 T;
+
+    float3 Sample_wh(float2 u, float3 wo)
+    {
+        return SampleTrowbridgeReitzDistributionVector(wo, u, alphax, alphay);
+    }
 };
 
 struct BxDFLambertReflection
@@ -268,13 +391,17 @@ struct BxDFLambertReflection
         return CosineSampleHemisphere(u);
     }
 
-    float3 Sample_F(float2 u, float3 wo, out float3 wi, out float pdf)
+    BSDFSample Sample_F(float2 u, float3 wo)
     {
-        wi = CosineSampleHemisphere(u);
+        BSDFSample bsdfSample = (BSDFSample)0;
+        bsdfSample.bxdfFlag = BXDF_DIFFUSE | BXDF_REFLECTION;
+        float3 wi = CosineSampleHemisphere(u);
         if (wo.z < 0)
             wi.z *= -1;
-        pdf = LambertPDF(wi, wo);
-        return LambertBRDF(wi, wo, R);
+        bsdfSample.wi = wi;
+        bsdfSample.pdf = LambertPDF(wi, wo);
+        bsdfSample.reflectance = LambertBRDF(wi, wo, R);
+        return bsdfSample;
     }
 
     float Pdf(float3 wo, float3 wi)
@@ -288,70 +415,68 @@ struct BxDFLambertReflection
     }
 };
 
-struct BxDFSpecularReflection
+struct BxDFFresnelSpecular
 {
     float3 R;
-};
-
-struct BxDFSpecularTransmission
-{
-    float  etaA;
-    float  etaB;
     float3 T;
-    FresnelData fresnel;
+    float eta;
+
+    BSDFSample Sample_F(float2 u, float3 wo)
+    {
+        BSDFSample bsdfSample = (BSDFSample)0;
+        bsdfSample.bxdfFlag = BXDF_REFLECTION | BXDF_TRANSMISSION | BXDF_SPECULAR;
+        float F = FrDielectric(CosTheta(wo), 1, eta);
+        float pdf = 0;
+        if (u[0] < F) {
+            // Compute specular reflection for _FresnelSpecular_
+
+            // Compute perfect specular reflection direction
+            float3 wi = float3(-wo.x, -wo.y, wo.z);
+            //if (sampledType)
+            //    *sampledType = BxDFType(BSDF_SPECULAR | BSDF_REFLECTION);
+            bsdfSample.pdf = F;
+            bsdfSample.reflectance = F * R / AbsCosTheta(wi);
+            bsdfSample.wi = wi;
+            return bsdfSample;
+        }
+        else {
+            // Compute specular transmission for _FresnelSpecular_
+
+            // Figure out which $\eta$ is incident and which is transmitted
+            bool entering = CosTheta(wo) > 0;
+            float etaI = entering ? 1 : eta;
+            float etaT = entering ? eta : 1;
+
+            // Compute ray direction for specular transmission
+            float3 wi;
+            bool bValid = Refract(wo, Faceforward(float3(0, 0, 1), wo), etaI / etaT, wi);
+            bsdfSample.wi = wi;
+            if (!bValid)
+                return bsdfSample;
+            float3 ft = T * (1 - F);
+
+            // Account for non-symmetry with transmission to different medium
+            //if (mode == TransportMode::Radiance)
+                ft *= (etaI * etaI) / (etaT * etaT);
+            //if (sampledType)
+            //    *sampledType = BxDFType(BSDF_SPECULAR | BSDF_TRANSMISSION);
+            bsdfSample.pdf = 1 - F;
+            bsdfSample.reflectance = ft / AbsCosTheta(wi);
+            return bsdfSample;
+        }
+    }
+
+    float Pdf(float3 wo, float3 wi)
+    {
+        return 0;
+    }
+
+    float3 F(float3 wo, float3 wi, out float pdf)
+    {
+        pdf = 0;
+        return 0;
+    }
 };
 
 
-/*
-float3 MicrofacetReflectionF(float3 wo, float3 wi, BxDFMicrofacetReflection bxdf, out float pdf)
-{
-    float cosThetaO = AbsCosTheta(wo);
-    float cosThetaI = AbsCosTheta(wi);
-    float3 wh = wi + wo;
-    pdf = 0;
-    // Handle degenerate cases for microfacet reflection
-    if (cosThetaI == 0 || cosThetaO == 0) 
-        return float3(0, 0, 0);
-    if (wh.x == 0 && wh.y == 0 && wh.z == 0) 
-        return float3(0, 0, 0);
-    wh = normalize(wh);
-    // For the Fresnel call, make sure that wh is in the same hemisphere
-    // as the surface normal, so that TIR is handled correctly.
-    //float3 F = bxdf.fresnel.fresnelType == FresnelDielectric ? FrDielectric(dot(wi, Faceforward(wh, float3(0, 0, 1))), bxdf.fresnel.etaI.x, bxdf.fresnel.etaT.x)
-    //   : FrConductor(dot(wi, Faceforward(wh, float3(0, 0, 1))), bxdf.fresnel.etaI, bxdf.fresnel.etaT, bxdf.fresnel.k);
-    float3 F = FrSchlick(bxdf.R, dot(wo, wh));
-    float D = TrowbridgeReitzD(wh, bxdf.alphax, bxdf.alphay);
-    pdf = MicrofacetPdf(D, wh) / (4.0 * dot(wo, wh));
-
-    return bxdf.R * D * MicrofacetG(wo, wi, bxdf.alphax, bxdf.alphay) * F /
-        (4 * cosThetaI * cosThetaO);
-}
-
-
-
-float3 SampleMicrofacetReflectionF(BxDFMicrofacetReflection bxdf, float2 u, float3 wo, out float3 wi, out float pdf)
-{
-    if (wo.z == 0)
-        return float3(0, 0, 0);
-
-    float3 wh = SampleTrowbridgeReitzDistributionVector(wo, u, bxdf.alphax, bxdf.alphay);
-    wh = normalize(wh);
-    if (dot(wo, wh) < 0)
-        return float3(0, 0, 0);
-
-    wi = reflect(-wo, wh);
-    if (!SameHemisphere(wo, wi))
-        return float3(0, 0, 0);
-
-    float D = TrowbridgeReitzD(wh, bxdf.alphax, bxdf.alphay);
-
-    pdf = MicrofacetPdf(D, wh) / (4 * dot(wo, wh));
-    float cosThetaI = AbsCosTheta(wi);
-    float cosThetaO = AbsCosTheta(wo);
-    //float3 F = bxdf.fresnel.fresnelType == FresnelDielectric ? FrDielectric(cosThetaI, bxdf.fresnel.etaI.x, bxdf.fresnel.etaT.x)
-    //     : FrConductor(cosThetaI, bxdf.fresnel.etaI, bxdf.fresnel.etaT, bxdf.fresnel.k);
-    float3 F = FrSchlick(bxdf.R, dot(wo, wh));
-    return bxdf.R * D * MicrofacetG(wo, wi, bxdf.alphax, bxdf.alphay) * F * 0.25 / (cosThetaI * cosThetaO);
-}
-*/
 #endif

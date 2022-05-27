@@ -15,11 +15,22 @@ public class BSDFShaderGUI : ShaderGUI
         Mirror,
         Glass,
     }
+
+    public enum BSDFFresnel
+    {
+        Dielectric,
+        Conductor,
+        Schlick,
+        NoOp,
+    }
+
     private static class Styles
     {
         public static string materialType = "Material Type";
+        public static string fresnelType = "Fresnel Type";
 
         public static readonly string[] materialNames = Enum.GetNames(typeof(BSDFMaterial));
+        public static readonly string[] fresnelNames = Enum.GetNames(typeof(BSDFFresnel));
 
         public static GUIContent albedoText = new GUIContent("Albedo", "Albedo (RGB) and Transparency (A)");
         public static GUIContent tilingText = new GUIContent("Tiling", "Tiling");
@@ -36,6 +47,7 @@ public class BSDFShaderGUI : ShaderGUI
         public static GUIContent metallicAbsorptionText = new GUIContent("Metallic K", "Metallic");
 
         public static GUIContent materialTypeText = new GUIContent("Material choose", "matte, plastic, metal, glass");
+        public static GUIContent fresnelTypeText = new GUIContent("Fresnel choose", "Dielectric, Conductor, Schlick");
 
         public static string surfaceProperties = "Surface Properties";
         public static string function = "Function";
@@ -66,6 +78,8 @@ public class BSDFShaderGUI : ShaderGUI
     private MaterialProperty eta;
     private MaterialProperty k;
 
+    private MaterialProperty fresnelTypeProp { get; set; }
+
     //private MaterialProperty staticBatch;
 
     private bool m_FirstTimeApply = true;
@@ -93,6 +107,7 @@ public class BSDFShaderGUI : ShaderGUI
         roughnessV = FindProperty("_roughnessV", properties);
         eta = FindProperty("_eta", properties);
         k = FindProperty("_k", properties);
+        fresnelTypeProp = FindProperty("_FresnelType", properties);
     }
 
     public override void AssignNewShaderToMaterial(Material material, Shader oldShader, Shader newShader)
@@ -163,6 +178,7 @@ public class BSDFShaderGUI : ShaderGUI
                 materialEditor.ShaderProperty(roughnessV, Styles.roughnessVText);
                 materialEditor.ShaderProperty(eta, Styles.etaText);
                 materialEditor.ShaderProperty(k, Styles.metallicAbsorptionText);
+                fresnelTypeProp.floatValue = (float)BSDFFresnel.Conductor;
             }
             else if (materialTypeProp.floatValue == (float)BSDFMaterial.Plastic)
             {
@@ -170,9 +186,17 @@ public class BSDFShaderGUI : ShaderGUI
                 EditorGUILayout.Space();
                 materialEditor.ShaderProperty(roughnessU, Styles.roughnessUText);
                 materialEditor.ShaderProperty(roughnessV, Styles.roughnessVText);
+                fresnelTypeProp.floatValue = (float)BSDFFresnel.Dielectric;
+            }
+            else if (materialTypeProp.floatValue == (float)BSDFMaterial.Mirror)
+            {
+                fresnelTypeProp.floatValue = (float)BSDFFresnel.NoOp;
             }
 
             EditorGUILayout.Space();
+
+
+            DoPopup(Styles.fresnelType, fresnelTypeProp, Styles.fresnelNames);
             GUILayout.Label(Styles.function, EditorStyles.boldLabel);
         }
 

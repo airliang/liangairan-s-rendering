@@ -345,6 +345,7 @@ public struct GPUMaterial
     public float albedoMapMask;
     public float normalMapMask;
     public float metallicMapMask;
+    public float fresnelType;
 
     //public Color ks;
     //public Color kr;

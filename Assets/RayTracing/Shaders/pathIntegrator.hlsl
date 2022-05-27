@@ -65,10 +65,11 @@ float3 MIS_BSDF(Interaction isect, Material material, Light light, int lightInde
     pathVertex = (PathVertex)0;
     float3 wiLocal;
     float2 u = Get2D(rng);
-    float scatteringPdf = 0;
-    float3 f = SampleMaterialBRDF(material, isect, woLocal, wiLocal, scatteringPdf, rng);
-    float3 wi = isect.LocalToWorld(wiLocal);
-    f *= abs(dot(wi, isect.normal));
+    
+    BSDFSample bsdfSample = SampleMaterialBRDF(material, isect, woLocal, rng);
+    float3 wi = isect.LocalToWorld(bsdfSample.wi);
+    float scatteringPdf = bsdfSample.pdf;
+    float3 f = bsdfSample.reflectance * abs(dot(wi, isect.normal));
     
     if (!IsBlack(f) && scatteringPdf > 0)
     {
@@ -108,7 +109,9 @@ float3 MIS_BSDF(Interaction isect, Material material, Light light, int lightInde
             }
         }
         
-        float weight = PowerHeuristic(1, scatteringPdf, 1, lightPdf);
+        float weight = 1;
+        if (!bsdfSample.IsSpecular())
+            weight = PowerHeuristic(1, scatteringPdf, 1, lightPdf);
         ld = f * li * weight / scatteringPdf;
     }
 

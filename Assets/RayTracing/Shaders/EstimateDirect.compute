@@ -24,7 +24,7 @@ RWStructuredBuffer<Ray>   Rays;
 //RWTexture2D<half4> outputTexture;
 
 
-
+/*
 float3 EstimateDirect(Interaction isect, Material material, inout RNG rng, out float scatteringPdf, out float3 wi)
 {
     //float3 Ld = shadowRay.radiance;
@@ -38,6 +38,7 @@ float3 EstimateDirect(Interaction isect, Material material, inout RNG rng, out f
     wi = isect.LocalToWorld(wiLocal);
     return f;
 }
+*/
 
 float3 MIS_BSDF(Interaction isect, Material material, ShadowRay shadowRay, inout RNG rng, out PathVertex pathVertex, out Ray ray)
 {
@@ -50,11 +51,13 @@ float3 MIS_BSDF(Interaction isect, Material material, ShadowRay shadowRay, inout
     pathVertex = (PathVertex)0;
     float3 wiLocal;
     float2 u = Get2D(rng);
-    scatteringPdf = 0;
+    
     //beta = 0;
-    float3 f = SampleMaterialBRDF(material, isect, woLocal, wiLocal, scatteringPdf, rng);
-    float3 wi = isect.LocalToWorld(wiLocal);
-    f *= abs(dot(wi, isect.normal));
+    BSDFSample bsdfSample = SampleMaterialBRDF(material, isect, woLocal, rng);
+    scatteringPdf = bsdfSample.pdf;
+    float3 wi = isect.LocalToWorld(bsdfSample.wi);
+
+    float3 f = bsdfSample.reflectance * abs(dot(wi, isect.normal));
 
     if (!IsBlack(f) && scatteringPdf > 0)
     {
@@ -96,7 +99,9 @@ float3 MIS_BSDF(Interaction isect, Material material, ShadowRay shadowRay, inout
             }
         }
 
-        float weight = PowerHeuristic(1, scatteringPdf, 1, lightPdf);
+        float weight = 1;
+        if (!bsdfSample.IsSpecular())
+            weight = PowerHeuristic(1, scatteringPdf, 1, lightPdf);
         ld = f * li * weight / scatteringPdf;
         //ld = li * weight * beta;
     }
@@ -130,7 +135,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     //float3 beta = 1; // = pathRadiance.beta;
     float scatteringPdf = 0;
     float3 wi;
-    float3 f = EstimateDirect(isect, material, rng, scatteringPdf, wi);
+    //float3 f = EstimateDirect(isect, material, rng, scatteringPdf, wi);
 	int shadowLightIndex = asint(shadowRay.lightIndex);
     Light light = lights[shadowLightIndex];
     float3 Li = shadowRay.radiance;
