@@ -35,6 +35,8 @@ public class MaterialParam
     public Color BaseColor = Color.white;
     public Texture2D NormalMap;
 
+    public Color Transmission = Color.white;
+
     //public Texture2D SpecularGlossMap;
     public Texture2D MetallicGlossMap;
     public Color GlossySpecularColor = Color.white;
@@ -93,6 +95,7 @@ public class MaterialParam
             Texture normalTex = material.GetTexture("_NormalTex");
             if (normalTex != null)
                 materialParam.NormalMap = normalTex as Texture2D;
+            materialParam.Transmission = material.GetColor("_t");
 
             if (materialParam.materialType == (int)BSDFMaterialType.Plastic)
             {
@@ -109,6 +112,12 @@ public class MaterialParam
                 materialParam.RoughnessV = material.GetFloat("_roughnessV");
                 materialParam.Eta = material.GetVector("_eta");
                 materialParam.K = material.GetVector("_k");
+            }
+            else if (materialParam.materialType == (int)BSDFMaterialType.Glass)
+            {
+                materialParam.RoughnessU = material.GetFloat("_roughnessU");
+                materialParam.RoughnessV = material.GetFloat("_roughnessV");
+                materialParam.Eta = material.GetVector("_eta");
             }
             materialParam.fresnelType = material.GetFloat("_FresnelType");
         }
@@ -149,6 +158,8 @@ public class MaterialParam
         else
             gpuMaterial.albedoMapMask = MathUtil.UInt32BitsToSingle(0);
         gpuMaterial.baseColor = BaseColor.LinearToVector3();
+        gpuMaterial.transmission = Transmission.LinearToVector3();
+        gpuMaterial.fresnelType = fresnelType;
 
         if (NormalMap != null)
         {
@@ -184,6 +195,13 @@ public class MaterialParam
             gpuMaterial.anisotropy = RoughnessV;
             gpuMaterial.eta = Eta;
             gpuMaterial.k = K;
+        }
+        else if (materialType == (int)BSDFMaterialType.Glass)
+        {
+            gpuMaterial.roughness = RoughnessU;
+            gpuMaterial.anisotropy = RoughnessV;
+            gpuMaterial.eta = Eta;
+            
         }
 
         return gpuMaterial;

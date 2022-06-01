@@ -43,6 +43,7 @@ struct Material
 	int materialType; 
 	float3 kd;
 	float3 ks;
+	float3 transmission;
 	float metallic;
 	float specular;
 	float roughness;
@@ -135,7 +136,7 @@ struct Interaction  //64byte
 	float3 tangent;  //the same as pbrt's ss(x)
 	float3 bitangent; //the same as pbrt's ts(y)
 	float  primArea;
-	uint   materialID;
+	int   materialID;
 	uint   meshInstanceID;
 	uint   triangleIndex;  //triangle index in this mesh
 	//float  spreadAngle;   //ray cone angle use for mipmapping

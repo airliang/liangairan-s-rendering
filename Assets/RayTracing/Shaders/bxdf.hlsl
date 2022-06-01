@@ -259,7 +259,7 @@ struct BxDFMetal
         return MicrofacetReflectionPdf(wo, wi, alphax, alphay);
     }
 
-    float F(float3 wo, float3 wi, out float pdf)
+    float3 F(float3 wo, float3 wi, out float pdf)
     {
         float cosThetaO = AbsCosTheta(wo);
         float cosThetaI = AbsCosTheta(wi);
@@ -424,10 +424,12 @@ struct BxDFFresnelSpecular
     BSDFSample Sample_F(float2 u, float3 wo)
     {
         BSDFSample bsdfSample = (BSDFSample)0;
-        bsdfSample.bxdfFlag = BXDF_REFLECTION | BXDF_TRANSMISSION | BXDF_SPECULAR;
+        
         float F = FrDielectric(CosTheta(wo), 1, eta);
         float pdf = 0;
-        if (u[0] < F) {
+        if (u[0] < F) 
+        {
+            bsdfSample.bxdfFlag = BXDF_REFLECTION | BXDF_SPECULAR;
             // Compute specular reflection for _FresnelSpecular_
 
             // Compute perfect specular reflection direction
@@ -439,9 +441,10 @@ struct BxDFFresnelSpecular
             bsdfSample.wi = wi;
             return bsdfSample;
         }
-        else {
+        else 
+        {
             // Compute specular transmission for _FresnelSpecular_
-
+            bsdfSample.bxdfFlag = BXDF_TRANSMISSION | BXDF_SPECULAR;
             // Figure out which $\eta$ is incident and which is transmitted
             bool entering = CosTheta(wo) > 0;
             float etaI = entering ? 1 : eta;
@@ -452,12 +455,18 @@ struct BxDFFresnelSpecular
             bool bValid = Refract(wo, Faceforward(float3(0, 0, 1), wo), etaI / etaT, wi);
             bsdfSample.wi = wi;
             if (!bValid)
+            {
+                bsdfSample.reflectance = 1;
+                bsdfSample.pdf = 1;
                 return bsdfSample;
+            }
+            //T = 1;
+            F = 0;
             float3 ft = T * (1 - F);
 
             // Account for non-symmetry with transmission to different medium
             //if (mode == TransportMode::Radiance)
-                ft *= (etaI * etaI) / (etaT * etaT);
+            ft *= (etaI * etaI) / (etaT * etaT);
             //if (sampledType)
             //    *sampledType = BxDFType(BSDF_SPECULAR | BSDF_TRANSMISSION);
             bsdfSample.pdf = 1 - F;

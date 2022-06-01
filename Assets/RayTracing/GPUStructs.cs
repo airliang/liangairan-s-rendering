@@ -82,7 +82,7 @@ public struct GPUInteraction
     public Vector3 tangent;
     public Vector3 bitangent;
     public float primArea;
-    public uint materialID;
+    public int materialID;
     public uint meshInstanceID;
     public uint triangleIndex;   //triangle index in this mesh
     //public float spreadAngle; //raycone angle use for mipmapping
@@ -336,6 +336,7 @@ public struct GPUMaterial
     public int materialType;
     public Vector3 baseColor;       //a is texture mask
     public Vector3 specularColor;
+    public Vector3 transmission;
     public float metallic;
     public float specular;      //when material is plastic, stand for ks
     public float roughness;     //roughnessU

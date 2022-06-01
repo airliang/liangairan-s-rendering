@@ -33,6 +33,8 @@ float3 offset_ray(const float3 p, const float3 n)
 Ray SpawnRay(float3 p, float3 direction, float3 normal, float tMax)
 {
 	Ray ray;
+	float s = sign(dot(normal, direction));
+	normal *= s;
 	ray.orig = offset_ray(p, normal);
 	ray.tmax = tMax;
 	ray.direction = direction;

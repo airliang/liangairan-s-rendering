@@ -47,6 +47,10 @@ public interface TracingKernel
     void Release();
 
     RenderTexture GetOutputTexture();
+
+    GPUSceneData GetGPUSceneData();
+
+    GPUFilterData GetGPUFilterData();
 }
 
 

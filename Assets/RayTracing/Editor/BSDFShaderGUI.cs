@@ -45,6 +45,7 @@ public class BSDFShaderGUI : ShaderGUI
         public static GUIContent roughnessVText = new GUIContent("Roughness V", "Roughness V");
         public static GUIContent etaText = new GUIContent("Eta", "Refraction Index");
         public static GUIContent metallicAbsorptionText = new GUIContent("Metallic K", "Metallic");
+        public static GUIContent transmissionText = new GUIContent("Transmission", "Transmission");
 
         public static GUIContent materialTypeText = new GUIContent("Material choose", "matte, plastic, metal, glass");
         public static GUIContent fresnelTypeText = new GUIContent("Fresnel choose", "Dielectric, Conductor, Schlick");
@@ -77,6 +78,7 @@ public class BSDFShaderGUI : ShaderGUI
     private MaterialProperty roughnessV;
     private MaterialProperty eta;
     private MaterialProperty k;
+    private MaterialProperty t;
 
     private MaterialProperty fresnelTypeProp { get; set; }
 
@@ -107,6 +109,7 @@ public class BSDFShaderGUI : ShaderGUI
         roughnessV = FindProperty("_roughnessV", properties);
         eta = FindProperty("_eta", properties);
         k = FindProperty("_k", properties);
+        t = FindProperty("_t", properties);
         fresnelTypeProp = FindProperty("_FresnelType", properties);
     }
 
@@ -191,6 +194,16 @@ public class BSDFShaderGUI : ShaderGUI
             else if (materialTypeProp.floatValue == (float)BSDFMaterial.Mirror)
             {
                 fresnelTypeProp.floatValue = (float)BSDFFresnel.NoOp;
+            }
+            else if (materialTypeProp.floatValue == (float)BSDFMaterial.Glass)
+            {
+                fresnelTypeProp.floatValue = (float)BSDFFresnel.Dielectric;
+                materialEditor.ShaderProperty(t, Styles.transmissionText);
+                EditorGUILayout.Space();
+                materialEditor.ShaderProperty(roughnessU, Styles.roughnessUText);
+                materialEditor.ShaderProperty(roughnessV, Styles.roughnessVText);
+                materialEditor.ShaderProperty(eta, Styles.etaText);
+                eta.vectorValue = new Vector4(1.5f, 1.5f, 1.5f, 1.0f);
             }
 
             EditorGUILayout.Space();

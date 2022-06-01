@@ -36,6 +36,17 @@ public class Raytracing : MonoBehaviour
     void Update()
     {
         _RaytracingKernel.Update(cameraComponent);
+
+        if (Input.GetMouseButtonUp(0))
+        {
+            Vector3 radiance = RayTracingTest.OnePathTracing((int)Input.mousePosition.x, (int)Input.mousePosition.y, (int)Screen.width, 1, 
+                _RaytracingKernel.GetGPUSceneData(), _RaytracingKernel.GetGPUFilterData().filter, cameraComponent);
+            Vector3 K = new Vector3(3.9747f, 2.38f, 1.5998f);
+            Vector3 etaT = new Vector3(0.1428f, 0.3741f, 1.4394f);
+            float cosTheta = 0.3f;
+            Vector3 fr = RayTracingTest.FrConductor(cosTheta, Vector3.one, etaT, K);
+            Debug.Log("cosTheta = " + cosTheta + " fresnel = " + fr);
+        }
     }
 
     void OnDestroy()

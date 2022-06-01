@@ -48,7 +48,7 @@ void GeneratePrimary(uint3 id : SV_DispatchThreadID)
 
     Ray ray;
     ray.orig = mul(CameraToWorld, float4(0, 0, 0, 1)).xyz;
-    ray.direction = mul(CameraToWorld, float4(normalize(nearplanePoint.xyz), 0));
+    ray.direction = mul(CameraToWorld, float4(normalize(nearplanePoint.xyz), 0)).xyz;
     ray.tmax = FLT_MAX;
     ray.tmin = 0;
     Rays[threadId] = ray;

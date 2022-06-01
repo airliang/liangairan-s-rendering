@@ -79,6 +79,16 @@ public class WavefrontKernel : TracingKernel
         DebugView = resource.DebugView;
     }
 
+    public GPUSceneData GetGPUSceneData()
+    {
+        return gpuSceneData;
+    }
+
+    public GPUFilterData GetGPUFilterData()
+    {
+        return gpuFilterData;
+    }
+
     public void Setup(Camera camera, RaytracingData data)
     {
         _rayTracingData = data;

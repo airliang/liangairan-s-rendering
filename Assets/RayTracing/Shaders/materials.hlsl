@@ -112,6 +112,7 @@ void UnpackShadingMaterial(Material material, inout ShadingMaterial shadingMater
 	const uint mask = asuint(material.albedoMapMask);
 	shadingMaterial.reflectance = material.kd.rgb;
 	shadingMaterial.fresnelType = material.fresnelType;
+	shadingMaterial.transmission = material.transmission;
 	if (IS_TEXTURED_PARAM(mask))
 	{
 		textureIndex = GET_TEXTUREARRAY_INDEX(mask);
@@ -121,20 +122,25 @@ void UnpackShadingMaterial(Material material, inout ShadingMaterial shadingMater
 		float4 albedo = SampleAlbedoTexture(isect.uv.xy, textureIndex, mipmapLevel);
 		shadingMaterial.reflectance *= albedo.rgb;
 	}
+	shadingMaterial.specular = material.ks;
+	shadingMaterial.roughness = material.roughness;
+	shadingMaterial.roughnessV = material.anisotropy;
+	shadingMaterial.k = material.k;
+	shadingMaterial.eta = material.eta;
 
-	if (material.materialType == Plastic)
-	{
-		shadingMaterial.specular = material.ks;
-		shadingMaterial.roughness = material.roughness;
-		shadingMaterial.roughnessV = material.anisotropy;
-	}
-	else if (material.materialType == Metal)
-	{
-		shadingMaterial.roughness = material.roughness;
-		shadingMaterial.roughnessV = material.anisotropy;
-		shadingMaterial.eta = material.eta;
-		shadingMaterial.k = material.k;
-	}
+	//if (material.materialType == Plastic)
+	//{
+	//	shadingMaterial.specular = material.ks;
+	//	shadingMaterial.roughness = material.roughness;
+	//	shadingMaterial.roughnessV = material.anisotropy;
+	//}
+	//else if (material.materialType == Metal)
+	//{
+	//	shadingMaterial.roughness = material.roughness;
+	//	shadingMaterial.roughnessV = material.anisotropy;
+	//	shadingMaterial.eta = material.eta;
+	//	shadingMaterial.k = material.k;
+	//}
 	
 	//mask = asuint(material.metallicMapMask);
 	//if (IS_TEXTURED_PARAM(mask))
@@ -232,7 +238,7 @@ void ComputeBxDFSpecularTransmission(ShadingMaterial shadingMaterial, out BxDFSp
 	bxdf = (BxDFSpecularTransmission)0;
 	UnpackFresnel(shadingMaterial, bxdf.fresnel);
 	bxdf.T = shadingMaterial.transmission;
-	bxdf.eta = shadingMaterial.eta;
+	bxdf.eta = shadingMaterial.eta.x;
 }
 
 void ComputeBxDFFresnelSpecular(ShadingMaterial shadingMaterial, out BxDFFresnelSpecular bxdf)
@@ -241,7 +247,7 @@ void ComputeBxDFFresnelSpecular(ShadingMaterial shadingMaterial, out BxDFFresnel
 	//UnpackFresnel(shadingMaterial, bxdf.fresnel);
 	bxdf.T = shadingMaterial.transmission;
 	bxdf.R = shadingMaterial.reflectance;
-	bxdf.eta = shadingMaterial.eta;
+	bxdf.eta = shadingMaterial.eta.x;
 }
 
 float3 MaterialBRDF(Material material, Interaction isect, float3 wo, float3 wi, out float pdf)
@@ -277,8 +283,8 @@ float3 MaterialBRDF(Material material, Interaction isect, float3 wo, float3 wi, 
 		}
 		else if (shadingMaterial.materialType == Glass)
 		{
-			nComponent = 1;
 			/*
+			nComponent = 2;
 			BxDFSpecularReflection bxdfSpecularReflection;
 			ComputeBxDFSpecularReflection(shadingMaterial, bxdfSpecularReflection);
 			float pdfReflection = 0;
@@ -286,8 +292,12 @@ float3 MaterialBRDF(Material material, Interaction isect, float3 wo, float3 wi, 
 			pdf += pdfReflection;
 			BxDFSpecularTransmission bxdfSpecularTransmission;
 			ComputeBxDFSpecularTransmission(shadingMaterial, bxdfSpecularTransmission);
-			f += bxdfSpecularTransmission.F(wo, wi, pdfReflection);
+			float pdfTransmission = 0;
+			f += bxdfSpecularTransmission.F(wo, wi, pdfTransmission);
+			pdf += pdfTransmission;
 			*/
+			
+			nComponent = 1;
 			BxDFFresnelSpecular bxdfFresnelSpecular;
 			ComputeBxDFFresnelSpecular(shadingMaterial, bxdfFresnelSpecular);
 			float pdfReflection = 0;
@@ -373,6 +383,7 @@ BSDFSample SampleMirror(ShadingMaterial material, float3 wo, inout RNG rng)
 
 BSDFSample SampleGlass(ShadingMaterial material, float3 wo, inout RNG rng)
 {
+	/*
 	BxDFSpecularReflection bxdfSR;
 	ComputeBxDFSpecularReflection(material, bxdfSR);
 	BxDFSpecularTransmission bxdfST;
@@ -391,8 +402,13 @@ BSDFSample SampleGlass(ShadingMaterial material, float3 wo, inout RNG rng)
 		bsdfSample = bxdfST.Sample_F(uRemapped, wo);//SampleMicrofacetReflectionF(bxdf, uRemapped, wo, wi, pdf);
 	//choosing pdf caculate
 	bsdfSample.pdf /= 2;
-
 	return bsdfSample;
+	*/
+	
+	BxDFFresnelSpecular bxdf;
+	ComputeBxDFFresnelSpecular(material, bxdf);
+	float2 u = Get2D(rng);
+	return bxdf.Sample_F(u, wo);
 }
 
 //wi wo is a vector which in local space of the interfaction surface

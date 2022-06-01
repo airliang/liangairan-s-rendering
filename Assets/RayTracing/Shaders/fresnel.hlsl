@@ -23,8 +23,11 @@ inline float3 FrSchlick(float3 R0, float cosTheta) {
 float FrDielectric(float cosThetaI, float etaI, float etaT) {
     cosThetaI = clamp(cosThetaI, -1, 1);
     // Potentially swap indices of refraction
-    bool entering = cosThetaI > 0.f;
-    if (!entering) {
+    //etaI = 0;
+    //etaT = 0;
+    bool entering = cosThetaI > 0;
+    if (!entering)
+    {
         //swap(etaI, etaT);
         float tmp = etaI;
         etaI = etaT;

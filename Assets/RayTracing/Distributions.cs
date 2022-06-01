@@ -97,7 +97,7 @@ public class Distribution1D
     {
         // Find surrounding CDF segments and _offset_
         int offset = FindInterval<float>((int)cdf.Count, index => (cdf[index] <= u));
-        pdf = (distributionInt > 0) ? distributions[offset] / (distributionInt * Count()) : 0;
+        pdf = (distributionInt > 0) ? distributions[offset] * (domain.y - domain.x) / (distributionInt * Count()) : 0;
 
         uRemapped = (u - cdf[offset]) / (cdf[offset + 1] - cdf[offset]);
 

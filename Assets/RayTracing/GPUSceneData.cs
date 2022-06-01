@@ -158,6 +158,14 @@ public class GPUSceneData
         _envmapEnable = envmapEnable;
     }
 
+    public int InstanceBVHAddr
+    {
+        get
+        {
+            return instBVHNodeAddr;
+        }
+    }
+
     public void Update(Camera camera)
     {
 
@@ -756,6 +764,14 @@ public class GPUSceneData
         //just for test
         //ReleaseComputeBuffer(envLight.computeBuffer);
     }
+
+    public BVHAccel BVH
+    {
+        get
+        {
+            return bvhAccel;
+        }
+    }
 }
 
 public class GPUFilterData
@@ -770,6 +786,14 @@ public class GPUFilterData
     {
         _filter = filter;
 
+    }
+
+    public Filter filter
+    {
+        get
+        {
+            return _filter;
+        }
     }
 
     public void SetComputeShaderGPUData(ComputeShader cs, int kernel)

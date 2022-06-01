@@ -41,6 +41,16 @@ public class MegaKernel : TracingKernel
         _InitSamplerKernel = _InitSampler.FindKernel("CSInitSampler");
     }
 
+    public GPUSceneData GetGPUSceneData()
+    {
+        return gpuSceneData;
+    }
+
+    public GPUFilterData GetGPUFilterData()
+    {
+        return gpuFilterData;
+    }
+
     public RenderTexture GetOutputTexture()
     {
         return outputTexture;

@@ -327,7 +327,7 @@ bool IntersectBVHandTriangles(Ray ray, int bvhOffset, out Interaction interactio
 				const float4 m1 = WoodTriangles[triAddr + 1]; //matrix row 1 
 				const float4 m2 = WoodTriangles[triAddr + 2]; //matrix row 2
 
-				float3 normal = normalize(cross(m0, m1));
+				float3 normal = normalize(cross(m0.xyz, m1.xyz));
 				if (dot(normal, ray.direction.xyz) >= 0)
 				{
 					//Èý½ÇÐÎ±³Ãæ
@@ -362,7 +362,7 @@ bool IntersectBVHandTriangles(Ray ray, int bvhOffset, out Interaction interactio
 					const float3 normal2 = Vertices[vertexIndex2].normal;
 
 					interaction.normal.xyz = normalize(normal0 * uv.x + normal1 * uv.y + normal2 * (1.0 - uv.x - uv.y));
-					interaction.p = hitPos;
+					interaction.p = hitPos.xyz;
 					interaction.uv = uv0 * uv.x + uv1 * uv.y + uv2 * (1.0 - uv.x - uv.y);
 					//interaction.vertexIndices = int3(vertexIndex0, vertexIndex1, vertexIndex2);
 				}
@@ -382,7 +382,7 @@ bool IntersectBVHandTriangles(Ray ray, int bvhOffset, out Interaction interactio
 	return hitIndex != -1;
 }
 
-bool IntersectMeshBVH(Ray ray, int bvhOffset, float4x4 objectToWorld, float4x4 worldToObject, int meshIndexStart, out float hitT, out int hitIndex, out Interaction interaction)
+bool IntersectMeshBVH(Ray ray, int bvhOffset, float4x4 objectToWorld, float4x4 worldToObject, int meshIndexStart, out float hitT, out int hitIndex, out Interaction interaction, bool anyHit)
 {
 	interaction = (Interaction)0;
 	int INVALID_INDEX = EntrypointSentinel;
@@ -443,7 +443,7 @@ bool IntersectMeshBVH(Ray ray, int bvhOffset, float4x4 objectToWorld, float4x4 w
 			else
 			{
 				nodeAddr = (traverseChild0) ? cnodes.x : cnodes.y;
-				//tmin = (traverseChild0) ? tMin : tMin1;
+				tmin = (traverseChild0) ? tMin : tMin1;
 				//primitivesNum = (traverseChild0) ? cnodes.z : cnodes.w;
 				//primitivesNum2 = (traverseChild0) ? cnodes.w : cnodes.z;
 				//if (!swp)
@@ -460,6 +460,7 @@ bool IntersectMeshBVH(Ray ray, int bvhOffset, float4x4 objectToWorld, float4x4 w
 						cnodes.y = tmp;
 					}
 					traversalStack[++stackIndex] = cnodes.y;
+					tmin = min(tMin1, tMin);
 				}
 			}
 
@@ -491,27 +492,27 @@ bool IntersectMeshBVH(Ray ray, int bvhOffset, float4x4 objectToWorld, float4x4 w
 				float4 m2 = WoodTriangles[triAddr + 2]; //matrix row 2
 
 				//Oz is a point, must plus w
-				float Oz = m2.w + dot(rayOrig.xyz, m2.xyz);//origx * m2.x + origy * m2.y + origz * m2.z;
+				//float Oz = m2.w + dot(rayOrig.xyz, m2.xyz);//origx * m2.x + origy * m2.y + origz * m2.z;
 														   //Dz is a vector
-				float invDz = 1.0f / dot(rayDir.xyz, m2.xyz);//(dirx * m2.x + diry * m2.y + dirz * m2.z);
-				float t = -Oz * invDz;
+				//float invDz = 1.0f / dot(rayDir.xyz, m2.xyz);//(dirx * m2.x + diry * m2.y + dirz * m2.z);
+				//float t = -Oz * invDz;
 
 				//this is the correct local normal, the same as cross(v1- v0, v2 - v0)
-				float3 normal = normalize(cross(m0, m1)).xyz;
+				float3 normal = normalize(cross(m0.xyz, m1.xyz)).xyz;
 
 				
 				//local normal
 				//normal = normalize(cross(v1.xyz - v0.xyz, v2.xyz - v0.xyz));
-				if (dot(normal, rayDir.xyz) >= 0)
-				{
-					triangleIndex++;
-					continue;
-				}
+				//if (dot(normal, rayDir.xyz) >= 0)
+				//{
+				//	triangleIndex++;
+				//	continue;
+				//}
 
 				float2 uv = 0;
 				float triangleHit = 0;
 				bool hitTriangle = WoodTriangleRayIntersect(rayOrig.xyz, rayDir.xyz, m0, m1, m2, ray.tmin, ray.tmax, uv, triangleHit);
-				if (hitTriangle)
+				if (hitTriangle && (hitT > triangleHit/* && triangleHit >= tmin*/))
 				{
 					hitT = triangleHit;
 					hitIndex = triAddr;
@@ -528,9 +529,9 @@ bool IntersectMeshBVH(Ray ray, int bvhOffset, float4x4 objectToWorld, float4x4 w
 					hitPos.w = 1;
 					hitPos = mul(objectToWorld, hitPos);
 
-					float3 p0 = mul(objectToWorld, float4(v0.xyz, 1.0));
-					float3 p1 = mul(objectToWorld, float4(v1.xyz, 1.0));
-					float3 p2 = mul(objectToWorld, float4(v2.xyz, 1.0));
+					float3 p0 = mul(objectToWorld, float4(v0.xyz, 1.0)).xyz;
+					float3 p1 = mul(objectToWorld, float4(v1.xyz, 1.0)).xyz;
+					float3 p2 = mul(objectToWorld, float4(v2.xyz, 1.0)).xyz;
 					float triAreaInWorld = length(cross(p0 - p1, p0 - p2)) * 0.5;
 
 					float3 normal0 = vertex0.normal;
@@ -610,6 +611,8 @@ bool IntersectMeshBVH(Ray ray, int bvhOffset, float4x4 objectToWorld, float4x4 w
 					interaction.tangent.xyz = normalize(interaction.dpdu.xyz);
 					interaction.bitangent.xyz = normalize(cross(interaction.tangent.xyz, normal));
 					*/
+					if (anyHit)
+						return true;
 				}
 				triangleIndex++;
 			} // triangle
@@ -628,7 +631,7 @@ bool IntersectMeshBVH(Ray ray, int bvhOffset, float4x4 objectToWorld, float4x4 w
 }
 
 //bvhOffset x-left child bvh offset y-right child bvh offset
-bool IntersectBVH(Ray ray, out Interaction interaction)
+bool IntersectBVH(Ray ray, out Interaction interaction, bool anyHit)
 {
 	interaction = (Interaction)0;
 	Interaction tmpInteraction;
@@ -674,7 +677,7 @@ bool IntersectBVH(Ray ray, out Interaction interaction)
 		//invDir = GetInverseDirection(ray.direction);
 		float bvhHit = hitT;
 		int meshHitTriangleIndex = -1;
-		if (IntersectMeshBVH(rayTemp, 0, meshInstance.localToWorld, meshInstance.worldToLocal, meshInstance.triangleStartOffset, bvhHit, meshHitTriangleIndex, tmpInteraction))
+		if (IntersectMeshBVH(rayTemp, 0, meshInstance.localToWorld, meshInstance.worldToLocal, meshInstance.triangleStartOffset, bvhHit, meshHitTriangleIndex, tmpInteraction, anyHit))
 		{
 			if (bvhHit < hitT)
 			{
@@ -788,7 +791,7 @@ bool IntersectBVH(Ray ray, out Interaction interaction)
 					//invDir = GetInverseDirection(ray.direction);
 					float bvhHit = hitT;
 					int meshHitTriangleIndex = -1;
-					if (IntersectMeshBVH(rayTemp, next[i], meshInstance.localToWorld, meshInstance.worldToLocal, meshInstance.triangleStartOffset, bvhHit, meshHitTriangleIndex, tmpInteraction))
+					if (IntersectMeshBVH(rayTemp, next[i], meshInstance.localToWorld, meshInstance.worldToLocal, meshInstance.triangleStartOffset, bvhHit, meshHitTriangleIndex, tmpInteraction, anyHit))
 					{
 						if (bvhHit < hitT)
 						{
@@ -799,6 +802,9 @@ bool IntersectBVH(Ray ray, out Interaction interaction)
 							hitIndex = meshHitTriangleIndex;
 							hitBVHNode = next[i];
 							interaction = tmpInteraction;
+
+							if (anyHit)
+								return true;
 						}
 					}
 				}
@@ -808,7 +814,7 @@ bool IntersectBVH(Ray ray, out Interaction interaction)
 	return hitIndex > -1;
 }
 
-
+/*
 bool IntersectMeshBVHP(Ray ray, int bvhOffset, out float hitT, out int hitIndex)
 {
 	int INVALID_INDEX = EntrypointSentinel;
@@ -919,10 +925,10 @@ bool IntersectMeshBVHP(Ray ray, int bvhOffset, out float hitT, out int hitIndex)
 				//float t = -Oz * invDz;
 
 				float3 normal = normalize(cross(m0, m1)).xyz;
-				if (dot(normal, rayDir.xyz) >= 0)
-				{
-					continue;
-				}
+				//if (dot(normal, rayDir.xyz) >= 0)
+				//{
+				//	continue;
+				//}
 
 				float2 uv = 0;
 				float triangleHit = 0;
@@ -1128,13 +1134,14 @@ bool IntersectP(Ray ray, out float hitT, out int meshInstanceIndex)
 	}
 	return hitIndex > -1;
 }
+*/
 
 bool ClosestHit(Ray ray, out Interaction interaction)
 {
 	bool hitted = true;
 	while (true)
 	{
-		hitted = IntersectBVH(ray, interaction);
+		hitted = IntersectBVH(ray, interaction, false);
 		if (!hitted)
 			break;
 		else
@@ -1154,12 +1161,37 @@ bool ClosestHit(Ray ray, out Interaction interaction)
 	return hitted;
 }
 
+bool AnyHit(Ray ray, out Interaction interaction)
+{
+	bool hitted = true;
+	while (true)
+	{
+		hitted = IntersectBVH(ray, interaction, true);
+		if (!hitted)
+			break;
+		else
+		{
+			if (interaction.materialID == -1)
+			{
+				ray = SpawnRay(interaction.p, ray.direction, -interaction.normal, FLT_MAX);
+			}
+			else
+			{
+				//alphatest check must be implemented
+				break;
+			}
+		}
+	}
+
+	return hitted;
+}
+
 
 bool ShadowRayVisibilityTest(ShadowRay shadowRay, float3 normal)
 {
 	Ray ray = SpawnRay(shadowRay.p0, shadowRay.p1 - shadowRay.p0, normal, 1.0 - ShadowEpsilon);
 	Interaction isect = (Interaction)0;
-	return !ClosestHit(ray, isect);
+	return !AnyHit(ray, isect);
 
 	//!IntersectP(ray, hitT, meshInstanceIndex);
 }

@@ -667,7 +667,7 @@ public class BVHAccel
 		return rayDir.Invert();
 	}
 
-	public bool IntersectMeshBVH(GPURay ray, int bvhOffset, MeshInstance meshInstance, out float hitT, out int hitIndex, out GPUInteraction isect)
+	public bool IntersectMeshBVH(GPURay ray, int bvhOffset, MeshInstance meshInstance, out float hitT, out int hitIndex, ref GPUInteraction isect, bool anyHit)
 	{
 		isect = new GPUInteraction();
 		const int INVALID_INDEX = 0x76543210;
@@ -756,6 +756,7 @@ public class BVHAccel
 			//±éÀúÒ¶×Ó
 			while (leafAddr < 0)
 			{
+				int triangleIndex = 0;
 				for (int triAddr = ~leafAddr; /*triAddr < ~leafAddr + primitivesNum * 3*/; triAddr += 3)
 				{
 					Vector4 m0 = m_woodTriangleVertices[triAddr];     //matrix row 0 
@@ -784,14 +785,14 @@ public class BVHAccel
 					//local normal
 					normal = Vector3.Cross(v1 - v0, v2 - v0).normalized;
 
-					if (Vector3.Dot(normal, ray.direction) >= 0)
-					{
-						//RenderDebug.DrawNormal(m_worldVertices[triAddr], m_worldVertices[triAddr + 1], m_worldVertices[triAddr + 2], 0.3f, 0.35f);
-						continue;
-					}
+					//if (Vector3.Dot(normal, ray.direction) >= 0)
+					//{
+					//	//RenderDebug.DrawNormal(m_worldVertices[triAddr], m_worldVertices[triAddr + 1], m_worldVertices[triAddr + 2], 0.3f, 0.35f);
+					//	continue;
+					//}
 
 					//if t is in bounding and less than the ray.tMax
-					if (/*t >= tmin && */t < hitT)
+					if (t >= tmin && t < hitT)
 					{
 						// Compute and check barycentric u.
 						float Ox = m0.w + Vector3.Dot(ray.orig, m0);//origx * m0.x + origy * m0.y + origz * m0.z;
@@ -829,10 +830,13 @@ public class BVHAccel
 								//isect.row3 = objectToWorld._m20_m21_m22_m23;
 								isect.tangent = (v0World - hitPos).normalized;
 								isect.bitangent = Vector3.Cross(isect.normal, isect.tangent).normalized;
+
+								if (anyHit)
+									return true;
 							}
 						}
 					}
-
+					triangleIndex++;
 				} // triangle
 
 				// Another leaf was postponed => process it as well.
@@ -874,7 +878,7 @@ public class BVHAccel
 					  Mathf.Abs(p.z) < origin()? p.z + float_scale() * n.z : p_i.z);
 	}
 
-	public bool IntersectInstTest(GPURay ray, List<MeshInstance> meshInstances, List<MeshHandle> meshHandles, int instBVHOffset, out float hitT, out GPUInteraction isect)
+	public bool IntersectInstTest(GPURay ray, List<MeshInstance> meshInstances, List<MeshHandle> meshHandles, int instBVHOffset, out float hitT, ref GPUInteraction isect, bool anyHit)
 	{
 		const int INVALID_INDEX = 0x76543210;
 		isect = new GPUInteraction();
@@ -914,7 +918,7 @@ public class BVHAccel
 			//invDir = GetInverseDirection(ray.direction);
 			float bvhHit = hitT;
 			int meshHitTriangleIndex = -1;
-			if (IntersectMeshBVH(rayTemp, 0, meshInstance, out bvhHit, out meshHitTriangleIndex, out isect))
+			if (IntersectMeshBVH(rayTemp, 0, meshInstance, out bvhHit, out meshHitTriangleIndex, ref isect, anyHit))
 			{
 				hitMeshIndex = 0;
 				if (bvhHit < hitT)
@@ -1027,8 +1031,8 @@ public class BVHAccel
 						//invDir = GetInverseDirection(ray.direction);
 						float bvhHit = hitT;
 						int meshHitTriangleIndex = -1;
-						GPUInteraction tmpInteraction;
-						if (IntersectMeshBVH(rayTemp, next[i], meshInstance, out bvhHit, out meshHitTriangleIndex, out tmpInteraction))
+						GPUInteraction tmpInteraction = new GPUInteraction();
+						if (IntersectMeshBVH(rayTemp, next[i], meshInstance, out bvhHit, out meshHitTriangleIndex, ref tmpInteraction, false))
 						{
 							if (bvhHit < hitT)
 							{
@@ -1038,7 +1042,7 @@ public class BVHAccel
 								hitMeshIndex = nextMeshInstanceIds[i];
 								isect = tmpInteraction;
 								isect.wo = -ray.direction;
-								isect.materialID = (uint)meshInstance.materialIndex;
+								isect.materialID = meshInstance.materialIndex;
 							}
 						}
 						//else if (nextMeshInstanceIds[i] == 1)
@@ -1274,8 +1278,8 @@ public class BVHAccel
 			//invDir = GetInverseDirection(ray.direction);
 			float bvhHit = hitT;
 			int meshHitTriangleIndex = -1;
-			GPUInteraction isect;
-			if (IntersectMeshBVH(rayTemp, 0, meshInstance, out bvhHit, out meshHitTriangleIndex, out isect))
+			GPUInteraction isect = new GPUInteraction();
+			if (IntersectMeshBVH(rayTemp, 0, meshInstance, out bvhHit, out meshHitTriangleIndex, ref isect, false))
 			{
 				hitMeshIndex = 0;
 				if (bvhHit < hitT)
@@ -1399,20 +1403,16 @@ public class BVHAccel
 								hitBVHNode = next[i];
 								hitMeshIndex = nextMeshInstanceIds[i];
 							}
-							else
-                            {
-								int a = 0;
-                            }
 						}
-						else if (nextMeshInstanceIds[i] == 1)
-						{
-							//Debug.Log("error happen!");
-							int a = 0;
-						}
-						else
-                        {
-							int a = 0;
-                        }
+					//	else if (nextMeshInstanceIds[i] == 1)
+					//	{
+					//		//Debug.Log("error happen!");
+					//		int a = 0;
+					//	}
+					//	else
+     //                   {
+					//		int a = 0;
+     //                   }
 					}
 				}
 			}
