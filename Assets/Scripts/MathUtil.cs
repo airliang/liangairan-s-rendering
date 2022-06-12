@@ -145,10 +145,41 @@ public static class MathUtil
         return new Vector3(v.x * c.x, v.y * c.y, v.z * c.z);
     }
 
+    public static Vector3 Mul(this Vector3 v, float scalar)
+    {
+        return v * scalar;
+    }
+
     public static Vector3 Invert(this Vector3 v)
     {
         return new Vector3(1.0f / v.x, 1.0f / v.y, 1.0f / v.z);
     }
+
+    public static Vector3 Div(this Vector3 v, Vector3 c)
+    {
+        return new Vector3(v.x / c.x, v.y / c.y, v.z / c.z);
+    }
+
+    public static Vector3 Div(this Vector3 v, float c)
+    {
+        return new Vector3(v.x / c, v.y / c, v.z / c);
+    }
+
+    public static Vector3 Sqrt(this Vector3 v)
+    {
+        return new Vector3(Mathf.Sqrt(v.x), Mathf.Sqrt(v.y), Mathf.Sqrt(v.z));
+    }
+
+    public static Vector3 Add (this Vector3 v, float c)
+    {
+        return new Vector3(v.x + c, v.y + c, v.z + c);
+    }
+
+    public static Vector3 Sub(this Vector3 v, float c)
+    {
+        return new Vector3(v.x - c, v.y - c, v.z - c);
+    }
+
 
     public static Vector3 Invert(this Vector3Int v)
     {
@@ -204,6 +235,12 @@ public static class MathUtil
     public static Vector4 LinearToVector4(this Color c)
     {
         return new Vector4(c.linear.r, c.linear.g, c.linear.b, c.linear.a);
+    }
+
+    public static float Y(this Color c)
+    {
+        Vector3 YWeight = new Vector3(0.212671f, 0.715160f, 0.072169f);
+        return YWeight[0] * c[0] + YWeight[1] * c[1] + YWeight[2] * c[2];
     }
 
     public static float Pow2(float d)
