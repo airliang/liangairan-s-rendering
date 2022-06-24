@@ -367,6 +367,58 @@ struct BxDFSpecularTransmission
     }
 };
 
+struct BxDFMicrofacetReflection
+{
+    FresnelData fresnel;
+    float alphax;
+    float alphay;
+    float3 R;
+
+    float3 Sample_wh(float2 u, float3 wo)
+    {
+        return SampleTrowbridgeReitzDistributionVector(wo, u, alphax, alphay);
+    }
+
+    BSDFSample Sample_F(float2 u, float3 wo)
+    {
+        BSDFSample bsdfSample = (BSDFSample)0;
+        bsdfSample.bxdfFlag = BXDF_REFLECTION;
+        float3 wh = Sample_wh(u, wo);
+        float3 wi = reflect(-wo, wh);
+
+        bsdfSample.reflectance = F(wo, wi, bsdfSample.pdf);
+        return bsdfSample;
+    }
+
+    float3 F(float3 wo, float3 wi, out float pdf)
+    {
+        float cosThetaO = AbsCosTheta(wo);
+        float cosThetaI = AbsCosTheta(wi);
+        float3 wh = wi + wo;
+        pdf = 0;
+        // Handle degenerate cases for microfacet reflection
+        if (cosThetaI == 0 || cosThetaO == 0)
+            return float3(0, 0, 0);
+        if (wh.x == 0 && wh.y == 0 && wh.z == 0)
+            return float3(0, 0, 0);
+        wh = normalize(wh);
+        // For the Fresnel call, make sure that wh is in the same hemisphere
+        // as the surface normal, so that TIR is handled correctly.
+        float3 F = fresnel.Evaluate(dot(wi, Faceforward(wh, float3(0, 0, 1))));
+
+        float D = TrowbridgeReitzD(wh, alphax, alphay);
+        pdf = MicrofacetPdf(D, wh) * 0.25 / (dot(wo, wh));
+
+        return R * D * MicrofacetG(wo, wi, alphax, alphay) * F * 0.25 /
+            (cosThetaI * cosThetaO);
+    }
+
+    float Pdf(float3 wo, float3 wi)
+    {
+        return MicrofacetReflectionPdf(wo, wi, alphax, alphay);
+    }
+};
+
 struct BxDFMicrofacetTransmission
 {
     FresnelData fresnel;
@@ -379,6 +431,76 @@ struct BxDFMicrofacetTransmission
     float3 Sample_wh(float2 u, float3 wo)
     {
         return SampleTrowbridgeReitzDistributionVector(wo, u, alphax, alphay);
+    }
+
+    BSDFSample Sample_F(float2 u, float3 wo)
+    {
+        BSDFSample bsdfSample = (BSDFSample)0;
+        bsdfSample.bxdfFlag = BXDF_TRANSMISSION;
+        float3 wh = Sample_wh(u, wo);
+        if (dot(wo, wh) < 0) 
+            return bsdfSample;  // Should be rare
+
+        Float eta = CosTheta(wo) > 0 ? (etaA / etaB) : (etaB / etaA);
+        float3 wi;
+        bool valid = Refract(wo, wh, eta, wi);
+        bsdfSample.wi = wi;
+        if (!valid)
+            return bsdfSample;
+        
+        bsdfSample.reflectance = F(wo, wi, bsdfSample.pdf);
+        return bsdfSample;
+    }
+
+    float3 F(float3 wo, float3 wi, out float pdf)
+    {
+        //https://www.cs.cornell.edu/~srm/publications/EGSR07-btdf.pdf
+        //formular (21)
+
+        if (SameHemisphere(wo, wi)) 
+            return 0;  
+
+        float cosThetaO = CosTheta(wo);
+        float cosThetaI = CosTheta(wi);
+        if (cosThetaI == 0 || cosThetaO == 0) 
+            return 0;
+
+        float eta = CosTheta(wo) > 0 ? (etaB / etaA) : (etaA / etaB);
+        //by snell's law
+        float3 wh = normalize(wo + wi * eta);
+        wh = wh.z < 0 ? -wh : wh;
+
+        // Same side?
+        if (dot(wo, wh) * dot(wi, wh) > 0) 
+            return 0;
+
+        float3 F = fresnel.Evaluate(dot(wo, wh));
+        float D = TrowbridgeReitzD(wh, alphax, alphay);
+        float G = MicrofacetG(wo, wi, alphax, alphay);
+        float sqrtDenom = dot(wo, wh) + eta * dot(wi, wh);
+        float factor = 1.0 / eta;
+
+        float dwh_dwi = abs((eta * eta * dot(wi, wh)) / (sqrtDenom * sqrtDenom));
+        pdf = MicrofacetPdf(D, wh) * dwh_dwi;
+
+        return (1.0f - F) * T * abs(D * G * eta * eta *
+                abs(dot(wi, wh)) * abs(dot(wo, wh)) * factor * factor /
+                (cosThetaI * cosThetaO * sqrtDenom * sqrtDenom));
+    }
+
+    float Pdf(float3 wo, float3 wi)
+    {
+        if (SameHemisphere(wo, wi))
+            return 0;
+        float eta = CosTheta(wo) > 0 ? (etaB / etaA) : (etaA / etaB);
+        //by snell's law
+        float3 wh = normalize(wo + wi * eta);
+        if (dot(wo, wh) * dot(wi, wh) > 0)
+            return 0;
+        float D = TrowbridgeReitzD(wh, alphax, alphay);
+        float sqrtDenom = dot(wo, wh) + eta * dot(wi, wh);
+        float dwh_dwi = abs((eta * eta * dot(wi, wh)) / (sqrtDenom * sqrtDenom));
+        return MicrofacetPdf(D, wh) * dwh_dwi;
     }
 };
 

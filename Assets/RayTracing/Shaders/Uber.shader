@@ -5,6 +5,8 @@ Shader "RayTracing/Uber"
         _MainTex ("Albedo", 2D) = "white" {}
         //[HideInInspector]_MainTex_ST("Texture", 2D) = "white" {}
         [MainColor]   _BaseColor("Color", Color) = (1, 1, 1, 1)
+        [Toggle] _UseLinearBaseColor("UseLinearBaseColor", float) = 0
+        _BaseColorLinear("Color", Vector) = (1, 1, 1, 1)
         _NormalTex("NormalMap", 2D) = "bump" {}
         _GlossySpecularTex("Glossy Specular Texture", 2D) = "white" {}
         _GlossySpecularColor("Color", Color) = (1, 1, 1, 1)
@@ -58,6 +60,8 @@ Shader "RayTracing/Uber"
             float4 _NormalTex_ST;
             
             half4  _BaseColor;
+            half4  _BaseColorLinear;
+            float _UseLinearBaseColor;
             sampler2D _GlossySpecularTex;
             half4 _GlossySpecularColor;
             int _MaterialType;

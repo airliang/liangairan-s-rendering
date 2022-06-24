@@ -66,16 +66,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
         float3 curSpectrum = lerp(spectrum, radiance, t);
         //spectrum.rgb += radiance;
         spectrums[id.xy] = float4(curSpectrum, 1);
-        color = LinearToGammaSpace(ACESToneMapping(curSpectrum, _Exposure));
-
-        //test envmap distribution
-        //if (id.x < envMapDistributionSize.x && id.y < envMapDistributionSize.y)
-        //{
-        //    int index = id.x + id.y * (envMapDistributionSize.x + 1);
-        //    color = EnvmapMarginals[id.y].xxx;
-        //}
-        //else
-        //    color = 0;
+        color = Filmic(curSpectrum); //LinearToGammaSpace(ACESToneMapping(curSpectrum, _Exposure)); 
     }
     else
     {

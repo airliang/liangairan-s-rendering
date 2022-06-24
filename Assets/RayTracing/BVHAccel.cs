@@ -830,6 +830,8 @@ public class BVHAccel
 								//isect.row3 = objectToWorld._m20_m21_m22_m23;
 								isect.tangent = (v0World - hitPos).normalized;
 								isect.bitangent = Vector3.Cross(isect.normal, isect.tangent).normalized;
+								isect.primArea = Vector3.Cross(v2World - v0World, v1World - v0World).magnitude * 0.5f;
+								isect.triangleIndex = (uint)triangleIndex;
 
 								if (anyHit)
 									return true;
@@ -926,6 +928,8 @@ public class BVHAccel
 					hitBVHNode = 0;
 					hitT = bvhHit;
 					hitIndex = meshHitTriangleIndex;
+					isect.meshInstanceID = 0;
+					isect.materialID = meshInstance.materialIndex;
 				}
 			}
 		}
@@ -1040,6 +1044,8 @@ public class BVHAccel
 								hitIndex = meshHitTriangleIndex;
 								hitBVHNode = next[i];
 								hitMeshIndex = nextMeshInstanceIds[i];
+								tmpInteraction.meshInstanceID = (uint)hitMeshIndex;
+								tmpInteraction.materialID = meshInstance.materialIndex;
 								isect = tmpInteraction;
 								isect.wo = -ray.direction;
 								isect.materialID = meshInstance.materialIndex;

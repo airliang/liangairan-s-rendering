@@ -63,7 +63,7 @@ float3 MIS_BSDF(Interaction isect, Material material, Light light, int lightInde
     //float3 wi;
     //float scatteringPdf = 0;
     pathVertex = (PathVertex)0;
-    float3 wiLocal;
+    //float3 wiLocal;
     float2 u = Get2D(rng);
     
     BSDFSample bsdfSample = SampleMaterialBRDF(material, isect, woLocal, rng);
@@ -77,14 +77,15 @@ float3 MIS_BSDF(Interaction isect, Material material, Light light, int lightInde
         //Interaction lightISect = (Interaction)0;
         bool found = ClosestHit(ray, pathVertex.nextISect);
         //pathVertex.nextISect = lightISect; 
-        //pathVertex.found = found ? 1 : 0;  //can not use this expression or it will be something error. I don't know why.
+        pathVertex.found = found ? 1 : 0;  //can not use this expression or it will be something error. I don't know why.
         
         float3 li = 0;
         float lightPdf = 0;
-
+        //pathVertex.found = found ? 1 : 0;
+        
         if (found)
         {
-            pathVertex.found = 1;
+            //pathVertex.found = 1;
 
             int meshInstanceIndex = pathVertex.nextISect.meshInstanceID;
             MeshInstance meshInstance = MeshInstances[meshInstanceIndex];
@@ -108,6 +109,7 @@ float3 MIS_BSDF(Interaction isect, Material material, Light light, int lightInde
                 lightPdf = EnvLightLiPdf(wi, _UniformSampleLight) * lightSourcePdf;
             }
         }
+        
         
         float weight = 1;
         if (!bsdfSample.IsSpecular())

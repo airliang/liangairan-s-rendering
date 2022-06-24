@@ -53,7 +53,7 @@ half3 NeutralTonemap(half3 x, float exposure)
     return x;
 }
 
-half3 ACESToneMapping(half3 color, float exposure)
+half3 ACESToneMapping(float3 color, float exposure)
 {
     const half A = 2.51f;
     const half B = 0.03f;
@@ -63,6 +63,12 @@ half3 ACESToneMapping(half3 color, float exposure)
 
     color *= exposure;
     return (color * (A * color + B)) / (color * (C * color + D) + E);
+}
+
+half3 Filmic(float3 c) 
+{
+    float3 x = max(float(0.0f), c - 0.004f);
+    return (x * (6.2f * x + 0.5f)) / (x * (6.2f * x + 1.7f) + 0.06f);
 }
 
 #endif

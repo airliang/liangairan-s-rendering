@@ -23,7 +23,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     int threadId = id.x + id.y * rasterSize.x;
     float4 color;
     PathRadiance pathRadiance = pathRadiances[threadId];
-    float3 radiance = pathRadiance.li.rgb;
+    float3 radiance = clamp(pathRadiance.li.rgb, 0, 30);
     float3 spectrum = spectrums[id.xy];
     float t = 1.0f / framesNum;
     float3 curSpectrum = lerp(spectrum, radiance, t);

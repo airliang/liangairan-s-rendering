@@ -33,6 +33,8 @@ public class MaterialParam
     public Texture2D AlbedoMap;
 
     public Color BaseColor = Color.white;
+    public Vector3 LinearBaseColor = Vector3.one;
+    private bool useLinearBaseColor = false;
     public Texture2D NormalMap;
 
     public Color Transmission = Color.white;
@@ -92,6 +94,8 @@ public class MaterialParam
             if (mainTex != null)
                 materialParam.AlbedoMap = mainTex as Texture2D;
             materialParam.BaseColor = material.GetColor("_BaseColor");
+            materialParam.useLinearBaseColor = material.GetFloat("_UseLinearBaseColor") == 1.0f;
+            materialParam.LinearBaseColor = material.GetVector("_BaseColorLinear");
             Texture normalTex = material.GetTexture("_NormalTex");
             if (normalTex != null)
                 materialParam.NormalMap = normalTex as Texture2D;
@@ -120,6 +124,11 @@ public class MaterialParam
                 materialParam.Eta = material.GetVector("_eta");
             }
             materialParam.fresnelType = material.GetFloat("_FresnelType");
+        }
+        else if (material.shader.name == "RayTracing/AreaLight")
+        {
+            materialParam.BaseColor = Color.black;
+            materialParam.Transmission = Color.black;
         }
         else
         {
@@ -157,7 +166,7 @@ public class MaterialParam
         }
         else
             gpuMaterial.albedoMapMask = MathUtil.UInt32BitsToSingle(0);
-        gpuMaterial.baseColor = BaseColor.LinearToVector3();
+        gpuMaterial.baseColor = useLinearBaseColor ? LinearBaseColor : BaseColor.LinearToVector3();
         gpuMaterial.transmission = Transmission.LinearToVector3();
         gpuMaterial.fresnelType = fresnelType;
 

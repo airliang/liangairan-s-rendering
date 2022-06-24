@@ -291,11 +291,40 @@ public class CPUPathIntegrator
         return bxdf.Sample_F(u, wo);
     }
 
+    static BSDFSample SampleLambert(GPUMaterial material, Vector3 wo)
+    {
+        BSDFSample bsdfSample = new BSDFSample();
+        Vector2 u = Get2D();
+        Vector3 wi = CosineSampleHemisphere(u);
+        if (wo.z < 0)
+            wi.z *= -1;
+        bsdfSample.wi = wi;
+        bsdfSample.pdf = LambertPDF(wi, wo);
+        bsdfSample.reflectance = LambertBRDF(wi, wo, material.baseColor);
+        return bsdfSample;
+    }
+
     //wi wo is a vector which in local space of the interfaction surface
     static BSDFSample SampleMaterialBRDF(GPUMaterial material, GPUInteraction isect, Vector3 wo)
     {
-
-        return SampleGlass(material, wo);
+        switch (material.materialType)
+        {
+            //case Disney:
+            //	return 0;
+            case (int)BSDFMaterial.Matte:
+                return SampleLambert(material, wo);
+            case (int)BSDFMaterial.Plastic:
+                //return SamplePlastic(material, wo);
+            case (int)BSDFMaterial.Metal:
+                //return SampleMetal(material, wo);
+            case (int)BSDFMaterial.Mirror:
+                //return SampleMirror(material, wo);
+            case (int)BSDFMaterial.Glass:
+                return SampleGlass(material, wo);
+            default:
+                return SampleLambert(material, wo);
+        }
+        //return SampleGlass(material, wo);
     }
 
     public static GPURay SpawnRay(Vector3 p, Vector3 direction, Vector3 normal, float tMax)

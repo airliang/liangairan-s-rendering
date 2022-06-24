@@ -33,6 +33,7 @@ public class BSDFShaderGUI : ShaderGUI
         public static readonly string[] fresnelNames = Enum.GetNames(typeof(BSDFFresnel));
 
         public static GUIContent albedoText = new GUIContent("Albedo", "Albedo (RGB) and Transparency (A)");
+        public static GUIContent linearAlbeoText = new GUIContent("linear Base Color", "Use linear Base Color instead of Albedo");
         public static GUIContent tilingText = new GUIContent("Tiling", "Tiling");
         //public static GUIContent uvOffsetText = new GUIContent("Offset", "Offset");
 
@@ -69,6 +70,8 @@ public class BSDFShaderGUI : ShaderGUI
 
     private MaterialProperty albedoColor;
     private MaterialProperty albedoMap;
+    private MaterialProperty useLinearAlbedoColor;
+    private MaterialProperty linearAlbedoColor;
     private MaterialProperty normalMap;
     private MaterialProperty glossySpecularMap;
     private MaterialProperty glossySpecularColor;
@@ -85,6 +88,7 @@ public class BSDFShaderGUI : ShaderGUI
     //private MaterialProperty staticBatch;
 
     private bool m_FirstTimeApply = true;
+    private bool useLinearVectorColor = false;
 
     private void MaterialChanged(Material material)
     {
@@ -98,6 +102,8 @@ public class BSDFShaderGUI : ShaderGUI
     {
         materialTypeProp = FindProperty("_MaterialType", properties);
         albedoColor = FindProperty("_BaseColor", properties);
+        useLinearAlbedoColor = FindProperty("_UseLinearBaseColor", properties);
+        linearAlbedoColor = FindProperty("_BaseColorLinear", properties);
         albedoMap = FindProperty("_MainTex", properties);
         normalMap = FindProperty("_NormalTex", properties);
         glossySpecularMap = FindProperty("_GlossySpecularTex", properties);
@@ -165,6 +171,17 @@ public class BSDFShaderGUI : ShaderGUI
 
             materialEditor.TexturePropertySingleLine(Styles.albedoText, albedoMap, albedoColor);
             Vector4 tiling = material.GetVector("_MainTex_ST");
+            useLinearVectorColor = EditorGUILayout.Toggle("Use linear base color", useLinearVectorColor);
+            if (useLinearVectorColor)
+            {
+                materialEditor.ShaderProperty(linearAlbedoColor, Styles.linearAlbeoText);
+                useLinearAlbedoColor.floatValue = 1.0f;
+            }
+            else
+            {
+                useLinearAlbedoColor.floatValue = 0.0f;
+            }
+
             tiling = EditorGUILayout.Vector4Field(Styles.tilingText, tiling);
             material.SetVector("_MainTex_ST", tiling);
             //albedoTiling.vectorValue = tiling;

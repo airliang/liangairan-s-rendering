@@ -267,7 +267,7 @@ Ray TransformRay(float4x4 mat, Ray ray)
 }
 
 //return the a point of triangle
-//p0 p1 p2 is the local position of a mesh
+//p0 p1 p2 is the world position of a mesh
 float3 SamplePointOnTriangle(float3 p0, float3 p1, float3 p2, float2 u, out float3 normal, out float pdf)
 {
 	//caculate bery centric uv w = 1 - u - v
@@ -278,7 +278,7 @@ float3 SamplePointOnTriangle(float3 p0, float3 p1, float3 p2, float2 u, out floa
 	float3 position = p0 * w + p1 * uv.x + p2 * uv.y;
 	float3 crossVector = cross(p1 - p0, p2 - p0);
 	normal = normalize(crossVector);
-	pdf = 1.0 / length(crossVector);
+	pdf = 2.0 / length(crossVector);
 
 	return position;
 }
