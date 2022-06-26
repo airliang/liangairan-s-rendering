@@ -23,7 +23,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     int threadId = id.x + id.y * rasterSize.x;
     float4 color;
     PathRadiance pathRadiance = pathRadiances[threadId];
-    float3 radiance = clamp(pathRadiance.li.rgb, 0, 30);
+    float3 radiance = pathRadiance.li.rgb;
     float3 spectrum = spectrums[id.xy];
     float t = 1.0f / framesNum;
     float3 curSpectrum = lerp(spectrum, radiance, t);
@@ -31,7 +31,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     spectrums[id.xy] = float4(curSpectrum, 1);
     //spectrum.rgb += radiance;
     //spectrums[id.xy] = float4(spectrum, 1);
-    color.rgb = LinearToGammaSpace(ACESToneMapping(curSpectrum, _Exposure));
+    color.rgb = curSpectrum;//LinearToGammaSpace(ACESToneMapping(curSpectrum, _Exposure));
     color.a = 1;
     outputTexture[id.xy] = color;
 }

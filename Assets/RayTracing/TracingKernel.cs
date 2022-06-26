@@ -37,6 +37,7 @@ public class RaytracingData
     public float _Exposure = 1;
     public bool _EnviromentMapEnable = true;
     public bool _UniformSampleLight = false;
+    public bool _SaveOutputTexture = false;
 }
 
 public interface TracingKernel

@@ -66,7 +66,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
         float3 curSpectrum = lerp(spectrum, radiance, t);
         //spectrum.rgb += radiance;
         spectrums[id.xy] = float4(curSpectrum, 1);
-        color = Filmic(curSpectrum); //LinearToGammaSpace(ACESToneMapping(curSpectrum, _Exposure)); 
+        color = curSpectrum; //Filmic(curSpectrum); //LinearToGammaSpace(ACESToneMapping(curSpectrum, _Exposure)); 
     }
     else
     {

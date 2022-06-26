@@ -502,7 +502,7 @@ public class CPUPathIntegrator
         Vector3 position = p0 * w + p1 * uv.x + p2 * uv.y;
         Vector3 crossVector = Vector3.Cross(p1 - p0, p2 - p0);
         normal = Vector3.Normalize(crossVector);
-        pdf = 1.0f / crossVector.magnitude;
+        pdf = 2.0f / crossVector.magnitude;
 
         return position;
     }

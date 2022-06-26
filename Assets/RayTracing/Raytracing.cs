@@ -15,7 +15,7 @@ public class Raytracing : MonoBehaviour
     public WavefrontResource wavefrontResource;
     public MegaKernelResource megaResource;
     private Camera cameraComponent;
-    
+    public Material _BlitMaterial;
 
     void Start()
     {
@@ -31,6 +31,13 @@ public class Raytracing : MonoBehaviour
 
         cameraComponent = GetComponent<Camera>();
         _RaytracingKernel.Setup(cameraComponent, _RayTracingData);
+
+        if (_BlitMaterial == null)
+        {
+            Shader blitShader = Shader.Find("RayTracing/Blit");
+            if (blitShader != null)
+                _BlitMaterial = new Material(blitShader);
+        }
     }
 
     void Update()
@@ -58,7 +65,10 @@ public class Raytracing : MonoBehaviour
     {
         //Graphics.Blit(outputTexture, destination);
         //for gbuffer test
-        Graphics.Blit(_RaytracingKernel.GetOutputTexture(), destination);
+        if (_BlitMaterial != null)
+            Graphics.Blit(_RaytracingKernel.GetOutputTexture(), destination, _BlitMaterial);
+        else
+            Graphics.Blit(_RaytracingKernel.GetOutputTexture(), destination);
     }
 
     

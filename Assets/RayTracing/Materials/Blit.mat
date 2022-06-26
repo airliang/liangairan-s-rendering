@@ -7,13 +7,11 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: MatteGreen
-  m_Shader: {fileID: 4800000, guid: 8b036619dc8f6c548a5a2fa03e3c2155, type: 3}
+  m_Name: Blit
+  m_Shader: {fileID: 4800000, guid: a9d4c52576b84514ea0819591526d038, type: 3}
   m_ValidKeywords: []
   m_InvalidKeywords:
-  - _FRESNELTYPE_DIELECTRIC
-  - _MATERIALTYPE_MATTE
-  - _USELINEARBASECOLOR_ON
+  - _HDRTYPE_DEFAULT
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
@@ -43,19 +41,11 @@ Material:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
-    - _GlossySpecularTex:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
     - _MainTex:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MetallicGlossMap:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - _NormalTex:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
@@ -70,14 +60,14 @@ Material:
     m_Ints: []
     m_Floats:
     - _BumpScale: 1
-    - _Cutoff: 0.489
+    - _Cutoff: 0.5
     - _DetailNormalMapScale: 1
     - _DstBlend: 0
-    - _FresnelType: 0
+    - _Exposure: 1
     - _GlossMapScale: 1
     - _Glossiness: 0.5
     - _GlossyReflections: 1
-    - _MaterialType: 0
+    - _HDRType: 0
     - _Metallic: 0
     - _Mode: 0
     - _OcclusionStrength: 1
@@ -86,30 +76,8 @@ Material:
     - _SpecularHighlights: 1
     - _SrcBlend: 1
     - _UVSec: 0
-    - _UseLinearBaseColor: 1
     - _ZWrite: 1
-    - _anisotropy: 0
-    - _clearcoat: 0
-    - _clearcoatGloss: 0
-    - _eta: 1
-    - _ior: 1
-    - _k: 0
-    - _metallic: 0
-    - _roughness: 0
-    - _roughnessU: 0
-    - _roughnessV: 0
-    - _sheen: 0
-    - _sheenTint: 0
-    - _specular: 0
-    - _specularTint: 0
-    - _specularTransmission: 0
     m_Colors:
-    - _BaseColor: {r: 0, g: 0.5019608, b: 0, a: 1}
-    - _BaseColorLinear: {r: 0.105299845, g: 0.37748903, b: 0.0764699, a: 1}
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
-    - _GlossySpecularColor: {r: 1, g: 1, b: 1, a: 1}
-    - _eta: {r: 1, g: 1, b: 1, a: 1}
-    - _k: {r: 1, g: 1, b: 1, a: 1}
-    - _t: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []

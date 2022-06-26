@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -31,6 +32,7 @@ public class MegaKernel : TracingKernel
     //int samplesPerPixel = 128;
 
     int framesNum = 0;
+    private bool hasSaveImage = false;
     //float cameraConeSpreadAngle = 0;
 
     public MegaKernel(MegaKernelResource resource)
@@ -108,7 +110,7 @@ public class MegaKernel : TracingKernel
 
         if (outputTexture == null)
         {
-            outputTexture = new RenderTexture(Screen.width, Screen.height, 0);
+            outputTexture = new RenderTexture(Screen.width, Screen.height, 0, RenderTextureFormat.ARGBHalf, 0);
             outputTexture.enableRandomWrite = true;
         }
 
@@ -131,6 +133,8 @@ public class MegaKernel : TracingKernel
         gpuFilterData.Setup(filter);
 
         SetupMegaCompute(camera);
+
+        hasSaveImage = false;
     }
 
     public void Update(Camera camera)
@@ -139,6 +143,14 @@ public class MegaKernel : TracingKernel
         {
             //GPUFilterSample uv = filter.Sample(MathUtil.GetRandom01());
             //Debug.Log(uv.p);
+            if (_rayTracingData._SaveOutputTexture)
+            {
+                if (!hasSaveImage)
+                {
+                    hasSaveImage = true;
+                    SaveOutputTexture();
+                }
+            }
             return;
         }
         //_InitSampler.Dispatch(_InitSamplerKernel, (int)Screen.width / 8 + 1, (int)Screen.height / 8 + 1, 1);
@@ -238,5 +250,19 @@ public class MegaKernel : TracingKernel
     {
         cs.SetTexture(kernel, "albedoTexArray", RayTracingTextures.Instance.GetAlbedo2DArray(128));
         cs.SetTexture(kernel, "normalTexArray", RayTracingTextures.Instance.GetNormal2DArray(128));
+    }
+
+    void SaveOutputTexture()
+    {
+        Texture2D texture2D = new Texture2D(outputTexture.width, outputTexture.height, TextureFormat.RGBAHalf, false);
+        texture2D.filterMode = FilterMode.Bilinear;
+        //RenderTexture.active = outputTexture;
+        Graphics.SetRenderTarget(outputTexture);
+        texture2D.ReadPixels(new Rect(0, 0, texture2D.width, texture2D.height), 0, 0, false);
+        Graphics.SetRenderTarget(null);
+        texture2D.Apply();
+        byte[] bytes = ImageConversion.EncodeArrayToEXR(texture2D.GetRawTextureData(), texture2D.graphicsFormat, (uint)texture2D.width, (uint)texture2D.height, 0, Texture2D.EXRFlags.OutputAsFloat);
+        Object.Destroy(texture2D);
+        File.WriteAllBytes(Application.dataPath + "/../SavedOutput.exr", bytes);
     }
 }

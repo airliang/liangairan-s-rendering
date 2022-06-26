@@ -2,14 +2,15 @@
 %TAG !u! tag:unity3d.com,2011:
 --- !u!21 &2100000
 Material:
-  serializedVersion: 6
+  serializedVersion: 8
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: LightMaterial
   m_Shader: {fileID: 4800000, guid: 90d2ae9d772c9f94d92907c46ad14bc5, type: 3}
-  m_ShaderKeywords: 
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
   m_LightmapFlags: 0
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
@@ -27,6 +28,7 @@ Material:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
+    m_Ints: []
     m_Floats:
     - _Emission: 1
     - _EmissionLM: 35
@@ -34,7 +36,7 @@ Material:
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _Emission: {r: 1, g: 1, b: 1, a: 1}
-    - _Intensity: {r: 17, g: 12, b: 4, a: 1}
+    - _Intensity: {r: 20.7, g: 10.8, b: 2.76, a: 1}
   m_BuildTextureStacks: []
 --- !u!1002 &2100001
 EditorExtensionImpl:
