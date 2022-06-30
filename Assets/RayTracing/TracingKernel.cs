@@ -30,6 +30,7 @@ public class RaytracingData
     public TracingView viewMode = TracingView.ColorView;
 
     public int SamplesPerPixel = 128;
+    public int MaxDepth = 5;
     public FilterType filterType = FilterType.Gaussian;
     public Vector2 fiterRadius = Vector2.one;
     public float gaussianSigma = 0.5f;

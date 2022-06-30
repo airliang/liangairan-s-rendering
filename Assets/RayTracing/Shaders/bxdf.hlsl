@@ -170,7 +170,7 @@ struct BxDFPlastic
         bsdfSample.pdf = MicrofacetPdf(D, wh) / (4 * dot(wo, wh));
         float cosThetaI = AbsCosTheta(wi);
         float cosThetaO = AbsCosTheta(wo);
-        float3 F = FrDielectric(cosThetaI, etaI, etaT);
+        float3 F = FrDielectric(abs(dot(wi, wh)), etaI, etaT);
         bsdfSample.reflectance = R * D * MicrofacetG(wo, wi, alphax, alphay) * F * 0.25 / (cosThetaI * cosThetaO);
         return bsdfSample;
     }
@@ -384,8 +384,8 @@ struct BxDFMicrofacetReflection
         BSDFSample bsdfSample = (BSDFSample)0;
         bsdfSample.bxdfFlag = BXDF_REFLECTION;
         float3 wh = Sample_wh(u, wo);
-        float3 wi = reflect(-wo, wh);
-
+        float3 wi = normalize(reflect(-wo, wh));
+        bsdfSample.wi = wi;
         bsdfSample.reflectance = F(wo, wi, bsdfSample.pdf);
         return bsdfSample;
     }
@@ -404,7 +404,7 @@ struct BxDFMicrofacetReflection
         wh = normalize(wh);
         // For the Fresnel call, make sure that wh is in the same hemisphere
         // as the surface normal, so that TIR is handled correctly.
-        float3 F = fresnel.Evaluate(dot(wi, Faceforward(wh, float3(0, 0, 1))));
+        float3 F = FrDielectric(abs(dot(wi, wh)), 1.0, 1.5); //fresnel.Evaluate(dot(wi, Faceforward(wh, float3(0, 0, 1))));
 
         float D = TrowbridgeReitzD(wh, alphax, alphay);
         pdf = MicrofacetPdf(D, wh) * 0.25 / (dot(wo, wh));

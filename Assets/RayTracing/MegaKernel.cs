@@ -219,6 +219,7 @@ public class MegaKernel : TracingKernel
         _InitSampler.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
         _InitSampler.Dispatch(_InitSamplerKernel, (int)rasterWidth / 8 + 1, (int)rasterHeight / 8 + 1, 1);
 
+        _MegaCompute.SetInt("MAX_PATH", _rayTracingData.MaxDepth);
         _MegaCompute.SetBuffer(_MegaComputeKernel, "RNGs", samplerBuffer);
 
         _MegaCompute.SetTexture(_MegaComputeKernel, "outputTexture", outputTexture);

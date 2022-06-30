@@ -1,7 +1,7 @@
 #ifndef PATHINTEGRATOR_HLSL
 #define PATHINTEGRATOR_HLSL
 
-#define MAX_PATH 5
+
 #include "light.hlsl"
 #include "geometry.hlsl"
 #include "bvhaccel.hlsl"
@@ -9,6 +9,7 @@
 
 RWStructuredBuffer<Interaction>       Intersections;
 RWTexture2D<half4>  RayConeGBuffer;
+int MAX_PATH;
 //RWTexture2D<float3> LastISectRayCone;
 //float cameraConeSpreadAngle;
 

@@ -53,8 +53,8 @@ public class WavefrontKernel : TracingKernel
     //Matrix4x4 WorldToRaster;
 
 
-    const int MAX_PATH = 5;
-    int samplesPerPixel = 1024;
+    int MAX_PATH = 5;
+    //int samplesPerPixel = 1024;
 
 
     int framesNum = 0;
@@ -92,10 +92,11 @@ public class WavefrontKernel : TracingKernel
     public void Setup(Camera camera, RaytracingData data)
     {
         _rayTracingData = data;
+        MAX_PATH = data.MaxDepth;
 
         if (outputTexture == null)
         {
-            outputTexture = new RenderTexture(Screen.width, Screen.height, 0);
+            outputTexture = new RenderTexture(Screen.width, Screen.height, 0, RenderTextureFormat.ARGBHalf, 0);
             outputTexture.enableRandomWrite = true;
         }
 
@@ -218,7 +219,7 @@ public class WavefrontKernel : TracingKernel
 
         //bvhAccel.DrawDebug(meshInstances, true);
 
-        if (framesNum >= samplesPerPixel)
+        if (framesNum >= _rayTracingData.SamplesPerPixel)
         {
             //GPUFilterSample uv = filter.Sample(MathUtil.GetRandom01());
             //Debug.Log(uv.p);
