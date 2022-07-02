@@ -59,7 +59,7 @@ public class BVHBuilder
 		return o;
 	}
 
-	virtual public BVHBuildNode Build(List<Primitive> prims, List<Primitive> orderedPrims, List<GPUVertex> vertices, List<int> triangles, int _maxPrimsInNode = 4)
+	virtual public BVHBuildNode Build(List<Primitive> prims, List<Primitive> orderedPrims, List<GPUVertex> vertices, int _maxPrimsInNode = 4)
     {
 		totalNodes = 0;
 		primitives = prims;

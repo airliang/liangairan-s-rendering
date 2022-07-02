@@ -108,7 +108,7 @@ public class SplitBVHBuilder : BVHBuilder
     };
 
     //这个是整个场景的顶点和索引的引用List，不能释放掉
-    List<int> _triangles;
+    //List<int> _triangles;
     List<GPUVertex> _vertices;
     List<Primitive> _primitives;
     List<Primitive> _orderedPrimitives;
@@ -171,9 +171,8 @@ public class SplitBVHBuilder : BVHBuilder
     delegate bool Cmp(float a, float b);
     //delegate bool cmp2(float a, float b);
 
-    public override BVHBuildNode Build(List<Primitive> prims, List<Primitive> orderedPrims, List<GPUVertex> vertices, List<int> triangles, int _maxPrimsInNode = 1)
+    public override BVHBuildNode Build(List<Primitive> prims, List<Primitive> orderedPrims, List<GPUVertex> vertices, int _maxPrimsInNode = 1)
     {
-        _triangles = triangles;
         _vertices = vertices;
         _primitives = prims;
         _orderedPrimitives = orderedPrims;

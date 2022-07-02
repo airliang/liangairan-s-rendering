@@ -147,7 +147,7 @@ public class BVHAccel
 		*/
 		BVHBuilder builder = new SplitBVHBuilder();
 		List<Primitive> orderedPrims = new List<Primitive>();
-		root = builder.Build(primitives, orderedPrims, vertices, triangles);
+		root = builder.Build(primitives, orderedPrims, vertices);
 		primitives = orderedPrims;
 		int offset = 0;
 		LinearBVHNode[] linearNodes = new LinearBVHNode[builder.TotalNodes];
@@ -497,7 +497,7 @@ public class BVHAccel
 			instBVHNodeAddr = nodesNum;
 		}
 		// build the instance bounding box bvh
-		BuildInstBVH(meshHandles, meshInstances, vertices, triangles, instBVHOffset);
+		BuildInstBVH(meshHandles, meshInstances, vertices, instBVHOffset);
 
 		for (int i = 0; i < meshInstances.Count; ++i)
         {
@@ -515,7 +515,7 @@ public class BVHAccel
 		return instBVHNodeAddr;
 	}
 
-	public void BuildInstBVH(List<MeshHandle> meshHandles, List<MeshInstance> meshInstances, List<GPUVertex> vertices, List<int> triangles, List<int> instBVHOffset)
+	public void BuildInstBVH(List<MeshHandle> meshHandles, List<MeshInstance> meshInstances, List<GPUVertex> vertices, List<int> instBVHOffset)
     {
 		List<Primitive> primitives = new List<Primitive>();
 		for (int i = 0; i < meshInstances.Count; ++i)
@@ -534,7 +534,7 @@ public class BVHAccel
 		//保证一个leaf一个inst，所以maxPrimsInNode参数是1
 		if (primitives.Count > 1)
         {
-			BVHBuildNode instRoot = instBuilder.Build(primitives, orderedPrims, null, null, 1);
+			BVHBuildNode instRoot = instBuilder.Build(primitives, orderedPrims, null, 1);
 			primitives = orderedPrims;
 
 			CreateCompact(instRoot, primitives, vertices, false, instBVHOffset);
@@ -559,14 +559,17 @@ public class BVHAccel
 		List<Primitive> orderedPrims = new List<Primitive>();
 		BVHBuilder builder = new SplitBVHBuilder();
         float timeBegin = Time.realtimeSinceStartup;
-		BVHBuildNode meshRoot = builder.Build(primitives, orderedPrims, vertices, triangles, primitives.Count < 3 ? 1 : maxLeafSize);
+		BVHBuildNode meshRoot = builder.Build(primitives, orderedPrims, vertices, primitives.Count < 3 ? 1 : maxLeafSize);
 		float timeInterval = Time.realtimeSinceStartup - timeBegin;
         Debug.Log("building bottom level mesh bvh cost time:" + timeInterval);
         
 		//CreateCompact生成的m_nodes数组只有inner node的数据，所以这里返回m_nodes.Count
 		primitives = orderedPrims;
+		timeBegin = Time.realtimeSinceStartup;
 		CreateCompact(meshRoot, primitives, vertices, true);
-		return m_nodes.Count;
+        timeInterval = Time.realtimeSinceStartup - timeBegin;
+        Debug.Log("building bottom level bvh CreateCompact cost time:" + timeInterval);
+        return m_nodes.Count;
 	}
 
 	//Vector3 MinOrMax(GPUBVHNode box, int n)
