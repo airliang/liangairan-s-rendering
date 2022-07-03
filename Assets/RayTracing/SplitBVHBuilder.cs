@@ -79,8 +79,8 @@ public class SplitBVHBuilder : BVHBuilder
     float m_splitAlpha = 1.0e-5f;   //what's this mean?
     float m_traversalCost = 0.125f;
     int m_numDuplicates = 0;   //重复在多个节点上的三角形数量
-    List<BVHPrimitiveInfo> primitiveInfos = new List<BVHPrimitiveInfo>();
-    List<int> triangles = new List<int>();
+    //List<BVHPrimitiveInfo> primitiveInfos = new List<BVHPrimitiveInfo>();
+    //List<int> triangles = new List<int>();
     List<Reference> m_refStack = new List<Reference>();
     //GPUBounds[] m_rightBounds = null;
     int m_sortDim;
@@ -182,7 +182,7 @@ public class SplitBVHBuilder : BVHBuilder
 
         for (int i = 0; i < prims.Count; ++i)
         {
-            primitiveInfos.Add(new BVHPrimitiveInfo(i, prims[i].worldBound));
+            //primitiveInfos.Add(new BVHPrimitiveInfo(i, prims[i].worldBound));
             Reference reference = new Reference()
             {
                 triIdx = i,  //reference's triIdx is the index in _primitives
@@ -194,8 +194,8 @@ public class SplitBVHBuilder : BVHBuilder
         {
             //root.bounds = GPUBounds.Union(root.bounds, primitiveInfos[i].worldBound);
             //root.centroidBounds = GPUBounds.Union(root.centroidBounds, primitiveInfos[i].worldBound.centroid);
-            root.bounds.Union(primitiveInfos[i].worldBound);
-            root.centroidBounds.Union(primitiveInfos[i].worldBound.centroid);
+            root.bounds.Union(m_refStack[i].bounds);
+            root.centroidBounds.Union(m_refStack[i].bounds.centroid);
         }
         root.numRef = prims.Count;
 
