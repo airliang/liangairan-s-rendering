@@ -128,7 +128,7 @@ struct BVHNode
 
 struct Vertex
 {
-	float4 position;
+	float3 position;
 	float2 uv;
 	float3 normal;
 };

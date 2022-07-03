@@ -344,10 +344,10 @@ bool IntersectBVHandTriangles(Ray ray, int bvhOffset, out Interaction interactio
 					int vertexIndex0 = WoodTriangleIndices[triAddr];
 					int vertexIndex1 = WoodTriangleIndices[triAddr + 1];
 					int vertexIndex2 = WoodTriangleIndices[triAddr + 2];
-					const float4 v0 = Vertices[vertexIndex0].position;
-					const float4 v1 = Vertices[vertexIndex1].position;
-					const float4 v2 = Vertices[vertexIndex2].position;
-					float4 hitPos = v0 * uv.x + v1 * uv.y + v2 * (1.0 - uv.x - uv.y);
+					const float3 v0 = Vertices[vertexIndex0].position;
+					const float3 v1 = Vertices[vertexIndex1].position;
+					const float3 v2 = Vertices[vertexIndex2].position;
+					float4 hitPos = float4(v0 * uv.x + v1 * uv.y + v2 * (1.0 - uv.x - uv.y), 1);
 
 					//hitPos.xyz = offset_ray(hitPos.xyz, normal);
 					hitPos.w = hitT;
@@ -522,11 +522,11 @@ bool IntersectMeshBVH(Ray ray, int bvhOffset, float4x4 objectToWorld, float4x4 w
 					Vertex vertex0 = Vertices[vertexIndex0];
 					Vertex vertex1 = Vertices[vertexIndex1];
 					Vertex vertex2 = Vertices[vertexIndex2];
-					const float4 v0 = vertex0.position;
-					const float4 v1 = vertex1.position;
-					const float4 v2 = vertex2.position;
-					float4 hitPos = v0 * uv.x + v1 * uv.y + v2 * (1.0 - uv.x - uv.y);
-					hitPos.w = 1;
+					const float3 v0 = vertex0.position;
+					const float3 v1 = vertex1.position;
+					const float3 v2 = vertex2.position;
+					float4 hitPos = float4(v0 * uv.x + v1 * uv.y + v2 * (1.0 - uv.x - uv.y), 1);
+					//hitPos.w = 1;
 					hitPos = mul(objectToWorld, hitPos);
 
 					float3 p0 = mul(objectToWorld, float4(v0.xyz, 1.0)).xyz;
