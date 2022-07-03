@@ -498,6 +498,24 @@ namespace BVHLib
 				return 2;
 		}
 
+		T MinSize()
+		{
+			Vector3<T> size = Diagonal();
+			T min = size.x;
+			min = min(size.y, min);
+			min = min(size.z, min);
+			return min;
+		}
+
+		T MaxSize()
+		{
+			Vector3<T> size = Diagonal;
+			T max = size.x;
+			max = max(size.y, max);
+			max = max(size.z, max);
+			return max;
+		}
+
 		Vector3<T> Lerp(const Vector3f &t) const 
 		{
 			return Vector3<T>(BVHLib::Lerp(t.x, pMin.x, pMax.x),
@@ -518,6 +536,11 @@ namespace BVHLib
 			return o;
 		}
 
+		Vector3<T> Centroid() const
+		{
+			return (pMax + pMin) * 0.5f;
+		}
+
 		bool static Inside(const Vector3<T> &p, const Bounds3<T> &b) {
 			return (p.x >= b.pMin.x && p.x <= b.pMax.x && p.y >= b.pMin.y &&
 				p.y <= b.pMax.y && p.z >= b.pMin.z && p.z <= b.pMax.z);
@@ -533,6 +556,17 @@ namespace BVHLib
 			return Bounds3<U>((Vector3<U>)pMin, (Vector3<U>)pMax);
 		}
 
+		void Union(const Bounds3<T>& b)
+		{
+			pMin = Min(pMin, b.pMin);
+			pMax = Max(pMax, b.pMax);
+		}
+
+		void Union(const Vector3<T>& p)
+		{
+			pMin = Min(pMin, p);
+			pMax = Max(pMax, p);
+		}
 
 		static Bounds3<T> Union(const Bounds3<T> &b, const Vector3<T> &p) {
 			Bounds3<T> ret;

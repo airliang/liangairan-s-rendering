@@ -36,6 +36,9 @@
     <ClInclude Include="RayTracing.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="BVHBuilder.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BVHAccel.cpp">
@@ -46,6 +49,9 @@
     </ClCompile>
     <ClCompile Include="math\quaternion.cpp">
       <Filter>math</Filter>
+    </ClCompile>
+    <ClCompile Include="BVHBuilder.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

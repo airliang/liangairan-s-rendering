@@ -1,35 +1,44 @@
 #pragma once
 #include "math/geometry.h"
 
-#define BVH_EXPORT  __declspec(dllexport)
+#ifdef _WIN32
+#ifdef EXPORT_API
+#define BVHAPI __declspec(dllexport)
+#else
+#define BVHAPI __declspec(dllimport)
+#endif
+#elif defined(__GNUC__)
+#ifdef EXPORT_API
+#define BVHAPI __attribute__((visibility ("default")))
+#else
+#define BVHAPI
+#endif
+#endif
 
-namespace BVHLib
+#ifdef __cplusplus
+extern "C"
 {
+#endif
 
-	extern "C" BVH_EXPORT int Add(int a, int b);
-
-	extern "C" BVH_EXPORT float SendArrayToCPP(Vector3f* positions, int size);
-
-	extern "C" BVH_EXPORT void GetArrayFromCPP(Vector3f* positions, int size);
-
-	//return the total bvh nodes number
-	extern "C" BVH_EXPORT int AddMesh(Vector3f* positions, int* indices, int triangles, int vertices);
-
-	extern "C" BVH_EXPORT int BuildBVH();
-
-	class BVHAccel
+	struct BVHHandle
 	{
-	public:
-		static BVHAccel GetInstance()
-		{
-			return s_BVH;
-		}
-		~BVHAccel();
-
-		int AddPrimitive(Vector3f* positions, int* indices, int vertices, int triangles);
-	private:
-		BVHAccel();
-
-		static BVHAccel s_BVH;
+		int numNodes;
+		int numWoodTriangles;
 	};
+
+	struct GPUVertex
+	{
+		BVHLib::Vector3f position;
+		BVHLib::Vector2f uv;
+		BVHLib::Vector3f normal;
+	};
+
+	BVHAPI int Add(int a, int b);
+
+
+	BVHAPI BVHHandle BuildBVH(BVHLib::Bounds3f* bounds, int boundsNum, GPUVertex* vertices, int verticesNum);
+
+#ifdef __cplusplus
 }
+#endif
+
