@@ -136,7 +136,7 @@ public struct GPUBounds
 		return 2 * (d.x* d.y + d.x* d.z + d.y* d.z);
 	}
 
-    public int MaximunExtent()
+    public int MaximumExtent()
 	{
         Vector3 d = Diagonal;
 		if (d.x > d.y && d.x > d.z)

@@ -59,7 +59,7 @@ public class BVHBuilder
 		return o;
 	}
 
-	virtual public BVHBuildNode Build(List<Primitive> prims, List<Primitive> orderedPrims, List<GPUVertex> vertices, int _maxPrimsInNode = 4)
+	virtual public BVHBuildNode Build(List<Primitive> prims, List<Primitive> orderedPrims, int _maxPrimsInNode = 4)
     {
 		totalNodes = 0;
 		primitives = prims;
@@ -124,7 +124,7 @@ public class BVHBuilder
 			centroidBounds = GPUBounds.Union(centroidBounds, primitiveInfo[i].worldBound.centroid); //SetMinMax(Vector3.Min(centroidBounds.min, primitiveInfo[i].worldBound.center),
 																									//Vector3.Max(centroidBounds.max, primitiveInfo[i].worldBound.center)); //Union(centroidBounds, primitiveInfo[i].centroid);
 		}
-		int dim = centroidBounds.MaximunExtent();
+		int dim = centroidBounds.MaximumExtent();
 
 		//假如centroidBounds是一个点
 		//即上面的primitiveInfo的中心点在同一个位置

@@ -109,7 +109,7 @@ public class SplitBVHBuilder : BVHBuilder
 
     //这个是整个场景的顶点和索引的引用List，不能释放掉
     //List<int> _triangles;
-    List<GPUVertex> _vertices;
+    //List<GPUVertex> _vertices;
     List<Primitive> _primitives;
     List<Primitive> _orderedPrimitives;
     Vector3 ClampVector3(float x, float y, float z, float min, float max)
@@ -171,9 +171,9 @@ public class SplitBVHBuilder : BVHBuilder
     delegate bool Cmp(float a, float b);
     //delegate bool cmp2(float a, float b);
 
-    public override BVHBuildNode Build(List<Primitive> prims, List<Primitive> orderedPrims, List<GPUVertex> vertices, int _maxPrimsInNode = 1)
+    public override BVHBuildNode Build(List<Primitive> prims, List<Primitive> orderedPrims, int _maxPrimsInNode = 1)
     {
-        _vertices = vertices;
+        //_vertices = vertices;
         _primitives = prims;
         _orderedPrimitives = orderedPrims;
         maxPrimsInNode = _maxPrimsInNode;
@@ -249,7 +249,7 @@ public class SplitBVHBuilder : BVHBuilder
         float nodeSAH = area * GetNodeCost(2);
 
         // Choose the maximum extent
-        int axis = spec.centroidBounds.MaximunExtent();
+        int axis = spec.centroidBounds.MaximumExtent();
         float border = spec.centroidBounds.centroid[axis];
 
         SplitType split_type = SplitType.kObject;
@@ -299,10 +299,11 @@ public class SplitBVHBuilder : BVHBuilder
             if (m_refStack.Count < elems)
             {
                 //primrefs.resize(elems);
-                List<Reference> extras = new List<Reference>();
+                //List<Reference> extras = new List<Reference>();
                 for (int i = 0; i < elems - m_refStack.Count; ++i)
-                    extras.Add(Reference.DefaultReference());
-                m_refStack.AddRange(extras);
+                    m_refStack.Add(Reference.DefaultReference());
+                    //extras.Add(Reference.DefaultReference());
+                    //m_refStack.AddRange(extras);
             }
 
             // Split prim refs and add extra refs to request
@@ -712,6 +713,7 @@ public class SplitBVHBuilder : BVHBuilder
         //return new BVHBuildNode(spec.bounds, tris.getSize() - spec.numRef, tris.getSize());
     }
 
+    /*
     void SplitReference(ref Reference left, ref Reference right, Reference reference, int dim, float pos)
     {
         // Initialize references.
@@ -770,7 +772,6 @@ public class SplitBVHBuilder : BVHBuilder
         right.bounds.Intersect(reference.bounds);
     }
 
-    /*
     void PerformObjectSplit(NodeSpec left, NodeSpec right, NodeSpec spec, SahSplit split)
     {
         m_sortDim = split.sortDim;
@@ -830,114 +831,5 @@ public class SplitBVHBuilder : BVHBuilder
 
         // Return number of primitives after this operation
         extra_refs = appendprims - req.numRef;
-    }
-
-    void PerformSpatialSplit(NodeSpec left, NodeSpec right, NodeSpec spec, SahSplit split)
-    {
-        // Categorize references and compute bounds.
-        //
-        // Left-hand side:      [leftStart, leftEnd[
-        // Uncategorized/split: [leftEnd, rightStart[
-        // Right-hand side:     [rightStart, refs.getSize()[
-
-        //Array<Reference>& refs = m_refStack;
-        int leftStart = m_refStack.Count - spec.numRef;
-        int leftEnd = leftStart;
-        int rightStart = m_refStack.Count;
-        left.bounds = right.bounds = GPUBounds.DefaultBounds();
-
-        for (int i = leftEnd; i < rightStart; i++)
-        {
-            // Entirely on the left-hand side?
-
-            if (m_refStack[i].bounds.max[split.dim] <= split.pos)
-            {
-                left.bounds = GPUBounds.Union(left.bounds, m_refStack[i].bounds);
-                //swap(refs[i], refs[leftEnd++]);
-                Reference tmp = m_refStack[i];
-                m_refStack[i] = m_refStack[leftEnd];
-                m_refStack[leftEnd] = tmp;
-                leftEnd++;
-            }
-
-            // Entirely on the right-hand side?
-
-            else if (m_refStack[i].bounds.min[split.dim] >= split.pos)
-            {
-                //right.bounds = GPUBounds.Union(right.bounds, m_refStack[i].bounds);
-                right.bounds.Union(m_refStack[i].bounds);
-                //swap(refs[i--], refs[--rightStart]);
-                --rightStart;
-                Reference tmp = m_refStack[i];
-                m_refStack[i] = m_refStack[rightStart];
-                m_refStack[rightStart] = tmp;
-                i--;
-            }
-        }
-
-        // Duplicate or unsplit references intersecting both sides.
-
-        while (leftEnd < rightStart)
-        {
-            // Split reference.
-
-            Reference lref = Reference.DefaultReference();//new Reference();
-            Reference rref = Reference.DefaultReference();//new Reference();
-            SplitReference(ref lref, ref rref, m_refStack[leftEnd], split.dim, split.pos);
-
-            // Compute SAH for duplicate/unsplit candidates.
-
-            GPUBounds lub = left.bounds;  // Unsplit to left:     new left-hand bounds.
-            GPUBounds rub = right.bounds; // Unsplit to right:    new right-hand bounds.
-            GPUBounds ldb = left.bounds;  // Duplicate:           new left-hand bounds.
-            GPUBounds rdb = right.bounds; // Duplicate:           new right-hand bounds.
-            lub = GPUBounds.Union(lub, m_refStack[leftEnd].bounds);
-            rub = GPUBounds.Union(rub, m_refStack[leftEnd].bounds);
-            ldb = GPUBounds.Union(ldb, lref.bounds);
-            rdb = GPUBounds.Union(rdb, rref.bounds);
-
-            float lac = GetTriangleCost(leftEnd - leftStart);
-            float rac = GetTriangleCost(m_refStack.Count - rightStart);
-            float lbc = GetTriangleCost(leftEnd - leftStart + 1);
-            float rbc = GetTriangleCost(m_refStack.Count - rightStart + 1);
-
-            float unsplitLeftSAH = lub.SurfaceArea() * lbc + right.bounds.SurfaceArea() * rac;
-            float unsplitRightSAH = left.bounds.SurfaceArea() * lac + rub.SurfaceArea() * rbc;
-            float duplicateSAH = ldb.SurfaceArea() * lbc + rdb.SurfaceArea() * rbc;
-            float minSAH = Mathf.Min(unsplitLeftSAH, unsplitRightSAH, duplicateSAH);
-
-            // Unsplit to left?
-
-            if (minSAH == unsplitLeftSAH)
-            {
-                left.bounds = lub;
-                leftEnd++;
-            }
-
-            // Unsplit to right?
-
-            else if (minSAH == unsplitRightSAH)
-            {
-                right.bounds = rub;
-                //swap(refs[leftEnd], refs[--rightStart]);
-                --rightStart;
-                Reference tmp = m_refStack[leftEnd];
-                m_refStack[leftEnd] = m_refStack[rightStart];
-                m_refStack[rightStart] = tmp;
-            }
-
-            // Duplicate?
-
-            else
-            {
-                left.bounds = ldb;
-                right.bounds = rdb;
-                m_refStack[leftEnd++] = lref;
-                m_refStack.Add(rref);
-            }
-        }
-
-        left.numRef = leftEnd - leftStart;
-        right.numRef = m_refStack.Count - rightStart;
     }
 }

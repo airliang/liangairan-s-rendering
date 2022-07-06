@@ -147,7 +147,7 @@ public class BVHAccel
 		*/
 		BVHBuilder builder = new SplitBVHBuilder();
 		List<Primitive> orderedPrims = new List<Primitive>();
-		root = builder.Build(primitives, orderedPrims, vertices);
+		root = builder.Build(primitives, orderedPrims);
 		primitives = orderedPrims;
 		int offset = 0;
 		LinearBVHNode[] linearNodes = new LinearBVHNode[builder.TotalNodes];
@@ -326,8 +326,8 @@ public class BVHAccel
 						{
 							m_woodTriangleVertices.Add(m_woop[v]);
 							m_woodTriangleIndices.Add(primitive.triIndices[v]);
-							Vector4 worldPos = gpuVertices[primitive.triIndices[v]].position;
-							Vector4 uv = gpuVertices[primitive.triIndices[v]].uv;
+							//Vector4 worldPos = gpuVertices[primitive.triIndices[v]].position;
+							//Vector4 uv = gpuVertices[primitive.triIndices[v]].uv;
 							//if (v == 0)
 							//	worldPos.w = Int32BitsToSingle(primitive.materialIndex);
 							
@@ -534,7 +534,7 @@ public class BVHAccel
 		//保证一个leaf一个inst，所以maxPrimsInNode参数是1
 		if (primitives.Count > 1)
         {
-			BVHBuildNode instRoot = instBuilder.Build(primitives, orderedPrims, null, 1);
+			BVHBuildNode instRoot = instBuilder.Build(primitives, orderedPrims, 1);
 			primitives = orderedPrims;
 
 			CreateCompact(instRoot, primitives, vertices, false, instBVHOffset);
@@ -559,7 +559,7 @@ public class BVHAccel
 		List<Primitive> orderedPrims = new List<Primitive>();
 		BVHBuilder builder = new SplitBVHBuilder();
         float timeBegin = Time.realtimeSinceStartup;
-		BVHBuildNode meshRoot = builder.Build(primitives, orderedPrims, vertices, primitives.Count < 3 ? 1 : maxLeafSize);
+		BVHBuildNode meshRoot = builder.Build(primitives, orderedPrims, primitives.Count < 3 ? 1 : maxLeafSize);
 		float timeInterval = Time.realtimeSinceStartup - timeBegin;
         Debug.Log("building bottom level mesh bvh cost time:" + timeInterval);
         
