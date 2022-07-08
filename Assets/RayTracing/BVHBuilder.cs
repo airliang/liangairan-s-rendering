@@ -25,7 +25,9 @@ public class BVHBuilder
 	//public LinearBVHNode[] linearNodes;
 	protected int maxPrimsInNode = 1;
 	protected int totalNodes = 0;
-	List<Primitive> primitives;
+	protected List<int> _orderedPrimitives = new List<int>();
+	//List<Primitive> primitives;
+	//protected int _orderedPrimOffset = 0;
 	int MaximunExtent(Vector3 extent)
 	{
 		if (extent.x > extent.y && extent.x > extent.z)
@@ -59,16 +61,18 @@ public class BVHBuilder
 		return o;
 	}
 
-	virtual public BVHBuildNode Build(List<Primitive> prims, List<Primitive> orderedPrims, int _maxPrimsInNode = 4)
+	virtual public BVHBuildNode Build(GPUBounds[] prims, int _maxPrimsInNode = 4)
     {
 		totalNodes = 0;
-		primitives = prims;
+		//_orderedPrimOffset = 0;
+		_orderedPrimitives.Clear();
+		//primitives = prims;
 		maxPrimsInNode = _maxPrimsInNode;
 		List<BVHPrimitiveInfo> primitiveInfos = new List<BVHPrimitiveInfo>();
-		for (int i = 0; i < prims.Count; ++i)
-			primitiveInfos.Add(new BVHPrimitiveInfo(i, prims[i].worldBound));
+		for (int i = 0; i < prims.Length; ++i)
+			primitiveInfos.Add(new BVHPrimitiveInfo(i, prims[i]));
 		Profiler.BeginSample("Build BVH");
-		BVHBuildNode bvhNode = RecursiveBuild(primitiveInfos, 0, prims.Count, orderedPrims);
+		BVHBuildNode bvhNode = RecursiveBuild(primitiveInfos, 0, prims.Length);
 		Profiler.EndSample();
 		return bvhNode;
 	}
@@ -81,8 +85,7 @@ public class BVHBuilder
         }
     }
 	BVHBuildNode RecursiveBuild(List<BVHPrimitiveInfo> primitiveInfo,
-		int start, int end,
-		List<Primitive> orderedPrims)
+		int start, int end)
 	{
 		//Debug.Log("RecursiveBuild start = " + start + " end = " + end);
 		if (start == end)
@@ -108,9 +111,10 @@ public class BVHBuilder
 		if (nPrimitives == 1)
 		{
 			//数组是1的时候不能再往下划分，创建leaf
-			int firstPrimOffset = orderedPrims.Count;
+			int firstPrimOffset = _orderedPrimitives.Count;
 			int primIndex = primitiveInfo[start].primitiveIndex;
-			orderedPrims.Add(primitives[primIndex]);
+			//orderedPrims.Add(primitives[primIndex]);
+			_orderedPrimitives.Add(primIndex);
 			node.InitLeaf(firstPrimOffset, nPrimitives, bounds);
 			return node;
 		}
@@ -132,11 +136,12 @@ public class BVHBuilder
 		if (Mathf.Abs(centroidBounds.max[dim] - centroidBounds.min[dim]) < 0.01f)
 		{
 			//build the leaf BVHBuildNode
-			int firstPrimOffset = orderedPrims.Count;
+			int firstPrimOffset = _orderedPrimitives.Count;
 			for (int i = start; i < end; ++i)
 			{
 				int primNum = primitiveInfo[i].primitiveIndex;
-				orderedPrims.Add(primitives[primNum]);
+				//orderedPrims.Add(primitives[primNum]);
+				_orderedPrimitives.Add(primNum);
 			}
 			node.InitLeaf(firstPrimOffset, nPrimitives, bounds);
 			return node;
@@ -237,20 +242,26 @@ public class BVHBuilder
 				}
 				else
 				{
-					int firstPrimOffset = orderedPrims.Count;
+					int firstPrimOffset = _orderedPrimitives.Count;
 					for (int i = start; i < end; ++i)
 					{
 						int primNum = primitiveInfo[i].primitiveIndex;
-						orderedPrims.Add(primitives[primNum]);
+						//orderedPrims.Add(primitives[primNum]);
+						_orderedPrimitives.Add(primNum);
 					}
 					node.InitLeaf(firstPrimOffset, nPrimitives, bounds);
 					return node;
 				}
 			}
 
-			node.InitInterior(dim, RecursiveBuild(primitiveInfo, start, mid, orderedPrims),
-				RecursiveBuild(primitiveInfo, mid, end, orderedPrims));
+			node.InitInterior(dim, RecursiveBuild(primitiveInfo, start, mid),
+				RecursiveBuild(primitiveInfo, mid, end));
 		}
 		return node;
 	}
+
+	public List<int> GetOrderedPrimitives()
+    {
+		return _orderedPrimitives;
+    }
 }

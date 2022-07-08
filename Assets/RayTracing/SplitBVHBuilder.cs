@@ -108,10 +108,8 @@ public class SplitBVHBuilder : BVHBuilder
     };
 
     //这个是整个场景的顶点和索引的引用List，不能释放掉
-    //List<int> _triangles;
-    //List<GPUVertex> _vertices;
-    List<Primitive> _primitives;
-    List<Primitive> _orderedPrimitives;
+    //int _orderedPrimOffset = 0;
+    //List<Primitive> _orderedPrimitives;
     Vector3 ClampVector3(float x, float y, float z, float min, float max)
     {
         return new Vector3(Mathf.Clamp(x, min, max), Mathf.Clamp(y, min, max), Mathf.Clamp(z, min, max));
@@ -171,43 +169,44 @@ public class SplitBVHBuilder : BVHBuilder
     delegate bool Cmp(float a, float b);
     //delegate bool cmp2(float a, float b);
 
-    public override BVHBuildNode Build(List<Primitive> prims, List<Primitive> orderedPrims, int _maxPrimsInNode = 1)
+    public override BVHBuildNode Build(GPUBounds[] prims, int _maxPrimsInNode = 1)
     {
         //_vertices = vertices;
-        _primitives = prims;
-        _orderedPrimitives = orderedPrims;
+        //_primitives = prims;
+        _orderedPrimitives.Clear();
+        //_orderedPrimOffset = 0;
         maxPrimsInNode = _maxPrimsInNode;
         NodeSpec root = NodeSpec.Default(); //new NodeSpec();
         m_refStack.Clear();
 
-        for (int i = 0; i < prims.Count; ++i)
+        for (int i = 0; i < prims.Length; ++i)
         {
             //primitiveInfos.Add(new BVHPrimitiveInfo(i, prims[i].worldBound));
             Reference reference = new Reference()
             {
                 triIdx = i,  //reference's triIdx is the index in _primitives
-                bounds = prims[i].worldBound
+                bounds = prims[i]
             };
             m_refStack.Add(reference);
         }
-        for (int i = 0; i < prims.Count; ++i)
+        for (int i = 0; i < prims.Length; ++i)
         {
             //root.bounds = GPUBounds.Union(root.bounds, primitiveInfos[i].worldBound);
             //root.centroidBounds = GPUBounds.Union(root.centroidBounds, primitiveInfos[i].worldBound.centroid);
             root.bounds.Union(m_refStack[i].bounds);
             root.centroidBounds.Union(m_refStack[i].bounds.centroid);
         }
-        root.numRef = prims.Count;
+        root.numRef = prims.Length;
 
         // Remove degenerates.
         //把无效的boundingbox去掉，例如线和带负数的
         int firstRef = m_refStack.Count - root.numRef;
         for (int i = m_refStack.Count - 1; i >= firstRef; i--)
         {
-            if (i >= m_refStack.Count || i < 0)
-            {
-                Debug.LogError("Remove degenerates error!");
-            }
+            //if (i >= m_refStack.Count || i < 0)
+            //{
+            //    Debug.LogError("Remove degenerates error!");
+            //}
             Vector3 size = m_refStack[i].bounds.Diagonal;
             //removes the negetive size and the line bounding
             if (m_refStack[i].bounds.MinSize() < 0.0f || (size.x + size.y + size.z) == m_refStack[i].bounds.MaxSize())
@@ -704,8 +703,8 @@ public class SplitBVHBuilder : BVHBuilder
             //Reference last = m_refStack[m_refStack.Count - 1];
             //m_refStack.RemoveAt(m_refStack.Count - 1);
             Reference primRef = m_refStack[i];
-            //if (!_orderedPrimitives.Contains(_primitives[primRef.triIdx]))
-                _orderedPrimitives.Add(_primitives[primRef.triIdx]);
+            //_orderedPrimitives.Add(_primitives[primRef.triIdx]);
+            _orderedPrimitives.Add(primRef.triIdx);
         }
         BVHBuildNode leafNode = new BVHBuildNode();
         leafNode.InitLeaf(_orderedPrimitives.Count - spec.numRef, spec.numRef, spec.bounds);
