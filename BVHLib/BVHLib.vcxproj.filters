@@ -39,6 +39,9 @@
     <ClInclude Include="BVHBuilder.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="BVH.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BVHAccel.cpp">
@@ -51,6 +54,9 @@
       <Filter>math</Filter>
     </ClCompile>
     <ClCompile Include="BVHBuilder.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="BVH.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

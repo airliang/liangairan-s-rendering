@@ -2,11 +2,12 @@
 
 #include "math/geometry.h"
 #include <vector>
+#include <list>
+#include <atomic>
 #include "BVHAccel.h"
 
 namespace BVHLib
 {
-
 	struct BVHBuildNode
 	{
 		// BVHBuildNode Public Methods
@@ -16,43 +17,46 @@ namespace BVHLib
 			firstPrimOffset = first;
 			nPrimitives = n;
 			bounds = b;
-			children[0] = children[1] = nullptr;
+			childrenLeft = childrenRight = nullptr;
 			//++leafNodes;
 			//++totalLeafNodes;
 			//totalPrimitives += n;
 		}
 		void InitInterior(int axis, BVHBuildNode* c0, BVHBuildNode* c1)
 		{
-			children[0] = c0;
-			children[1] = c1;
+			childrenLeft = c0;
+			childrenRight = c1;
 			bounds = Union(c0->bounds, c1->bounds);
 			splitAxis = axis;
 			nPrimitives = 0;
 			//++interiorNodes;
 		}
 		Bounds3f bounds;
-		BVHBuildNode* children[2];
-		int splitAxis;
+		BVHBuildNode* childrenLeft = nullptr;
+		BVHBuildNode* childrenRight = nullptr;
+		int splitAxis = 0;
 		//在BVHAccel::primivites中的索引
-		int firstPrimOffset;
+		int firstPrimOffset = 0;
 		//leaf中挂了多少个primitive
-		int nPrimitives;
+		int nPrimitives = 0;
+
+		bool IsLeaf()
+		{
+			return nPrimitives > 0;
+		}
 	};
 
-	struct LinearBVHNode {
-		Bounds3f bounds;
-		union {
-			//在primtives数组中的索引
-			int primitivesOffset;    // leaf
+	class StackEntry
+	{
+	public:
+		BVHBuildNode* node;
+		int idx;
 
-			int secondChildOffset;   // interior
-		};
-		//如果是叶子节点，拥有的primitves的数量
-		//因为在build tree node时，primitive已经根据放置的node做了排序
-		//所以primitve是和node紧凑的，在同一个树叶下primitve的顺序是连续放在primitives数组下的
-		uint16_t nPrimitives;  // 0 -> interior node
-		uint8_t axis;          // interior node: xyz
-		uint8_t pad[1];        // ensure 32 byte total size
+		StackEntry(BVHBuildNode* n, int i) : node(n), idx(i)
+		{
+		}
+
+		int EncodeIdx() { return node->IsLeaf() ? ~idx : idx; }
 	};
 
 	struct BucketInfo
@@ -80,7 +84,7 @@ namespace BVHLib
 	struct SahSplit
 	{
 		int   dim = 0;     //按哪个轴
-		float pos = 0;   //划分的位置
+		float pos = std::numeric_limits<float>::quiet_NaN();   //划分的位置
 		float sah = MaxFloat;     //消耗的sah
 		float overlap = 0; //overlap的比例，spatial是0
 	};
@@ -89,6 +93,12 @@ namespace BVHLib
 		Bounds3f bounds;
 		int enter = 0;
 		int exit = 0;
+	};
+
+	enum SplitType
+	{
+		kObject,
+		kSpatial
 	};
 
 	class BVHBuilder
@@ -102,17 +112,68 @@ namespace BVHLib
 		//GPUBounds[] m_rightBounds = null;
 		int m_sortDim;
 		const int MaxDepth = 64;
-		int MaxSpatialDepth = 48;
+		const int MaxSpatialDepth = 48;
 	    static const int NumSpatialBins = 64;
+
+		float GetTriangleCost(int triangles) const
+		{
+			//1.0表示一次求交的消耗
+			return triangles * 1.0f;
+		}
+
+		//return the SAH ray node intersect cost
+		float GetNodeCost(int nodes) const
+		{
+			//1.0表示一次求交的消耗
+			return nodes * 1.0f;
+		}
 	private:
 		int innerNodes = 0;
 		int leafNodes = 0;
-
+		int totalNodes = 0;
+		int maxPrimsInNode = 4;
 		SpatialBin m_bins[3 * NumSpatialBins];
-		BucketInfo buckets[NumSpatialBins];
-		Bounds3f rightBounds[NumSpatialBins - 1];
+		//Bounds3f rightBounds[NumSpatialBins - 1];
+		BVHBuildNode* RecursiveBuild(NodeSpec& spec, int level, float progressStart, float progressEnd);
+		bool SplitPrimRef(const Reference& refPrim, int axis, float split, Reference& leftref, Reference& rightref);
+		void SplitPrimRefs(const SahSplit& split, const NodeSpec& req, std::vector<Reference>& refs, int& extra_refs);
+		BVHBuildNode* CreateLeaf(const NodeSpec& spec);
+		BVHBuildNode* CreateInnerNode(const Bounds3f& bounds, BVHBuildNode* left, BVHBuildNode* right);
+		SahSplit FindObjectSplit(const NodeSpec& spec);
+		SahSplit FindSpatialSplit(const NodeSpec& spec);
+		std::vector<int> _orderedPrimitives;
+		BVHBuildNode* m_root = nullptr;
 
+		float m_extra_refs_budget = 0.5f;
+		int m_num_nodes_required = 0;
+		int m_num_nodes_for_regular = 0;
+		// Node archive for memory management
+		// As m_nodes fills up we archive it into m_node_archive
+		// allocate new chunk and work there.
+
+		// How many nodes have been archived so far
+		int m_num_nodes_archived = 0;
+		// Node allocator counter, atomic for thread safety
+		std::atomic<int> m_nodecnt = 0;
+		// Container for archived chunks
+		std::list<std::vector<BVHBuildNode>> m_node_archive;
+		std::vector<BVHBuildNode> m_nodesPool;
+
+		BVHBuildNode* AllocateNode();
+		void  InitNodeAllocator(size_t maxnum);
 	public:
-		BVHBuildNode* Build(Bounds3f* bounds, int boundsNum, GPUVertex* vertices, int verticesNum, int _maxPrimsInNode = 1);
+		BVHBuildNode* Build(Bounds3f* bounds, int boundsNum, int _maxPrimsInNode = 1);
+		const int* GetSortedIndices(int& numSortIndices) const;
+		int GetTotalNodes() const
+		{
+			return totalNodes;
+		}
+
+		BVHBuildNode* GetRoot()
+		{
+			return m_root;
+		}
+
+		int FlattenBVHTree(BVHBuildNode* node, int& offset, LinearBVHNode* linearNodes);
 	};
 }

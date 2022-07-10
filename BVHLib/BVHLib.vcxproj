@@ -150,6 +150,7 @@ copy $(OutDir)$(TargetName).pdb $(SolutionDir)\..\Assets\plugins\x86_64</Command
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="BVH.h" />
     <ClInclude Include="BVHAccel.h" />
     <ClInclude Include="BVHBuilder.h" />
     <ClInclude Include="math\geometry.h" />
@@ -159,6 +160,7 @@ copy $(OutDir)$(TargetName).pdb $(SolutionDir)\..\Assets\plugins\x86_64</Command
     <ClInclude Include="RayTracing.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="BVH.cpp" />
     <ClCompile Include="BVHAccel.cpp" />
     <ClCompile Include="BVHBuilder.cpp" />
     <ClCompile Include="math\matrix.cpp" />

@@ -231,6 +231,11 @@ namespace BVHLib
 		Vector3<T> operator*(U s) const {
 			return Vector3<T>(s * x, s * y, s * z);
 		}
+
+		Vector3<T> operator*(const Vector3<T>& v) const {
+			return Vector3<T>(v.x * x, v.y * y, v.z * z);
+		}
+
 		template <typename U>
 		Vector3<T> &operator*=(U s) {
 			x *= s;
@@ -238,6 +243,14 @@ namespace BVHLib
 			z *= s;
 			return *this;
 		}
+
+		Vector3<T>& operator*=(const Vector3<T>& v) {
+			x *= v.x;
+			y *= v.y;
+			z *= v.z;
+			return *this;
+		}
+
 		template <typename U>
 		Vector3<T> operator/(U f) const {
 			Float inv = (Float)1 / f;
@@ -343,6 +356,16 @@ namespace BVHLib
 		{
 			return Vector3<T>(v[x], v[y], v[z]);
 		}
+
+		static Vector3<T> Clamp(const Vector3<T>& v, const Vector3<T>& min, const Vector3<T>& max)
+		{
+			return Vector3<T>(BVHLib::Clamp(v.x, min.x, max.x), BVHLib::Clamp(v.y, min.y, max.y), BVHLib::Clamp(v.z, min.z, max.z));
+		}
+
+		static Vector3<T> Clamp(const Vector3<T>& v, T min, T max)
+		{
+			return Vector3<T>(BVHLib::Clamp(v.x, min, max), BVHLib::Clamp(v.y, min, max), BVHLib::Clamp(v.z, min, max));
+		}
 		
 		// Vector3 Public Data
 		T x, y, z;
@@ -354,10 +377,55 @@ namespace BVHLib
 		static Vector3<T> zero;
 	};
 
+	template <typename T>
+	class Vector4 {
+	public:
+		// Vector3 Public Methods
+		T operator[](int i) const {
+			//DCHECK(i >= 0 && i <= 2);
+			if (i == 0) return x;
+			if (i == 1) return y;
+			if (i == 2) return z;
+			return w;
+		}
+		T& operator[](int i) {
+			//DCHECK(i >= 0 && i <= 2);
+			if (i == 0) return x;
+			if (i == 1) return y;
+			if (i == 2) return z;
+			return w;
+		}
+		Vector4() { x = y = z = w = 0; }
+		Vector4(T x, T y, T z, T w) : x(x), y(y), z(z), w(w) {  }
+		bool HasNaNs() const { return isNaN(x) || isNaN(y) || isNaN(z) || isNaN(w); }
+
+		// The default versions of these are fine for release builds; for debug
+		// we define them so that we can add the Assert checks.
+		Vector4(const Vector4<T>& v) {
+			x = v.x;
+			y = v.y;
+			z = v.z;
+			w = v.w;
+		}
+
+		Vector4<T>& operator=(const Vector4<T>& v) {
+
+			x = v.x;
+			y = v.y;
+			z = v.z;
+			w = v.w;
+			return *this;
+		}
+
+		T x, y, z, w;
+	};
+
 	typedef Vector2<Float> Vector2f;
 	typedef Vector2<int> Vector2i;
 	typedef Vector3<Float> Vector3f;
 	typedef Vector3<int> Vector3i;
+	typedef Vector4<Float> Vector4f;
+	typedef Vector4<int> Vector4i;
 
     template <>
 	Vector3f Vector3f::forward = Vector3f(0, 0, 1.0f);
@@ -502,17 +570,17 @@ namespace BVHLib
 		{
 			Vector3<T> size = Diagonal();
 			T min = size.x;
-			min = min(size.y, min);
-			min = min(size.z, min);
+			min = std::min(size.y, min);
+			min = std::min(size.z, min);
 			return min;
 		}
 
 		T MaxSize()
 		{
-			Vector3<T> size = Diagonal;
+			Vector3<T> size = Diagonal();
 			T max = size.x;
-			max = max(size.y, max);
-			max = max(size.z, max);
+			max = std::max(size.y, max);
+			max = std::max(size.z, max);
 			return max;
 		}
 
@@ -530,9 +598,16 @@ namespace BVHLib
 		Vector3<T> Offset(const Vector3<T> &p) const
 		{
 			Vector3<T> o = p - pMin;
-			if (pMax.x > pMin.x) o.x /= pMax.x - pMin.x;
-			if (pMax.y > pMin.y) o.y /= pMax.y - pMin.y;
-			if (pMax.z > pMin.z) o.z /= pMax.z - pMin.z;
+			//if (pMax.x > pMin.x) o.x /= pMax.x - pMin.x;
+			//if (pMax.y > pMin.y) o.y /= pMax.y - pMin.y;
+			//if (pMax.z > pMin.z) o.z /= pMax.z - pMin.z;
+			Vector3<T> extend = pMax - pMin;
+			if (pMax.x > pMin.x)
+				o.x /= extend.x;
+			if (pMax.y > pMin.y)
+				o.y /= extend.y;
+			if (pMax.z > pMin.z)
+				o.z /= extend.z;
 			return o;
 		}
 
