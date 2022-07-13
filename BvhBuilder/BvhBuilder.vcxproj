@@ -147,6 +147,10 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <ImportLibrary>Bin\Debug\x64\BvhBuilder64.lib</ImportLibrary>
     </Link>
+    <PostBuildEvent>
+      <Command>copy $(OutDir)$(TargetName)$(TargetExt) $(SolutionDir)\..\Assets\plugins\x86_64
+copy $(OutDir)$(TargetName).pdb $(SolutionDir)\..\Assets\plugins\x86_64</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -190,6 +194,10 @@
       <OptimizeReferences>true</OptimizeReferences>
       <ImportLibrary>Bin\Release\x64\BvhBuilder64.lib</ImportLibrary>
     </Link>
+    <PostBuildEvent>
+      <Command>copy $(OutDir)$(TargetName)$(TargetExt) $(SolutionDir)\..\Assets\plugins\x86_64
+copy $(OutDir)$(TargetName).pdb $(SolutionDir)\..\Assets\plugins\x86_64</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
