@@ -1,5 +1,6 @@
 #pragma once
 #include "math/geometry.h"
+#include "BVHBuilder.h"
 
 #ifdef _WIN32
 #ifdef EXPORT_API
@@ -16,6 +17,8 @@
 #endif
 
 #ifdef __cplusplus
+
+
 extern "C"
 {
 #endif
@@ -79,9 +82,9 @@ extern "C"
 	};
 
 	BVHAPI int Add(int a, int b);
+	
 
-
-	BVHAPI BVHHandle BuildBVH(BVHLib::Bounds3f* bounds, int boundsNum, int _maxPrimsInNode);
+	BVHAPI BVHHandle BuildBVH(BVHLib::Bounds3f* bounds, int boundsNum, int _maxPrimsInNode, bool useSplit);
 	BVHAPI void		 FlattenBVHTree(const BVHHandle* handle, LinearBVHNode* linearNodes);
 	//BVHAPI BVHWoodData CreateCompact(const BVHHandle* handle, Primitive* primitives, int primsNum, GPUVertex* vertices, int verticesNum, bool isBottomLevel, int* instBVHOffset, int offsetsNum);
 	BVHAPI void      GetBVHData(GPUBVHNode* nodes, int nodesNum, BVHLib::Vector4f* woodVertices, int verticesNum, int* woodTrangles, int trianglesNum);
@@ -90,4 +93,4 @@ extern "C"
 #ifdef __cplusplus
 }
 #endif
-
+int _FlattenBVHTree(BVHLib::BVHBuildNode* node, int& offset, LinearBVHNode* linearNodes);
