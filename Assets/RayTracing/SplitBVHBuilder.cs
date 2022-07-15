@@ -75,7 +75,7 @@ struct SpatialBin
 public class SplitBVHBuilder : BVHBuilder
 {
     //private readonly int maxLevel = 64;
-    float m_minOverlap = 0;   //划分空间的最小面积，意思是大于该面积，空间才可继续划分
+    float m_minOverlap = 0.05f;   //划分空间的最小面积，意思是大于该面积，空间才可继续划分
     float m_splitAlpha = 1.0e-5f;   //what's this mean?
     float m_traversalCost = 0.125f;
     int m_numDuplicates = 0;   //重复在多个节点上的三角形数量
@@ -110,10 +110,6 @@ public class SplitBVHBuilder : BVHBuilder
     //这个是整个场景的顶点和索引的引用List，不能释放掉
     //int _orderedPrimOffset = 0;
     //List<Primitive> _orderedPrimitives;
-    Vector3 ClampVector3(float x, float y, float z, float min, float max)
-    {
-        return new Vector3(Mathf.Clamp(x, min, max), Mathf.Clamp(y, min, max), Mathf.Clamp(z, min, max));
-    }
 
     Vector3 ClampVector3(Vector3 v, float min, float max)
     {
@@ -123,30 +119,6 @@ public class SplitBVHBuilder : BVHBuilder
     Vector3 ClampVector3(Vector3 v, Vector3 min, Vector3 max)
     {
         return new Vector3(Mathf.Clamp(v.x, min.x, max.x), Mathf.Clamp(v.y, min.y, max.y), Mathf.Clamp(v.z, min.z, max.z));
-    }
-
-    Vector3Int ClampVector3Int(int x, int y, int z, int min, int max)
-    {
-        return new Vector3Int(Mathf.Clamp(x, min, max), Mathf.Clamp(y, min, max), Mathf.Clamp(z, min, max));
-    }
-
-    Vector3Int ClampVector3Int(Vector3Int v, int min, int max)
-    {
-        return new Vector3Int(Mathf.Clamp(v.x, min, max), Mathf.Clamp(v.y, min, max), Mathf.Clamp(v.z, min, max));
-    }
-
-    Vector3Int ClampVector3Int(Vector3Int v, Vector3Int min, Vector3Int max)
-    {
-        return new Vector3Int(Mathf.Clamp(v.x, min.x, max.x), Mathf.Clamp(v.y, min.y, max.y), Mathf.Clamp(v.z, min.z, max.z));
-    }
-
-    bool ReferenceCompare(List<Reference> references, int a, int b)
-    {
-        Reference ra = references[a];
-        Reference rb = references[b];
-        float ca = ra.bounds.min[m_sortDim] + ra.bounds.max[m_sortDim];
-        float cb = rb.bounds.min[m_sortDim] + rb.bounds.max[m_sortDim];
-        return (ca < cb || (ca == cb && ra.triIdx < rb.triIdx));
     }
 
     void SortSwap(List<Reference> references, int a, int b)
@@ -242,10 +214,10 @@ public class SplitBVHBuilder : BVHBuilder
 
         //find the split candidate
         //判断split space和split object的依据是？
-        float area = spec.bounds.SurfaceArea();
-        float leafSAH = GetTriangleCost(spec.numRef);
+        //float area = spec.bounds.SurfaceArea();
+        //float leafSAH = GetTriangleCost(spec.numRef);
         //这里是因为2个子节点？
-        float nodeSAH = area * GetNodeCost(2);
+        //float nodeSAH = area * GetNodeCost(2);
 
         // Choose the maximum extent
         int axis = spec.centroidBounds.MaximumExtent();
@@ -253,7 +225,7 @@ public class SplitBVHBuilder : BVHBuilder
 
         SplitType split_type = SplitType.kObject;
         Profiler.BeginSample("BVH Find Object Splits");
-        SahSplit objectSplit = FindObjectSplit(spec, nodeSAH);
+        SahSplit objectSplit = FindObjectSplit(spec);
         Profiler.EndSample();
 
         SahSplit spatialSplit = SahSplit.Default();
@@ -261,13 +233,13 @@ public class SplitBVHBuilder : BVHBuilder
         {
             //由于object划分会产生overlap的区域，当overlap的区域＞minOverlap的时候，需要划分spatial split
             Profiler.BeginSample("BVH FindSpatialSplit");
-            spatialSplit = FindSpatialSplit(spec, nodeSAH);
+            spatialSplit = FindSpatialSplit(spec);
             Profiler.EndSample();
         }
         
 
-        BVHBuildNode node = new BVHBuildNode();
-        float minSAH = Mathf.Min(objectSplit.sah, spatialSplit.sah);
+        //BVHBuildNode node = new BVHBuildNode();
+        //float minSAH = Mathf.Min(objectSplit.sah, spatialSplit.sah);
         //minSAH = Mathf.Min(minSAH, leafSAH);
         //if (minSAH == leafSAH && spec.numRef <= maxPrimsInNode)
         //{
@@ -441,7 +413,7 @@ public class SplitBVHBuilder : BVHBuilder
         return innerNode;
     }
 
-    SahSplit FindObjectSplit(NodeSpec spec, float nodeSAH)
+    SahSplit FindObjectSplit(NodeSpec spec)
     {
         SahSplit split = defaultSahSplit;
 
@@ -537,7 +509,7 @@ public class SplitBVHBuilder : BVHBuilder
                 leftcount += buckets[i].count;
                 rightcount -= buckets[i].count;
                 float sahTemp = m_traversalCost +
-                    (GetTriangleCost(leftcount) * leftBounds.SurfaceArea() + GetTriangleCost(rightcount) * rightBox.SurfaceArea()) /
+                    (GetTriangleCost(leftcount) * leftBounds.SurfaceArea() + GetTriangleCost(rightcount) * rightBounds[i].SurfaceArea()) /
                     thisNodeSurfaceArea;
 
                 if (sahTemp < sah)
@@ -562,7 +534,7 @@ public class SplitBVHBuilder : BVHBuilder
         //split.overlap = GPUBounds.Intersection(split.leftBounds, split.rightBounds).SurfaceArea() / spec.bounds.SurfaceArea();
         return split;
     }
-    SahSplit FindSpatialSplit(NodeSpec spec, float nodeSAH)
+    SahSplit FindSpatialSplit(NodeSpec spec)
     {
         // Initialize bins.
         Vector3 origin = spec.bounds.min;

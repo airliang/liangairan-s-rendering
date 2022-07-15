@@ -37,6 +37,8 @@ public class Raytracing : MonoBehaviour
             Shader blitShader = Shader.Find("RayTracing/Blit");
             if (blitShader != null)
                 _BlitMaterial = new Material(blitShader);
+
+            _BlitMaterial.SetInt("_HDRType", (int)_RayTracingData.HDR);
         }
     }
 

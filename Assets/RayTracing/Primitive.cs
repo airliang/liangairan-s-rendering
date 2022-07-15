@@ -3,16 +3,16 @@ using System.Collections.Generic;
 using UnityEngine;
 
 //we can use as a triangle
-public class Primitive
+public struct Primitive
 {
     //public int vertexOffset;      //mesh vertex offset in the whole scene vertexbuffer
     //public int triangleOffset;    //triangle offset in the whole scene trianglebuffer
     public Vector3Int triIndices;
     //public int transformId; //the primitive belong to the transform
     //public int faceIndex;   //mesh triangle indice start
-    public GPUBounds worldBound = GPUBounds.DefaultBounds();
-    public int meshInstIndex = -1;
-    public int meshIndex = -1;
+    public GPUBounds worldBound;
+    public int meshInstIndex;
+    public int meshIndex;
 
     GPUBounds BuildBounds(Vector3 p0, Vector3 p1, Vector3 p2)
     {
@@ -28,21 +28,16 @@ public class Primitive
     }
     public Primitive(int tri0, int tri1, int tri2, Vector3 p0, Vector3 p1, Vector3 p2, int meshInstIdx, int meshIdx)
     {
-        //vertexOffset = vOffset;
-        //triangleOffset = tOffset;
-        //transformId = tId;
-        //faceIndex = fId;
+        triIndices = Vector3Int.zero;
         triIndices.x = tri0;
         triIndices.y = tri1;
         triIndices.z = tri2;
 
-        //Vector3 p0 = transform.TransformPoint(mesh.vertices[mesh.triangles[fId * 3]]);
-        //Vector3 p1 = transform.TransformPoint(mesh.vertices[mesh.triangles[fId * 3 + 1]]);
-        //Vector3 p2 = transform.TransformPoint(mesh.vertices[mesh.triangles[fId * 3 + 2]]);
-
-        worldBound = BuildBounds(p0, p1, p2);
         meshInstIndex = meshInstIdx;
         meshIndex = meshIdx;
+        worldBound = GPUBounds.DefaultBounds();
+        worldBound = BuildBounds(p0, p1, p2);
+       
     }
 
     //专门给meshinstance的bvh使用
@@ -51,6 +46,7 @@ public class Primitive
         worldBound = _worldBound;
         meshInstIndex = meshInstIdx;
         meshIndex = meshIdx;
+        triIndices = Vector3Int.zero;
     }
 }
 

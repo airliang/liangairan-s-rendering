@@ -120,7 +120,7 @@ public class MegaKernel : TracingKernel
             imageSpectrumsBuffer.enableRandomWrite = true;
         }
 
-        gpuSceneData = new GPUSceneData(data._UniformSampleLight, data._EnviromentMapEnable);
+        gpuSceneData = new GPUSceneData(data._UniformSampleLight, data._EnviromentMapEnable, data._UseBVHPlugin);
         meshRenderers = GameObject.FindObjectsOfType<MeshRenderer>();
         gpuSceneData.Setup(meshRenderers, camera);
 

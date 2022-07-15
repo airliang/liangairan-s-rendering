@@ -152,10 +152,11 @@ public class GPUSceneData
         }
     }
 
-    public GPUSceneData(bool uniformSampleLight, bool envmapEnable)
+    public GPUSceneData(bool uniformSampleLight, bool envmapEnable, bool useBVHPlugin)
     {
         _uniformSampleLight = uniformSampleLight;
         _envmapEnable = envmapEnable;
+        bvhAccel.buildByCPP = useBVHPlugin;
     }
 
     public int InstanceBVHAddr
@@ -164,11 +165,6 @@ public class GPUSceneData
         {
             return instBVHNodeAddr;
         }
-    }
-
-    public void Update(Camera camera)
-    {
-
     }
 
     private void SetupSceneData(MeshRenderer[] meshRenderers)

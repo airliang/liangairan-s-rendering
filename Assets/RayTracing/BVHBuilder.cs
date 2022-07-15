@@ -26,40 +26,7 @@ public class BVHBuilder
 	protected int maxPrimsInNode = 1;
 	protected int totalNodes = 0;
 	protected List<int> _orderedPrimitives = new List<int>();
-	//List<Primitive> primitives;
-	//protected int _orderedPrimOffset = 0;
-	int MaximunExtent(Vector3 extent)
-	{
-		if (extent.x > extent.y && extent.x > extent.z)
-			return 0;
-		else if (extent.y > extent.z)
-			return 1;
-		else
-			return 2;
-	}
-
-	Bounds Union(Bounds a, Bounds b)
-	{
-		Bounds bounds = a;
-		bounds.SetMinMax(Vector3.Min(bounds.min, b.min),
-				Vector3.Max(bounds.max, b.max));
-
-		return bounds;
-	}
-	float SurfaceArea(Bounds bounds)
-	{
-		return 2 * (bounds.size.x * bounds.size.y + bounds.size.x * bounds.size.z + bounds.size.y * bounds.size.z);
-
-	}
-
-	Vector3 Offset(Bounds b, Vector3 p)
-	{
-		Vector3 o = p - b.min;
-		if (b.max.x > b.min.x) o.x /= b.max.x - b.min.x;
-		if (b.max.y > b.min.y) o.y /= b.max.y - b.min.y;
-		if (b.max.z > b.min.z) o.z /= b.max.z - b.min.z;
-		return o;
-	}
+	List<BVHPrimitiveInfo> m_primitiveInfos = new List<BVHPrimitiveInfo>();
 
 	virtual public BVHBuildNode Build(GPUBounds[] prims, int _maxPrimsInNode = 4)
     {
@@ -68,11 +35,11 @@ public class BVHBuilder
 		_orderedPrimitives.Clear();
 		//primitives = prims;
 		maxPrimsInNode = _maxPrimsInNode;
-		List<BVHPrimitiveInfo> primitiveInfos = new List<BVHPrimitiveInfo>();
+		
 		for (int i = 0; i < prims.Length; ++i)
-			primitiveInfos.Add(new BVHPrimitiveInfo(i, prims[i]));
+			m_primitiveInfos.Add(new BVHPrimitiveInfo(i, prims[i]));
 		Profiler.BeginSample("Build BVH");
-		BVHBuildNode bvhNode = RecursiveBuild(primitiveInfos, 0, prims.Length);
+		BVHBuildNode bvhNode = RecursiveBuild(0, prims.Length);
 		Profiler.EndSample();
 		return bvhNode;
 	}
@@ -84,8 +51,7 @@ public class BVHBuilder
 			return totalNodes;
         }
     }
-	BVHBuildNode RecursiveBuild(List<BVHPrimitiveInfo> primitiveInfo,
-		int start, int end)
+	BVHBuildNode RecursiveBuild(int start, int end)
 	{
 		//Debug.Log("RecursiveBuild start = " + start + " end = " + end);
 		if (start == end)
@@ -102,7 +68,7 @@ public class BVHBuilder
 		{
 			//bounds.SetMinMax(Vector3.Min(bounds.min, primitiveInfo[i].worldBound.min), 
 			//	Vector3.Max(bounds.max, primitiveInfo[i].worldBound.max));
-			bounds = GPUBounds.Union(bounds, primitiveInfo[i].worldBound);
+			bounds = GPUBounds.Union(bounds, m_primitiveInfos[i].worldBound);
 		}
 		node.bounds = bounds;
 
@@ -112,7 +78,7 @@ public class BVHBuilder
 		{
 			//数组是1的时候不能再往下划分，创建leaf
 			int firstPrimOffset = _orderedPrimitives.Count;
-			int primIndex = primitiveInfo[start].primitiveIndex;
+			int primIndex = m_primitiveInfos[start].primitiveIndex;
 			//orderedPrims.Add(primitives[primIndex]);
 			_orderedPrimitives.Add(primIndex);
 			node.InitLeaf(firstPrimOffset, nPrimitives, bounds);
@@ -125,7 +91,7 @@ public class BVHBuilder
 
 		for (int i = start; i < end; ++i)
 		{
-			centroidBounds = GPUBounds.Union(centroidBounds, primitiveInfo[i].worldBound.centroid); //SetMinMax(Vector3.Min(centroidBounds.min, primitiveInfo[i].worldBound.center),
+			centroidBounds = GPUBounds.Union(centroidBounds, m_primitiveInfos[i].worldBound.centroid); //SetMinMax(Vector3.Min(centroidBounds.min, primitiveInfo[i].worldBound.center),
 																									//Vector3.Max(centroidBounds.max, primitiveInfo[i].worldBound.center)); //Union(centroidBounds, primitiveInfo[i].centroid);
 		}
 		int dim = centroidBounds.MaximumExtent();
@@ -139,7 +105,7 @@ public class BVHBuilder
 			int firstPrimOffset = _orderedPrimitives.Count;
 			for (int i = start; i < end; ++i)
 			{
-				int primNum = primitiveInfo[i].primitiveIndex;
+				int primNum = m_primitiveInfos[i].primitiveIndex;
 				//orderedPrims.Add(primitives[primNum]);
 				_orderedPrimitives.Add(primNum);
 			}
@@ -152,7 +118,7 @@ public class BVHBuilder
 			{
 				// Partition primitives into equally-sized subsets
 				mid = (start + end) / 2;
-				std.nth_element<BVHPrimitiveInfo>(ref primitiveInfo, start,
+				std.nth_element<BVHPrimitiveInfo>(ref m_primitiveInfos, start,
 					mid, end - 1,
 					(a, b) => (a.worldBound.centroid[dim] < b.worldBound.centroid[dim]));
 			}
@@ -170,7 +136,7 @@ public class BVHBuilder
 				{
 					//计算当前的Primitive属于哪个bucket
 					int b = (int)(nBuckets *
-						centroidBounds.Offset(primitiveInfo[i].worldBound.centroid)[dim]);
+						centroidBounds.Offset(m_primitiveInfos[i].worldBound.centroid)[dim]);
 					if (b == nBuckets)
 						b = nBuckets - 1;
 					//CHECK_GE(b, 0);
@@ -179,7 +145,7 @@ public class BVHBuilder
 					//计算bucket的bounds
 					//buckets[b].bounds =
 					//	GPUBounds.Union(buckets[b].bounds, primitiveInfo[i].worldBound);
-					buckets[b].bounds.Union(primitiveInfo[i].worldBound);
+					buckets[b].bounds.Union(m_primitiveInfos[i].worldBound);
 				}
 
 				//分组，计算每组的cost
@@ -227,7 +193,7 @@ public class BVHBuilder
 				if (nPrimitives > maxPrimsInNode || minCost < leafCost)
 				{
 
-					mid = std.partition<BVHPrimitiveInfo>(ref primitiveInfo, start, end,
+					mid = std.partition<BVHPrimitiveInfo>(ref m_primitiveInfos, start, end,
 						(pi) =>
 						{
 							int bNum = (int)(nBuckets * centroidBounds.Offset(pi.worldBound.centroid)[dim]);
@@ -245,7 +211,7 @@ public class BVHBuilder
 					int firstPrimOffset = _orderedPrimitives.Count;
 					for (int i = start; i < end; ++i)
 					{
-						int primNum = primitiveInfo[i].primitiveIndex;
+						int primNum = m_primitiveInfos[i].primitiveIndex;
 						//orderedPrims.Add(primitives[primNum]);
 						_orderedPrimitives.Add(primNum);
 					}
@@ -254,8 +220,8 @@ public class BVHBuilder
 				}
 			}
 
-			node.InitInterior(dim, RecursiveBuild(primitiveInfo, start, mid),
-				RecursiveBuild(primitiveInfo, mid, end));
+			node.InitInterior(dim, RecursiveBuild(start, mid),
+				RecursiveBuild(mid, end));
 		}
 		return node;
 	}
