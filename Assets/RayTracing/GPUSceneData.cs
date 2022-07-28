@@ -375,7 +375,7 @@ public class GPUSceneData
                     {
                         Color emssionColor = lightMaterial.GetColor("_Emission");
                         Vector3 lightIntensity = lightMaterial.GetVector("_Intensity");
-                        areaLightInstance.radiance = emssionColor.ToVector3().Mul(lightIntensity);
+                        areaLightInstance.radiance = emssionColor.LinearToVector3().Mul(lightIntensity);
                     }
                     areaLightInstance.pointRadius = 0;
                     areaLightInstance.intensity = lightComponent.intensity; // shapes[i].lightIntensity;
@@ -661,6 +661,15 @@ public class GPUSceneData
         cs.SetInt("instBVHAddr", instBVHNodeAddr);
         cs.SetInt("bvhNodesNum", bvhAccel.m_nodes.Count);
         cs.SetFloat("worldRadius", worldBound.extents.magnitude);
+        if (_envmapEnable)
+            cs.EnableKeyword("_ENVMAP_ENABLE");
+        else
+            cs.DisableKeyword("_ENVMAP_ENABLE");
+
+        if (_uniformSampleLight)
+            cs.EnableKeyword("_UNIFORM_SAMPLE_LIGHT");
+        else
+            cs.DisableKeyword("_UNIFORM_SAMPLE_LIGHT");
 
         //light distributions setting
         if (distribution1DBuffer == null && Distributions1D.Count > 0)
@@ -687,6 +696,7 @@ public class GPUSceneData
         else
         {
             cs.SetInt("enviromentTextureMask", 0);
+            cs.SetTexture(kernel, "_LatitudeLongitudeMap", Texture2D.blackTexture);
             cs.SetVector("enviromentColor", envLight.radiance);
         }
 
@@ -725,7 +735,7 @@ public class GPUSceneData
             //cs.SetBuffer(kernel, "EnvmapDistributions", envLight.computeBuffer);
         }
         cs.SetInt("_EnvLightIndex", envLightIndex);
-        cs.SetBool("_UniformSampleLight", _uniformSampleLight);
+        //cs.SetBool("_UniformSampleLight", _uniformSampleLight);
 
         cs.SetMatrix("WorldToRaster", WorldToRaster);
         cs.SetMatrix("RasterToCamera", RasterToCamera);
@@ -767,6 +777,11 @@ public class GPUSceneData
         {
             return bvhAccel;
         }
+    }
+
+    public bool IsRunalbe()
+    {
+        return areaLightInstances.Count > 0 || _envmapEnable;
     }
 }
 

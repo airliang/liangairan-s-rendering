@@ -139,6 +139,8 @@ public class MegaKernel : TracingKernel
 
     public void Update(Camera camera)
     {
+        if (!gpuSceneData.IsRunalbe())
+            return;
         if (framesNum >= _rayTracingData.SamplesPerPixel)
         {
             //GPUFilterSample uv = filter.Sample(MathUtil.GetRandom01());

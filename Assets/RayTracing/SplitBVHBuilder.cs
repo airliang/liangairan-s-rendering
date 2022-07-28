@@ -51,7 +51,7 @@ struct SahSplit
         SahSplit split = new SahSplit();
         split.sah = float.MaxValue;
         split.dim = 0;
-        split.pos = 0;
+        split.pos = float.NaN;
         return split;
     }
 };
@@ -787,7 +787,7 @@ public class SplitBVHBuilder : BVHBuilder
         // Split refs if any of them require to be split
         for (int i = req.startIdx; i < req.startIdx + req.numRef; ++i)
         {
-            //assert(static_cast<size_t>(req.startidx + appendprims) < refs.size());
+            Debug.Assert((req.startIdx + appendprims) < refs.Count, "array out of index [req.startIdx + appendprims] = " + (req.startIdx + appendprims) + " refs.Count = " + refs.Count);
 
             Reference leftref = Reference.DefaultReference(); //new Reference();
             Reference rightref = Reference.DefaultReference();//new Reference();

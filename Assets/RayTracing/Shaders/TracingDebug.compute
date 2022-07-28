@@ -2,6 +2,9 @@
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel CSMain
 
+#pragma multi_compile __ _ENVMAP_ENABLE
+#pragma multi_compile _ _UNIFORM_SAMPLE_LIGHT
+
 #include "TracingDebug.hlsl"
 
 //use the matrix to calculate the world space ray

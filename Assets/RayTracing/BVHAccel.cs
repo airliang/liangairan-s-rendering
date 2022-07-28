@@ -612,7 +612,7 @@ public class BVHAccel
             {
                 primBounds[i] = primitives[i].worldBound;
             }
-            if (true)
+            if (buildByCPP)
 			{
                 float timeBegin = Time.realtimeSinceStartup;
 				BVHLib.BVHHandle bvhHandle = BVHLib.BuildBVH(primBounds, primitives.Count, 1, false);
@@ -629,7 +629,7 @@ public class BVHAccel
                 BVHLib.ReleaseBVH(ref bvhHandle);
 
                 float timeInterval = Time.realtimeSinceStartup - timeBegin;
-                Debug.Log("building bottom level bvh using RadeonRay BVH cost time:" + timeInterval);
+                Debug.Log("building bottom level bvh using BVHLib cost time:" + timeInterval);
                 CreateCompact(linearNodes, sortedPrims, vertices, false, instBVHOffset);
                 /*
 				float timeBegin = Time.realtimeSinceStartup;

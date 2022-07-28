@@ -9,6 +9,9 @@
 #pragma kernel CSMain
 #pragma enable_d3d11_debug_symbols
 
+#pragma multi_compile __ _ENVMAP_ENABLE
+#pragma multi_compile _ _UNIFORM_SAMPLE_LIGHT
+
 int    bounces;
 float2 rasterSize;
 int    queueSizeIndex;
@@ -94,8 +97,8 @@ float3 MIS_BSDF(Interaction isect, Material material, ShadowRay shadowRay, inout
             
             if (light.type != EnvLightType)
             {
-                float lightSourcePdf = LightSourcePmf(_EnvLightIndex, _UniformSampleLight);
-                lightPdf = EnvLightLiPdf(wi, _UniformSampleLight) * lightSourcePdf;
+                float lightSourcePdf = LightSourcePmf(_EnvLightIndex);
+                lightPdf = EnvLightLiPdf(wi) * lightSourcePdf;
             }
         }
 

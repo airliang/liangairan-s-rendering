@@ -28,9 +28,11 @@ public class BSDFShaderGUI : ShaderGUI
     {
         public static string materialType = "Material Type";
         public static string fresnelType = "Fresnel Type";
+        public static string metalType = "Metals";
 
         public static readonly string[] materialNames = Enum.GetNames(typeof(BSDFMaterial));
         public static readonly string[] fresnelNames = Enum.GetNames(typeof(BSDFFresnel));
+        public static string[] metalNames = MetalData.GetMetalNames();//Enum.GetNames(typeof(MetalData.MetalType));
 
         public static GUIContent albedoText = new GUIContent("Albedo", "Albedo (RGB) and Transparency (A)");
         public static GUIContent linearAlbeoText = new GUIContent("linear Base Color", "Use linear Base Color instead of Albedo");
@@ -58,6 +60,7 @@ public class BSDFShaderGUI : ShaderGUI
     protected MaterialEditor materialEditor { get; set; }
 
     protected MaterialProperty materialTypeProp { get; set; }
+    protected MaterialProperty metalTypeProp { get; set; }
     //protected MaterialProperty surfaceTypeProp { get; set; }
     //protected MaterialProperty blendModeProp { get; set; }
     //protected MaterialProperty cullModeProp { get; set; }
@@ -89,6 +92,7 @@ public class BSDFShaderGUI : ShaderGUI
 
     private bool m_FirstTimeApply = true;
     private bool useLinearVectorColor = false;
+    private int fresnelType = 0;
 
     private void MaterialChanged(Material material)
     {
@@ -100,6 +104,7 @@ public class BSDFShaderGUI : ShaderGUI
 
     public void FindProperties(MaterialProperty[] properties)
     {
+        
         materialTypeProp = FindProperty("_MaterialType", properties);
         albedoColor = FindProperty("_BaseColor", properties);
         useLinearAlbedoColor = FindProperty("_UseLinearBaseColor", properties);
@@ -117,6 +122,7 @@ public class BSDFShaderGUI : ShaderGUI
         k = FindProperty("_k", properties);
         t = FindProperty("_t", properties);
         fresnelTypeProp = FindProperty("_FresnelType", properties);
+        metalTypeProp = FindProperty("_MetalType", properties);
     }
 
     public override void AssignNewShaderToMaterial(Material material, Shader oldShader, Shader newShader)
@@ -147,6 +153,9 @@ public class BSDFShaderGUI : ShaderGUI
         FindProperties(properties); // MaterialProperties can be animated so we do not cache them but fetch them every event to ensure animated values are updated correctly
         materialEditor = materialEditorIn;
         Material material = materialEditor.target as Material;
+        useLinearVectorColor = material.GetFloat("_UseLinearBaseColor") == 1.0f;
+        fresnelType = material.GetInt("_FresnelType");
+        fresnelTypeProp.intValue = fresnelType;
 
         // Make sure that needed setup (ie keywords/renderqueue) are set up if we're switching some existing
         // material to a lightweight shader.
@@ -194,10 +203,22 @@ public class BSDFShaderGUI : ShaderGUI
 
             if (materialTypeProp.floatValue == (float)BSDFMaterial.Metal)
             {
+                DoPopup(Styles.metalType, metalTypeProp, Styles.metalNames);
+                if (metalTypeProp.floatValue != (float)MetalData.MetalType.custom)
+                {
+                    MetalData.MetalIOR metalIor = MetalData.GetMetalIOR(MetalData.GetMetalName((MetalData.MetalType)metalTypeProp.floatValue));
+                    eta.vectorValue = metalIor.eta;
+                    k.vectorValue = metalIor.k;
+                }
+                else
+                {
+                    
+                }
                 materialEditor.ShaderProperty(roughnessU, Styles.roughnessUText);
                 materialEditor.ShaderProperty(roughnessV, Styles.roughnessVText);
                 materialEditor.ShaderProperty(eta, Styles.etaText);
                 materialEditor.ShaderProperty(k, Styles.metallicAbsorptionText);
+
                 fresnelTypeProp.floatValue = (float)BSDFFresnel.Conductor;
             }
             else if (materialTypeProp.floatValue == (float)BSDFMaterial.Plastic)

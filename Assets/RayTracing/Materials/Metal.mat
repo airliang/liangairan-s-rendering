@@ -74,6 +74,7 @@ Material:
     - _Glossiness: 0.5
     - _GlossyReflections: 1
     - _MaterialType: 2
+    - _MetalType: 22
     - _Metallic: 0
     - _Mode: 0
     - _OcclusionStrength: 1
@@ -92,7 +93,7 @@ Material:
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
     - _GlossySpecularColor: {r: 1, g: 1, b: 1, a: 1}
-    - _eta: {r: 0.1428, g: 0.3741, b: 1.4394, a: 1}
-    - _k: {r: 3.9747, g: 2.38, b: 1.5998, a: 1}
+    - _eta: {r: 3.4201353, g: 2.7901921, b: 2.3955858, a: 0}
+    - _k: {r: 3.4413817, g: 2.7376437, b: 2.5799134, a: 0}
     - _t: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []

@@ -21,7 +21,7 @@ float3 MIS_ShadowRay(Light light, Interaction isect, Material material, float li
     float lightPdf = 0;
     float3 samplePointOnLight;
     float3 ld = float3(0, 0, 0);
-    float3 Li = SampleLightRadiance(Distributions1D, light, isect, rng, wi, lightPdf, samplePointOnLight, _UniformSampleLight);
+    float3 Li = SampleLightRadiance(Distributions1D, light, isect, rng, wi, lightPdf, samplePointOnLight);
     lightPdf *= lightSourcePdf;
     //lightPdf = AreaLightPdf(light, isect, wi, _UniformSampleLight) * lightSourcePdf;
     if (!IsBlack(Li))
@@ -106,8 +106,8 @@ float3 MIS_BSDF(Interaction isect, Material material, Light light, int lightInde
             li = Light_Le(wi, envLight);
             if (light.type != EnvLightType)
             {
-                lightSourcePdf = LightSourcePmf(_EnvLightIndex, _UniformSampleLight);
-                lightPdf = EnvLightLiPdf(wi, _UniformSampleLight) * lightSourcePdf;
+                lightSourcePdf = LightSourcePmf(_EnvLightIndex);
+                lightPdf = EnvLightLiPdf(wi) * lightSourcePdf;
             }
         }
         
@@ -131,7 +131,7 @@ Light SampleLightSource(inout RNG rng, out float lightSourcePdf, out int lightIn
     //some error happen in SampleLightSource
     float u = Get1D(rng);
     DistributionDiscript discript = DistributionDiscripts[0];
-    lightIndex = SampleLightSource(u, discript, Distributions1D, lightSourcePdf, _UniformSampleLight);
+    lightIndex = SampleLightSource(u, discript, Distributions1D, lightSourcePdf);
     //lightIndex = 0;
     //lightSourcePdf = 0.5;
     Light light = lights[lightIndex];

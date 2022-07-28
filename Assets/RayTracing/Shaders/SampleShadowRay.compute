@@ -7,6 +7,9 @@
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel CSMain
 
+#pragma multi_compile __ _ENVMAP_ENABLE
+#pragma multi_compile _ _UNIFORM_SAMPLE_LIGHT
+
 uniform int    bounces;
 uniform float2 rasterSize;
 uniform int    queueSizeIndex;
@@ -30,7 +33,7 @@ ShadowRay SampleShadowRay(Light light, Interaction isect, float lightSourcePdf, 
 	float3 wi;
 	float lightPdf = 0;
 	float3 samplePointOnLight;
-	float3 Li = SampleLightRadiance(Distributions1D, light, isect, rng, wi, lightPdf, samplePointOnLight, false);
+	float3 Li = SampleLightRadiance(Distributions1D, light, isect, rng, wi, lightPdf, samplePointOnLight);
 
 	if (lightPdf > 0 && !IsBlack(Li))
 	{
@@ -86,7 +89,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 	float lightSourcePdf = 1.0;
 	//some error happen in SampleLightSource
 	float u = Get1D(rng);//rs.Get1D(workIndex);
-	int lightIndex = SampleLightSource(u, DistributionDiscripts[0], Distributions1D, lightSourcePdf, _UniformSampleLight);
+	int lightIndex = SampleLightSource(u, DistributionDiscripts[0], Distributions1D, lightSourcePdf);
 	Light light = lights[lightIndex];
 	//float testD = Distributions1D[0].y;
 	Interaction isect = Intersections[workIndex];

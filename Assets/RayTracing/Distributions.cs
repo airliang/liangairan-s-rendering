@@ -95,6 +95,12 @@ public class Distribution1D
     }
     public int SampleDiscrete(float u, out float pdf, out float uRemapped)
     {
+        if (distributions.Count == 0)
+        {
+            pdf = 0;
+            uRemapped = 0;
+            return 0;
+        }
         // Find surrounding CDF segments and _offset_
         int offset = FindInterval<float>((int)cdf.Count, index => (cdf[index] <= u));
         pdf = (distributionInt > 0) ? distributions[offset] * (domain.y - domain.x) / (distributionInt * Count()) : 0;

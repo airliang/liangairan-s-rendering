@@ -19,17 +19,17 @@ float2  envMapDistributionSize;
 float _EnvmapRotation;
 float _EnvMapDistributionInt;
 int   _EnvLightIndex;
-bool  _UniformSampleLight;
+//bool  _UniformSampleLight;
 
 //TextureCube _EnvMap;
 //SamplerState _EnvMap_linear_repeat_sampler;
 Texture2D _LatitudeLongitudeMap;
 SamplerState _LatitudeLongitudeMap_linear_repeat_sampler;
-
+#ifdef _ENVMAP_ENABLE
 StructuredBuffer<float2> EnvmapMarginals;
 StructuredBuffer<float2> EnvmapConditions;
 StructuredBuffer<float>  EnvmapConditionFuncInts;
-//StructuredBuffer<float>  EnvmapDistributions;
+#endif
 
 float3 RotateAroundYInDegrees(float3 vertex, float degrees)
 {
@@ -82,38 +82,55 @@ float3 EnviromentLightLe(float3 dir)
 	return enviromentColor;
 }
 
-float EnvLightLiPdf(float3 wi, bool isUniform)
+float EnvLightLiPdf(float3 wi)
 {
-	if (isUniform)
-	{
-		return INV_FOUR_PI;
-	}
-	else
-	{
-		float theta = acos(wi.y);//SphericalTheta(wi);
-		float phi = atan2(wi.z, wi.x);
-		float2 sphereCoords = float2(phi, theta) * float2(INV_TWO_PI, INV_PI);
-		float2 uv = float2(0.5 - sphereCoords.x, 1.0 - sphereCoords.y);
-		if (uv.x < 0)
-			uv.x += 1.0;
-		float sinTheta = sin(theta);
-		if (sinTheta == 0)
-			return 0;
-		DistributionDiscript discript = (DistributionDiscript)0;
-		discript.start = 0;
-		discript.num = (int)envMapDistributionSize.y;
-		discript.unum = (int)envMapDistributionSize.x;
-		discript.domain = float4(0, 1, 0, 1);
-		discript.funcInt = _EnvMapDistributionInt;
-		return Distribution2DPdf(uv, discript, EnvmapMarginals, EnvmapConditions) /
-			(2 * PI * PI * sinTheta);
-	}
+#ifdef _ENVMAP_ENABLE
+#ifdef _UNIFORM_SAMPLE_LIGHT
+	return INV_FOUR_PI;
+#else
+	float theta = acos(wi.y);//SphericalTheta(wi);
+	float phi = atan2(wi.z, wi.x);
+	float2 sphereCoords = float2(phi, theta) * float2(INV_TWO_PI, INV_PI);
+	float2 uv = float2(0.5 - sphereCoords.x, 1.0 - sphereCoords.y);
+	if (uv.x < 0)
+		uv.x += 1.0;
+	float sinTheta = sin(theta);
+	if (sinTheta == 0)
+		return 0;
+	DistributionDiscript discript = (DistributionDiscript)0;
+	discript.start = 0;
+	discript.num = (int)envMapDistributionSize.y;
+	discript.unum = (int)envMapDistributionSize.x;
+	discript.domain = float4(0, 1, 0, 1);
+	discript.funcInt = _EnvMapDistributionInt;
+	return Distribution2DPdf(uv, discript, EnvmapMarginals, EnvmapConditions) /
+		(2 * PI * PI * sinTheta);
+#endif	
+#else
+	return INV_FOUR_PI;
+#endif
 	
+}
+
+float3 UniformSampleEnviromentLight(float2 u, out float pdf, out float3 wi)
+{
+	float mapPdf = 1.0 / (4.0 * PI);
+	//float theta = (1.0 - u[1]) * PI;
+	//float phi = u[0] * 2 * PI;
+	//float cosTheta = cos(theta);
+	//float sinTheta = sin(theta);
+	//float sinPhi = sin(phi);
+	//float cosPhi = cos(phi);
+	wi = PolarToDirection(u);
+	//float2 uv = DirectionToPolar(wi);
+	pdf = mapPdf;
+	return SampleEnviromentLight(u);
 }
 
 
 float3 ImportanceSampleEnviromentLight(float2 u, out float pdf, out float3 wi)
 {
+#ifdef _ENVMAP_ENABLE
 	DistributionDiscript discript = (DistributionDiscript)0;
 	discript.start = 0;
 	discript.num = (int)envMapDistributionSize.y;
@@ -149,23 +166,10 @@ float3 ImportanceSampleEnviromentLight(float2 u, out float pdf, out float3 wi)
 	}
 	
 	return SampleEnviromentLight(uv);
+#else
+	return UniformSampleEnviromentLight(u, pdf, wi);
+#endif
 }
-
-float3 UniformSampleEnviromentLight(float2 u, out float pdf, out float3 wi)
-{
-	float mapPdf = 1.0 / (4.0 * PI);
-	//float theta = (1.0 - u[1]) * PI;
-	//float phi = u[0] * 2 * PI;
-	//float cosTheta = cos(theta);
-	//float sinTheta = sin(theta);
-	//float sinPhi = sin(phi);
-	//float cosPhi = cos(phi);
-	wi = PolarToDirection(u);
-	//float2 uv = DirectionToPolar(wi);
-	pdf = mapPdf;
-	return SampleEnviromentLight(u);
-}
-
 
 float3 SampleTriangleLight(float3 p0, float3 p1, float3 p2, float2 u, Interaction isect, Light light, out float3 wi, out float3 position, out float pdf)
 {
@@ -197,7 +201,7 @@ int SampleTriangleIndexOfLightPoint(float u, DistributionDiscript discript, Stru
 }
 
 float3 SampleLightRadiance(StructuredBuffer<float2> lightDistribution, Light light, Interaction isect, inout RNG rng, 
-	out float3 wi, out float lightPdf, out float3 lightPoint, bool isUniform)
+	out float3 wi, out float lightPdf, out float3 lightPoint)
 {
 	if (light.type == AreaLightType)
 	{
@@ -231,10 +235,11 @@ float3 SampleLightRadiance(StructuredBuffer<float2> lightDistribution, Light lig
 		float2 u = Get2D(rng);
 		//float3 Li = UniformSampleEnviromentLight(u, lightPdf, wi); 
 		float3 Li = 0;
-		if (isUniform)
-			Li = UniformSampleEnviromentLight(u, lightPdf, wi);
-		else
-			Li = ImportanceSampleEnviromentLight(u, lightPdf, wi);
+#ifdef _UNIFORM_SAMPLE_LIGHT
+		Li = UniformSampleEnviromentLight(u, lightPdf, wi);
+#else
+		Li = ImportanceSampleEnviromentLight(u, lightPdf, wi);
+#endif
 		//Li = isUniform ? float3(0.5, 0, 0) : Li;
 		lightPoint = isect.p + wi * 10000.0f;
 		return Li;
@@ -259,20 +264,14 @@ int UniformSampleLightSource(float u, DistributionDiscript discript, out float p
 	return lightIndex;
 }
 
-int SampleLightSource(float u, DistributionDiscript discript, StructuredBuffer<float2> discributions, out float pmf, bool isUniform)
+int SampleLightSource(float u, DistributionDiscript discript, StructuredBuffer<float2> discributions, out float pmf)
 {
-	//DistributionDiscript discript = (DistributionDiscript)0;
-	//discript.start = 0;
-	////the length of cdfs is N+1
-	//discript.num = lightCount;
-	//discript.funcInt = 
 	int index = 0;
-	if (isUniform)
-		index = UniformSampleLightSource(u, discript, pmf);
-	else
-	{
-		index = ImportanceSampleLightSource(u, discript, discributions, pmf); //SampleDistribution1DDiscrete(rs.Get1D(threadId), 0, lightCount, pdf);
-	}
+#ifdef _UNIFORM_SAMPLE_LIGHT
+	index = UniformSampleLightSource(u, discript, pmf);
+#else
+	index = ImportanceSampleLightSource(u, discript, discributions, pmf); //SampleDistribution1DDiscrete(rs.Get1D(threadId), 0, lightCount, pdf);
+#endif
 	//int index = UniformSampleLightSource(u, discript, pmf);
 	return index;
 }
@@ -287,13 +286,14 @@ float ImportanceLightSourcePmf(int lightIndex, DistributionDiscript discript)
 	return DiscretePdf(lightIndex, discript, Distributions1D);
 }
 
-float LightSourcePmf(int lightIndex, bool isUniform)
+float LightSourcePmf(int lightIndex)
 {
 	DistributionDiscript discript = DistributionDiscripts[0];
-	if (isUniform)
-		return UniformLightSourcePmf(discript.num);
-	else
-		return ImportanceLightSourcePmf(lightIndex, discript);
+#ifdef _UNIFORM_SAMPLE_LIGHT
+	return UniformLightSourcePmf(discript.num);
+#else
+	return ImportanceLightSourcePmf(lightIndex, discript);
+#endif
 }
 
 float3 Light_Le(float3 wi, Light light)
@@ -318,50 +318,7 @@ float AreaLightPdf(Light light, Interaction isect)
 		int distributionIndex = isect.triangleIndex;
 		float pmf = DiscretePdf(distributionIndex, discript, Distributions1D);
 		lightPdf = pmf * 1.0 / isect.primArea;
-		
-		/*
-		//intersect the light mesh triangle
-		Ray ray = SpawnRay(isect.p.xyz, wi, isect.normal, FLT_MAX);
-		float bvhHit = ray.tmax;
-		int meshHitTriangleIndex;  //wood triangle addr
-
-		DistributionDiscript discript = DistributionDiscripts[light.distributionDiscriptIndex];
-		//DistributionDiscript lightObjDiscript = DistributionDiscripts[0];
-		int distributionIndex = 0;
-		//getting the mesh of the light
-		MeshInstance meshInstance = MeshInstances[light.meshInstanceID];
-
-		//convert to mesh local space
-		Ray rayTemp = TransformRay(meshInstance.worldToLocal, ray);
-
-		//check the ray intersecting the light mesh
-		if (IntersectMeshBVHP(rayTemp, meshInstance.GetBVHOffset(), bvhHit, meshHitTriangleIndex))
-		{
-			int triAddr = meshHitTriangleIndex;
-			int vIndex0 = WoodTriangleIndices[triAddr];
-			int vIndex1 = WoodTriangleIndices[triAddr + 1];
-			int vIndex2 = WoodTriangleIndices[triAddr + 2];
-			float3 p0 = Vertices[vIndex0].position.xyz;
-			float3 p1 = Vertices[vIndex1].position.xyz;
-			float3 p2 = Vertices[vIndex2].position.xyz;
-
-			p0 = mul(meshInstance.localToWorld, float4(p0, 1.0));
-			p1 = mul(meshInstance.localToWorld, float4(p1, 1.0));
-			p2 = mul(meshInstance.localToWorld, float4(p2, 1.0));
-
-			lightPdf = 2.0 / length(cross(p0 - p1, p0 - p2));
-			//lightPdf = 1.0 / isect.primArea;
-
-			distributionIndex = (vIndex0 - meshInstance.indexStart) / 3;
-
-			lightPdf *= DiscretePdf(distributionIndex, discript, Distributions1D);
-		}
-		*/
 	}
-	//else if (light.type == EnvLightType)
-	//{
-	//	lightPdf = EnvLightLiPdf(wi, isUniform); //INV_FOUR_PI;
-	//}
 
 	return lightPdf;
 }

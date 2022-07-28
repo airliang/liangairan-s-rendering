@@ -26,7 +26,7 @@ float3 MaterialFresnelShadowRay(Light light, Material material, Interaction isec
     float3 wi;
     float lightPdf = 0;
     float3 samplePointOnLight;
-    float3 Li = SampleLightRadiance(Distributions1D, light, isect, rng, wi, lightPdf, samplePointOnLight, false);
+    float3 Li = SampleLightRadiance(Distributions1D, light, isect, rng, wi, lightPdf, samplePointOnLight);
     ShadowRay shadowRay = (ShadowRay)0;
     if (lightPdf > 0)
     {
@@ -78,7 +78,7 @@ float3 MaterialFresnelShadowRay(Light light, Material material, Interaction isec
     }
     return 0;
 }
-
+#ifdef _ENVMAP_ENABLE
 float2 ImportanceSampleEnvmapUV(float2 u)
 {
     DistributionDiscript discript = (DistributionDiscript)0;
@@ -91,6 +91,7 @@ float2 ImportanceSampleEnvmapUV(float2 u)
     float2 uv = Sample2DContinuous(u, discript, EnvmapMarginals, EnvmapConditions, EnvmapConditionFuncInts, mapPdf);
     return uv;
 }
+#endif
 
 float3 MaterialFresnel(Material material, Interaction isect, inout RNG rng)
 {
@@ -150,7 +151,7 @@ float3 SampleShadowRayRadiance(Light light, Interaction isect, out float3 wi, ou
 
 	lightPdf = 0;
 	float3 samplePointOnLight;
-	float3 Li = SampleLightRadiance(Distributions1D, light, isect, rng, wi, lightPdf, samplePointOnLight, false);
+	float3 Li = SampleLightRadiance(Distributions1D, light, isect, rng, wi, lightPdf, samplePointOnLight);
 
     if (lightPdf > 0)
     {
@@ -212,7 +213,7 @@ half3 TracingDebug(uint2 id, Ray ray, int view, float2 rayCone, float cameraCone
         {
             float u = Get1D(rng);
             float lightSourcePdf = 0;
-            int lightIndex = SampleLightSource(u, DistributionDiscripts[0], Distributions1D, lightSourcePdf, false);
+            int lightIndex = SampleLightSource(u, DistributionDiscripts[0], Distributions1D, lightSourcePdf);
             Light light = lights[lightIndex];
             float3 wi;
             float lightPdf = 0;
