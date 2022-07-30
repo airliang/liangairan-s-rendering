@@ -45,13 +45,16 @@ def convert_material(mat_input):
     materialType = mat_input["type"]
     albedo = mat_input["albedo"]
     albedoTexture = None
-    baseColor = None
+    baseColor = [1,1,1]
     roughness = 0
     if 'roughness' in mat_input:
         roughness = mat_input["roughness"]
     k = convert_vec(mat_input.get("k", 0), 3)
     eta = convert_vec(mat_input.get("ior", 0), 3)
     metal = None
+    
+    mat_type_number = material_table[materialType]
+    print("converting material type is:", materialType, " reference number is:", mat_type_number)
     if 'material' in mat_input:
         metal = mat_input["material"]
     if type(albedo) == str:
@@ -59,7 +62,7 @@ def convert_material(mat_input):
     else :
         baseColor = convert_vec(mat_input.get("albedo", 1), 3)
     ret = {
-        "type" : material_table[mat_input.get(materialType, "lambert")],
+        "type" : mat_type_number,
         "name" : mat_input["name"],
         "assetPath" : "",
         "shaderName" : "RayTracing/Uber",
@@ -153,8 +156,14 @@ def convert_entity(shape_input, shape_type, index):
     if 'scale' in transform:
         scale = transform["scale"]
 
+    if isinstance(scale, float):
+        scale = [scale, scale, scale]
+
     if 'rotation' in transform:
         rotation = transform["rotation"]
+
+    bsdf = shape_input["bsdf"]
+    bsdf = None if type(bsdf) == dict else bsdf
 
     M = convert_srt(glm.vec3(scale), glm.vec3(rotation), glm.vec3(position))
     M = glm.scale(glm.vec3([-1,1,1])) * M
@@ -165,8 +174,9 @@ def convert_entity(shape_input, shape_type, index):
     position = glm.vec3(0, 0, 0)
     #decompose_matrix(M, position, rotation_t, scale_t)
     glm.decompose(M, scale_t, rotation_t, position, skew, perspective)
-    #rotationM = glm.mat4(rotation)
-    #euler = glm.vec3(0, 0, 0)
+    rotationM = glm.mat4(rotation_t)
+    euler = glm.degrees(glm.eulerAngles(rotation_t))
+    #print("euler angle is:", euler)
     #glm.extractEulerAngleYXZ(rotationM, euler.y, euler.x, euler.z)
     #rotation = [glm.degrees(euler.x), glm.degrees(euler.y), glm.degrees(euler.z)] #[glm.degrees(glm.pitch(rotation)), glm.degrees(glm.yaw(rotation)), glm.degrees(glm.roll(rotation))]
 
@@ -179,16 +189,16 @@ def convert_entity(shape_input, shape_type, index):
 
     ret = {
         
-        "name" : "entity_" + str(index),
+        "name" : "entity_" + str(index) + "_" + str(bsdf),
         "position" : {
             "x" : position[0],
             "y" : position[1],
             "z" : position[2]
         },
         "scale" : {
-            "x" : scale[0],
-            "y" : scale[1],
-            "z" : scale[2]
+            "x" : abs(scale[0]),
+            "y" : abs(scale[1]),
+            "z" : abs(scale[2])
         },
         "rotation" : {
             "x" : -rotation[0],
@@ -197,7 +207,7 @@ def convert_entity(shape_input, shape_type, index):
         },
         "meshType" : shape_type,
         "mesh" : meshcontent,
-        "material" : shape_input["bsdf"],
+        "material" : bsdf,
         "emission" : {
             "x" : emission[0],
             "y" : emission[1],
@@ -223,6 +233,7 @@ def convert_camera(scene_input):
     position = transform["position"]
     lookat = transform["look_at"]
     up = transform["up"]
+
     ret = {
         "position" : {
             "x" : position[0],
