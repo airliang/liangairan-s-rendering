@@ -1,4 +1,5 @@
 #include "SplitBVHBuilder.h"
+#include <cassert>
 
 namespace BVHLib
 {
@@ -118,7 +119,8 @@ namespace BVHLib
 			{
 				//primrefs.resize(elems);
 				std::vector<Reference> extras;
-				for (int i = 0; i < elems - m_refStack.size(); ++i)
+				int refCount = m_refStack.size();
+				for (int i = 0; i < elems - refCount; ++i)
 					m_refStack.push_back(Reference());
 					//extras.Add(Reference.DefaultReference());
 				//m_refStack.AddRange(extras);
@@ -291,7 +293,7 @@ namespace BVHLib
 		// Split refs if any of them require to be split
 		for (int i = req.startIdx; i < req.startIdx + req.numRef; ++i)
 		{
-			//assert(static_cast<size_t>(req.startidx + appendprims) < refs.size());
+			assert(static_cast<size_t>(req.startIdx + appendprims) < refs.size());
 
 			Reference leftref; 
 			Reference rightref;

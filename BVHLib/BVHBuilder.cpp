@@ -87,20 +87,20 @@ namespace BVHLib
 		//假如centroidBounds是一个点
 		//即上面的primitiveInfo的中心点在同一个位置
 		int mid = (start + end) / 2;
-		if (std::abs(centroidBounds.pMax[dim] - centroidBounds.pMin[dim]) < 0.01f)
-		{
-			//build the leaf BVHBuildNode
-			int firstPrimOffset = _orderedPrimitives.size();
-			for (int i = start; i < end; ++i)
-			{
-				int primNum = m_primitiveInfos[i].primitiveIndex;
-				//orderedPrims.Add(primitives[primNum]);
-				_orderedPrimitives.push_back(primNum);
-			}
-			node->InitLeaf(firstPrimOffset, nPrimitives, bounds);
-			return node;
-		}
-		else
+		//if (std::abs(centroidBounds.pMax[dim] - centroidBounds.pMin[dim]) < 0.01f)
+		//{
+		//	//build the leaf BVHBuildNode
+		//	int firstPrimOffset = _orderedPrimitives.size();
+		//	for (int i = start; i < end; ++i)
+		//	{
+		//		int primNum = m_primitiveInfos[i].primitiveIndex;
+		//		//orderedPrims.Add(primitives[primNum]);
+		//		_orderedPrimitives.push_back(primNum);
+		//	}
+		//	node->InitLeaf(firstPrimOffset, nPrimitives, bounds);
+		//	return node;
+		//}
+		//else
 		{
 			if (nPrimitives <= 2)
 			{
