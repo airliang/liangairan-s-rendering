@@ -800,7 +800,15 @@ public class CPUPathIntegrator
         {
             bool foundIntersect = false;
             if (bounces == 0)
+            {
                 foundIntersect = ClosestHit(ray, ref isect, gpuSceneData);
+                int meshInstanceIndex = (int)isect.meshInstanceID;
+                MeshInstance meshInstance = gpuSceneData.meshInstances[meshInstanceIndex];
+                int triAddrDebug = (int)isect.triangleIndex;
+                RenderDebug.DrawTriangle(meshInstance.localToWorld.MultiplyPoint(gpuSceneData.gpuVertices[gpuSceneData.bvhAccel.m_woodTriangleIndices[triAddrDebug]].position),
+                     meshInstance.localToWorld.MultiplyPoint(gpuSceneData.gpuVertices[gpuSceneData.bvhAccel.m_woodTriangleIndices[triAddrDebug + 1]].position),
+                     meshInstance.localToWorld.MultiplyPoint(gpuSceneData.gpuVertices[gpuSceneData.bvhAccel.m_woodTriangleIndices[triAddrDebug + 2]].position), Color.green);
+            }
             else
             {
                 foundIntersect = pathVertex.found == 1;

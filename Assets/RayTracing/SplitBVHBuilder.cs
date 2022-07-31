@@ -271,7 +271,8 @@ public class SplitBVHBuilder : BVHBuilder
             {
                 //primrefs.resize(elems);
                 //List<Reference> extras = new List<Reference>();
-                for (int i = 0; i < elems - m_refStack.Count; ++i)
+                int refCount = m_refStack.Count;
+                for (int i = 0; i < elems - refCount; ++i)
                     m_refStack.Add(Reference.DefaultReference());
                     //extras.Add(Reference.DefaultReference());
                     //m_refStack.AddRange(extras);

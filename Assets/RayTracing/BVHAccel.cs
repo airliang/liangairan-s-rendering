@@ -1239,6 +1239,7 @@ public class BVHAccel
 								isect = tmpInteraction;
 								isect.wo = -ray.direction;
 								isect.materialID = meshInstance.materialIndex;
+								isect.triangleIndex = (uint)meshHitTriangleIndex;
 							}
 						}
 						//else if (nextMeshInstanceIds[i] == 1)
@@ -1250,28 +1251,6 @@ public class BVHAccel
 				}
 			}
 		}
-
-
-
-		//for (int i = 0; i < meshInstances.Count; ++i)
-		if (hitBVHNode >= 0)
-		{
-			MeshInstance meshInstanceTmp = meshInstances[hitMeshIndex];
-			//MeshHandle meshHandle = meshHandles[meshInstanceTmp.meshHandleIndex];
-			//Vector3 worldBoundMin = Vector3.zero;
-			//Vector3 worldBoundMax = Vector3.zero;
-			//GPUBounds.TransformBounds(ref meshInstanceTmp.localToWorld, meshHandle.localBounds.min, meshHandle.localBounds.max, out worldBoundMin, out worldBoundMax);
-			//RenderDebug.DrawDebugBound(worldBoundMin, worldBoundMax, Color.white);
-
-			if (hitIndex != -1)
-			{
-				int triAddrDebug = hitIndex;
-				RenderDebug.DrawTriangle(meshInstanceTmp.localToWorld.MultiplyPoint(sceneVertices[m_woodTriangleIndices[triAddrDebug]].position),
-					meshInstanceTmp.localToWorld.MultiplyPoint(sceneVertices[m_woodTriangleIndices[triAddrDebug + 1]].position),
-					meshInstanceTmp.localToWorld.MultiplyPoint(sceneVertices[m_woodTriangleIndices[triAddrDebug + 2]].position), Color.green);
-			}
-		}
-
 
 		return hitIndex != -1;
 	}

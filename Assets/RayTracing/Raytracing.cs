@@ -61,6 +61,7 @@ public class Raytracing : MonoBehaviour
     void OnDestroy()
     {
         _RaytracingKernel.Release();
+        MeshRenderer[] meshRenderers = GameObject.FindObjectsOfType<MeshRenderer>();
     }
 
     private void OnRenderImage(RenderTexture source, RenderTexture destination)

@@ -99,20 +99,20 @@ public class BVHBuilder
 		//假如centroidBounds是一个点
 		//即上面的primitiveInfo的中心点在同一个位置
 		int mid = (start + end) / 2;
-		if (Mathf.Abs(centroidBounds.max[dim] - centroidBounds.min[dim]) < 0.01f)
-		{
-			//build the leaf BVHBuildNode
-			int firstPrimOffset = _orderedPrimitives.Count;
-			for (int i = start; i < end; ++i)
-			{
-				int primNum = m_primitiveInfos[i].primitiveIndex;
-				//orderedPrims.Add(primitives[primNum]);
-				_orderedPrimitives.Add(primNum);
-			}
-			node.InitLeaf(firstPrimOffset, nPrimitives, bounds);
-			return node;
-		}
-		else
+		//if (Mathf.Abs(centroidBounds.max[dim] - centroidBounds.min[dim]) < 0.01f)
+		//{
+		//	//build the leaf BVHBuildNode
+		//	int firstPrimOffset = _orderedPrimitives.Count;
+		//	for (int i = start; i < end; ++i)
+		//	{
+		//		int primNum = m_primitiveInfos[i].primitiveIndex;
+		//		//orderedPrims.Add(primitives[primNum]);
+		//		_orderedPrimitives.Add(primNum);
+		//	}
+		//	node.InitLeaf(firstPrimOffset, nPrimitives, bounds);
+		//	return node;
+		//}
+		//else
 		{
 			if (nPrimitives <= 2)
 			{

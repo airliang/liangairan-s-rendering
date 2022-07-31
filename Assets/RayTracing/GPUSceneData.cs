@@ -29,7 +29,7 @@ public class AreaLightResource
     public int discriptAddress = -1;
     public Distribution1D triangleDistributions = null;
     public List<float> triangleAreas = new List<float>();
-
+    public List<int> gpuLightIndices = new List<int>();
 }
 
 class AreaLightInstance : LightInstance
@@ -129,10 +129,11 @@ public class GPUSceneData
     public Dictionary<Mesh, AreaLightResource> meshDistributions = new Dictionary<Mesh, AreaLightResource>();
     public List<LightInstance> areaLightInstances = new List<LightInstance>();
     public List<Vector2> Distributions1D = new List<Vector2>();
+    //index 0 is the light source distributions
     public List<GPUDistributionDiscript> gpuDistributionDiscripts = new List<GPUDistributionDiscript>();
 
     Bounds worldBound;
-    BVHAccel bvhAccel = new BVHAccel();
+    public BVHAccel bvhAccel = new BVHAccel();
     int instBVHNodeAddr = -1;
     EnviromentLight envLight = new EnviromentLight();
     int envLightIndex = -1;
@@ -273,7 +274,7 @@ public class GPUSceneData
                 Profiler.EndSample();
             }
 
-
+            List<RuntimeEntityDebug> runtimeEntityDebugs = new List<RuntimeEntityDebug>();
             //生成meshinstance和对应的material
             meshHandleIndex = 0;
             for (int i = 0; i < meshRenderers.Length; ++i)
@@ -296,6 +297,9 @@ public class GPUSceneData
                 Mesh mesh = meshFilter.sharedMesh;
 
                 Light lightComponent = meshRenderer.GetComponent<Light>();
+
+                RuntimeEntityDebug entityDebug = meshRenderer.gameObject.AddComponent<RuntimeEntityDebug>();
+                runtimeEntityDebugs.Add(entityDebug);
                 if (lightComponent != null && lightComponent.type == LightType.Area)
                 {
                     Profiler.BeginSample("Lights data fetching");
@@ -304,15 +308,6 @@ public class GPUSceneData
                     if (!meshDistributions.TryGetValue(mesh, out areaLight))
                     {
                         areaLight = new AreaLightResource();
-                        //compute the mesh triangle distribution
-                        //for (int t = 0; t < mesh.triangles.Length; t += 3)
-                        //{
-                        //    Vector3 p0 = mesh.vertices[mesh.triangles[t]];
-                        //    Vector3 p1 = mesh.vertices[mesh.triangles[t + 1]];
-                        //    Vector3 p2 = mesh.vertices[mesh.triangles[t + 2]];
-                        //    float triangleArea = Vector3.Cross(p1 - p0, p2 - p0).magnitude * 0.5f;
-                        //    areaLight.triangleAreas.Add(triangleArea);
-                        //}
 
                         mesh.GetVertices(lightMeshVertices);
 
@@ -322,9 +317,9 @@ public class GPUSceneData
                             mesh.GetTriangles(meshTriangles, sm);
                             for (int t = 0; t < meshTriangles.Count; t += 3)
                             {
-                                Vector3 p0 = transform.TransformPoint(lightMeshVertices[meshTriangles[t]]);
-                                Vector3 p1 = transform.TransformPoint(lightMeshVertices[meshTriangles[t + 1]]);
-                                Vector3 p2 = transform.TransformPoint(lightMeshVertices[meshTriangles[t + 2]]);
+                                Vector3 p0 = lightMeshVertices[meshTriangles[t]];       //transform.TransformPoint(lightMeshVertices[meshTriangles[t]]);
+                                Vector3 p1 = lightMeshVertices[meshTriangles[t + 1]];   //transform.TransformPoint(lightMeshVertices[meshTriangles[t + 1]]);
+                                Vector3 p2 = lightMeshVertices[meshTriangles[t + 2]];   //transform.TransformPoint(lightMeshVertices[meshTriangles[t + 2]]);
                                 float triangleArea = Vector3.Cross(p1 - p0, p2 - p0).magnitude * 0.5f;
                                 areaLight.triangleAreas.Add(triangleArea);
                             }
@@ -392,7 +387,10 @@ public class GPUSceneData
                     gpuLight.distributionDiscriptIndex = gpuLights.Count + 1;
                     gpuLight.meshInstanceID = meshInstances.Count;
                     gpuLights.Add(gpuLight);
+                    areaLight.gpuLightIndices.Add(lightIndex);
                     Profiler.EndSample();
+
+                    entityDebug.lightIndex = lightIndex;
                 }
 
                 List<int> meshHandleIndices = null;
@@ -405,6 +403,7 @@ public class GPUSceneData
                     MeshHandle meshHandle = meshHandles[meshHandleIndex];
                     MeshInstance meshInstance = new MeshInstance(transform.localToWorldMatrix, transform.worldToLocalMatrix, meshHandleIndex,
                         materialIndex, lightIndex, meshHandle.triangleOffset, meshHandle.triangleCount);
+                    entityDebug.meshInstanceIDs.Add(meshInstances.Count);
                     meshInstances.Add(meshInstance);
                 }
                 Profiler.EndSample();
@@ -420,10 +419,6 @@ public class GPUSceneData
             Debug.Log("building bvh cost time:" + timeInterval);
 
 
-
-            //创建对应的computebuffer
-            //meshHandleBuffer = new ComputeBuffer(meshHandles.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(MeshHandle)), ComputeBufferType.Structured);
-            //meshHandleBuffer.SetData(meshHandles.ToArray());
 
             meshInstanceBuffer = new ComputeBuffer(meshInstances.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(MeshInstance)), ComputeBufferType.Structured);
             meshInstanceBuffer.SetData(meshInstances);
@@ -518,17 +513,6 @@ public class GPUSceneData
             gpuLights.Add(gpuEnvLight);
         }
         
-
-
-        if (gpuLights.Count > 0)
-        {
-            lightBuffer = new ComputeBuffer(gpuLights.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPULight)), ComputeBufferType.Structured);
-            lightBuffer.SetData(gpuLights);
-        }
-        else
-        {
-            lightBuffer = new ComputeBuffer(1, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPULight)), ComputeBufferType.Structured);
-        }
 
         if (intersectBuffer == null)
         {
@@ -641,13 +625,33 @@ public class GPUSceneData
                 domain = new Vector4(areaLightResource.triangleDistributions.domain.x, areaLightResource.triangleDistributions.domain.y, 0, 0)
             };
             areaLightResource.discriptAddress = gpuDistributionDiscripts.Count;
+            for (int i = 0; i < areaLightResource.gpuLightIndices.Count; ++i)
+            {
+                GPULight gpuLight = gpuLights[areaLightResource.gpuLightIndices[i]];
+                gpuLight.distributionDiscriptIndex = areaLightResource.discriptAddress;
+                gpuLights[areaLightResource.gpuLightIndices[i]] = gpuLight;
+            }
             gpuDistributionDiscripts.Add(discript);
             Distributions1D.AddRange(areaLightResource.triangleDistributions.GetGPUDistributions());
         }
+
+        
     }
 
     public void SetComputeShaderGPUData(ComputeShader cs, int kernel)
     {
+        if (lightBuffer == null)
+        {
+            if (gpuLights.Count > 0)
+            {
+                lightBuffer = new ComputeBuffer(gpuLights.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPULight)), ComputeBufferType.Structured);
+                lightBuffer.SetData(gpuLights);
+            }
+            else
+            {
+                lightBuffer = new ComputeBuffer(1, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPULight)), ComputeBufferType.Structured);
+            }
+        }
 
         cs.SetBuffer(kernel, "WoodTriangles", woodTriBuffer);
         cs.SetBuffer(kernel, "Vertices", verticesBuffer);
@@ -669,7 +673,7 @@ public class GPUSceneData
         if (_uniformSampleLight)
             cs.EnableKeyword("_UNIFORM_SAMPLE_LIGHT");
         else
-            cs.DisableKeyword("_UNIFORM_SAMPLE_LIGHT");
+            cs.DisableKeyword("_UNIFORM_SAMPLE_LIGHT"); 
 
         //light distributions setting
         if (distribution1DBuffer == null && Distributions1D.Count > 0)

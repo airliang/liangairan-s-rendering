@@ -328,11 +328,11 @@ bool IntersectBVHandTriangles(Ray ray, int bvhOffset, out Interaction interactio
 				const float4 m2 = WoodTriangles[triAddr + 2]; //matrix row 2
 
 				float3 normal = normalize(cross(m0.xyz, m1.xyz));
-				if (dot(normal, ray.direction.xyz) >= 0)
-				{
-					//三角形背面
-					continue;
-				}
+				//if (dot(normal, ray.direction.xyz) >= 0)
+				//{
+				//	//三角形背面
+				//	continue;
+				//}
 
 				float2 uv = 0;
 				float triangleHit = 0;
