@@ -9,7 +9,7 @@ Shader "RayTracing/Uber"
         _BaseColorLinear("Color", Vector) = (1, 1, 1, 1)
         _NormalTex("NormalMap", 2D) = "bump" {}
         _GlossySpecularTex("Glossy Specular Texture", 2D) = "white" {}
-        _GlossySpecularColor("Color", Color) = (1, 1, 1, 1)
+        [Linear]_GlossySpecularColor("Specular Color", Color) = (1, 1, 1, 1)
         [KeywordEnum(Matte, Plastic, Metal, Glass, Mirror)] _MaterialType("Material Type(Matte, Plastic, Metal, Glass, Mirror)", float) = 0
         _roughnessU("RoughnessU", Range(0.0, 1.0)) = 0
         _roughnessV("RoughnessU", Range(0.0, 1.0)) = 0

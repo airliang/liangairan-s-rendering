@@ -14,6 +14,7 @@ public class BSDFShaderGUI : ShaderGUI
         Metal,
         Mirror,
         Glass,
+        Substrate,
     }
 
     public enum BSDFFresnel
@@ -42,6 +43,7 @@ public class BSDFShaderGUI : ShaderGUI
         public static GUIContent normalText = new GUIContent("Normal", "Normal Texture");
 
         public static GUIContent glossySpecularMapText = new GUIContent("Glossy Specular", "Glossy Specular Texture");
+        public static GUIContent glossySpecularColorText = new GUIContent("Glossy Specular Color", "Glossy Specular Color");
 
         public static GUIContent roughnessText = new GUIContent("Roughness", "Roughness");
         public static GUIContent roughnessUText = new GUIContent("Roughness U", "Roughness U");
@@ -242,6 +244,16 @@ public class BSDFShaderGUI : ShaderGUI
                 materialEditor.ShaderProperty(roughnessV, Styles.roughnessVText);
                 materialEditor.ShaderProperty(eta, Styles.etaText);
                 eta.vectorValue = new Vector4(1.5f, 1.5f, 1.5f, 1.0f);
+            }
+            else if (materialTypeProp.floatValue == (float)BSDFMaterial.Substrate)
+            {
+                fresnelTypeProp.floatValue = (float)BSDFFresnel.Schlick;
+                materialEditor.TexturePropertySingleLine(Styles.glossySpecularMapText, glossySpecularMap, glossySpecularColor);
+                //materialEditor.ShaderProperty(glossySpecularColor, Styles.glossySpecularColorText);
+                EditorGUILayout.Space();
+                materialEditor.ShaderProperty(roughnessU, Styles.roughnessUText);
+                materialEditor.ShaderProperty(roughnessV, Styles.roughnessVText);
+                materialEditor.ShaderProperty(eta, Styles.etaText);
             }
 
             EditorGUILayout.Space();

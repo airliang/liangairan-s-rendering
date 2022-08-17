@@ -78,20 +78,25 @@ float3 MaterialFresnelShadowRay(Light light, Material material, Interaction isec
     }
     return 0;
 }
-#ifdef _ENVMAP_ENABLE
+
 float2 ImportanceSampleEnvmapUV(float2 u)
 {
-    DistributionDiscript discript = (DistributionDiscript)0;
-    discript.start = 0;
-    discript.num = (int)envMapDistributionSize.y;
-    discript.unum = (int)envMapDistributionSize.x;
-    discript.domain = float4(0, 1, 0, 1);
-    float mapPdf = 0;
+    if (_EnvMapEnable)
+    {
+        DistributionDiscript discript = (DistributionDiscript)0;
+        discript.start = 0;
+        discript.num = (int)envMapDistributionSize.y;
+        discript.unum = (int)envMapDistributionSize.x;
+        discript.domain = float4(0, 1, 0, 1);
+        float mapPdf = 0;
 
-    float2 uv = Sample2DContinuous(u, discript, EnvmapMarginals, EnvmapConditions, EnvmapConditionFuncInts, mapPdf);
-    return uv;
+        float2 uv = Sample2DContinuous(u, discript, EnvmapMarginals, EnvmapConditions, EnvmapConditionFuncInts, mapPdf);
+        return uv;
+    }
+    else
+        return u;
 }
-#endif
+
 
 float3 MaterialFresnel(Material material, Interaction isect, inout RNG rng)
 {

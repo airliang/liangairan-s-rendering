@@ -1,13 +1,14 @@
 #ifndef BXDF_HLSL
 #define BXDF_HLSL
 #include "sampler.hlsl"
-#include "geometry.hlsl"
+#include "microfacet.hlsl"
 #include "fresnel.hlsl"
 
 #define BXDF_REFLECTION 1
 #define BXDF_TRANSMISSION 1 << 1
 #define BXDF_DIFFUSE 1 << 2
 #define BXDF_SPECULAR 1 << 3
+#define BXDF_GLOSSY 1 << 4
 
 struct BSDFSample
 {
@@ -52,13 +53,6 @@ float LambertPDF(float3 wi, float3 wo)
     return SameHemisphere(wo, wi) ? AbsCosTheta(wi) * INV_PI : 0;
 }
 
-float RoughnessToAlpha(float roughness) {
-    roughness = max(roughness, 0.001);
-    float x = log(roughness);
-    return 1.62142f + 0.819955f * x + 0.1734f * x * x +
-        0.0171201f * x * x * x + 0.000640711f * x * x * x * x;
-}
-
 float TrowbridgeReitzLambda(float3 w, float alphax, float alphay)
 {
     float absTanTheta = abs(TanTheta(w));
@@ -85,7 +79,7 @@ float TrowbridgeReitzD(float3 wh, float alphax, float alphay)
 
 float3 SampleTrowbridgeReitzDistributionVector(float3 wo, float2 u, float alphax, float alphay)
 {
-    float phi = (2.0 * PI) * u[1];
+    float phi = TWO_PI * u[1];
     float cosTheta = 0;
     if (alphax == alphay)
     {
@@ -95,7 +89,7 @@ float3 SampleTrowbridgeReitzDistributionVector(float3 wo, float2 u, float alphax
     else
     {
         //https://agraphicsguy.wordpress.com/2018/07/18/sampling-anisotropic-microfacet-brdf/
-        phi = atan(alphay / alphax * tan(2 * PI * u[1] + 0.5 * PI));
+        phi = atan(alphay / alphax * tan(TWO_PI * u[1] + HALF_PI));
         if (u[1] > 0.5f) 
             phi += PI;
         float sinPhi = sin(phi);
@@ -120,7 +114,7 @@ float MicrofacetG(float3 wo, float3 wi, float alphax, float alphay)
     return 1.0 / (1 + TrowbridgeReitzLambda(wo, alphax, alphay) + TrowbridgeReitzLambda(wi, alphax, alphay));
 }
 
-float MicrofacetPdf(float D, float3 wh)
+float Pdf_wh(float D, float3 wh)
 {
     return D * AbsCosTheta(wh);
 }
@@ -131,15 +125,14 @@ float MicrofacetReflectionPdf(float3 wo, float3 wi, float alphax, float alphay)
         return 0;
     float3 wh = normalize(wo + wi);
     float D = TrowbridgeReitzD(wh, alphax, alphay);
-    return MicrofacetPdf(D, wh) / (4.0 * dot(wo, wh));
+    return Pdf_wh(D, wh) / (4.0 * dot(wo, wh));
 }
 
 struct BxDFPlastic
 {
     float alphax;
     float alphay;
-    float etaI;
-    float etaT;
+    float eta;
     float3 R;
     
 
@@ -167,10 +160,10 @@ struct BxDFPlastic
 
         float D = TrowbridgeReitzD(wh, alphax, alphay);
 
-        bsdfSample.pdf = MicrofacetPdf(D, wh) / (4 * dot(wo, wh));
+        bsdfSample.pdf = Pdf_wh(D, wh) / (4 * dot(wo, wh));
         float cosThetaI = AbsCosTheta(wi);
         float cosThetaO = AbsCosTheta(wo);
-        float3 F = FrDielectric(abs(dot(wi, wh)), etaI, etaT);
+        float3 F = FrDielectric(abs(dot(wo, wh)), eta);
         bsdfSample.reflectance = R * D * MicrofacetG(wo, wi, alphax, alphay) * F * 0.25 / (cosThetaI * cosThetaO);
         return bsdfSample;
     }
@@ -194,10 +187,10 @@ struct BxDFPlastic
         wh = normalize(wh);
         // For the Fresnel call, make sure that wh is in the same hemisphere
         // as the surface normal, so that TIR is handled correctly.
-        float3 F = FrDielectric(dot(wi, Faceforward(wh, float3(0, 0, 1))), etaI, etaT);
+        float3 F = FrDielectric(abs(dot(wo, Faceforward(wh, float3(0, 0, 1)))), eta);
         
         float D = TrowbridgeReitzD(wh, alphax, alphay);
-        pdf = MicrofacetPdf(D, wh) * 0.25 / (dot(wo, wh));
+        pdf = Pdf_wh(D, wh) * 0.25 / (dot(wo, wh));
 
         return R * D * MicrofacetG(wo, wi, alphax, alphay) * F * 0.25 /
             (cosThetaI * cosThetaO);
@@ -205,8 +198,9 @@ struct BxDFPlastic
 
     float3 Fresnel(float3 wo, float3 wi)
     {
-        float cosThetaI = AbsCosTheta(wi);
-        return FrDielectric(cosThetaI, etaI, etaT);
+        float3 wh = normalize(wo + wi);
+        //float cosThetaI = AbsCosTheta(wi);
+        return FrDielectric(abs(dot(wo, Faceforward(wh, float3(0, 0, 1)))), eta);
     }
 };
 
@@ -243,13 +237,13 @@ struct BxDFMetal
 
         float D = TrowbridgeReitzD(wh, alphax, alphay);
 
-        bsdfSample.pdf = MicrofacetPdf(D, wh) * 0.25 / (dot(wo, wh));
+        bsdfSample.pdf = Pdf_wh(D, wh) * 0.25 / (dot(wo, wh));
         float cosThetaI = AbsCosTheta(wi);
         float cosThetaO = AbsCosTheta(wo);
         //etaI = float3(1, 1, 1);
         //etaT = float3(0, 0, 0);
         //K = 0; // float3(3.9747, 2.38, 1.5998);
-        float3 Fresnel = FrConductor(abs(dot(wi, Faceforward(wh, float3(0, 0, 1)))), etaI, etaT, K);
+        float3 Fresnel = FrConductor(abs(dot(wo, Faceforward(wh, float3(0, 0, 1)))), etaI, etaT, K);
         bsdfSample.reflectance = R * D * MicrofacetG(wo, wi, alphax, alphay) * Fresnel / (4 * cosThetaI * cosThetaO);
         return bsdfSample;
     }
@@ -276,9 +270,9 @@ struct BxDFMetal
         //K = 0; // float3(3.9747, 2.38, 1.5998);
         //etaI = float3(1, 1, 1);
         //etaT = float3(0, 0, 0);
-        float3 Fresnel = FrConductor(abs(dot(wi, Faceforward(wh, float3(0, 0, 1)))), etaI, etaT, K);
+        float3 Fresnel = FrConductor(abs(dot(wo, Faceforward(wh, float3(0, 0, 1)))), etaI, etaT, K);
         float D = TrowbridgeReitzD(wh, alphax, alphay);
-        pdf = MicrofacetPdf(D, wh) * 0.25 / (dot(wo, wh));
+        pdf = Pdf_wh(D, wh) * 0.25 / (dot(wo, wh));
         return R * D * MicrofacetG(wo, wi, alphax, alphay) * Fresnel /
             (4 * cosThetaI * cosThetaO);
     }
@@ -289,7 +283,7 @@ struct BxDFMetal
         wh = normalize(wh);
         if (!SameHemisphere(wo, wi))
             return float3(0, 0, 0);
-        return FrConductor(abs(dot(wi, Faceforward(wh, float3(0, 0, 1)))), 1, etaT, K);
+        return FrConductor(abs(dot(wo, Faceforward(wh, float3(0, 0, 1)))), 1, etaT, K);
     }
 };
 
@@ -404,10 +398,10 @@ struct BxDFMicrofacetReflection
         wh = normalize(wh);
         // For the Fresnel call, make sure that wh is in the same hemisphere
         // as the surface normal, so that TIR is handled correctly.
-        float3 F = FrDielectric(abs(dot(wi, wh)), 1.0, 1.5); //fresnel.Evaluate(dot(wi, Faceforward(wh, float3(0, 0, 1))));
+        float3 F = FrDielectric(abs(dot(wi, wh)), 1.0/1.5); //fresnel.Evaluate(dot(wi, Faceforward(wh, float3(0, 0, 1))));
 
         float D = TrowbridgeReitzD(wh, alphax, alphay);
-        pdf = MicrofacetPdf(D, wh) * 0.25 / (dot(wo, wh));
+        pdf = Pdf_wh(D, wh) * 0.25 / (dot(wo, wh));
 
         return R * D * MicrofacetG(wo, wi, alphax, alphay) * F * 0.25 /
             (cosThetaI * cosThetaO);
@@ -481,7 +475,7 @@ struct BxDFMicrofacetTransmission
         float factor = 1.0 / eta;
 
         float dwh_dwi = abs((eta * eta * dot(wi, wh)) / (sqrtDenom * sqrtDenom));
-        pdf = MicrofacetPdf(D, wh) * dwh_dwi;
+        pdf = Pdf_wh(D, wh) * dwh_dwi;
 
         return (1.0f - F) * T * abs(D * G * eta * eta *
                 abs(dot(wi, wh)) * abs(dot(wo, wh)) * factor * factor /
@@ -500,7 +494,7 @@ struct BxDFMicrofacetTransmission
         float D = TrowbridgeReitzD(wh, alphax, alphay);
         float sqrtDenom = dot(wo, wh) + eta * dot(wi, wh);
         float dwh_dwi = abs((eta * eta * dot(wi, wh)) / (sqrtDenom * sqrtDenom));
-        return MicrofacetPdf(D, wh) * dwh_dwi;
+        return Pdf_wh(D, wh) * dwh_dwi;
     }
 };
 
@@ -547,7 +541,7 @@ struct BxDFFresnelSpecular
     {
         BSDFSample bsdfSample = (BSDFSample)0;
         
-        float F = FrDielectric(CosTheta(wo), 1, eta);
+        float F = FrDielectric(CosTheta(wo), 1.0/eta);
         float pdf = 0;
         if (u[0] < F) 
         {
@@ -606,6 +600,95 @@ struct BxDFFresnelSpecular
     {
         pdf = 0;
         return 0;
+    }
+};
+
+struct BxDFFresnelBlend
+{
+    float3 R;
+    float3 S;
+    float alphax;
+    float alphay;
+    float3 eta;
+
+    float3 Sample_wh(float2 u, float3 wo)
+    {
+        return SampleVector(wo, u, alphax, alphay);
+    }
+
+    float3 SchlickFresnel(float cosTheta) 
+    {
+        return FrSchlick(S, cosTheta);//S + Pow5(1 - cosTheta) * (1 - S);
+    }
+
+    BSDFSample Sample_F(float uOrig, float2 u, float3 wo)
+    {
+        BSDFSample bsdfSample = (BSDFSample)0;
+        float uc = uOrig;
+        float3 wi;
+        float fr = FrDielectric(CosTheta(wo), 1.0/eta.x);
+        float pdf = 0;
+        if (uc > fr) 
+        {
+            bsdfSample.bxdfFlag = BXDF_REFLECTION | BXDF_DIFFUSE;
+            //u[0] = min(2 * (u[0] - fr), ONE_MINUS_EPSILON);
+            // Cosine-sample the hemisphere, flipping the direction if necessary
+            wi = CosineSampleHemisphere(u);
+            if (wo.z < 0) 
+                wi.z *= -1;
+            pdf = AbsCosTheta(wi) * INV_PI * (1.0 - fr);
+            float3 diffuse = (28.0f / (23.0f * PI)) * R * (1.0 - S) *
+                (1.0 - Pow5(1.0 - 0.5f * AbsCosTheta(wi))) *
+                (1.0 - Pow5(1.0 - 0.5f * AbsCosTheta(wo)));
+            bsdfSample.reflectance = diffuse;
+        }
+        else 
+        {
+            bsdfSample.bxdfFlag = BXDF_REFLECTION | BXDF_GLOSSY;
+            //u[0] = min(2 * (1.0 - fr) * u[0], ONE_MINUS_EPSILON);
+            // Sample microfacet orientation $\wh$ and reflected direction $\wi$
+            float3 wh = Sample_wh(u, wo);
+            wi = normalize(reflect(-wo, wh));
+            if (!SameHemisphere(wo, wi))
+                return bsdfSample;
+            float D = TrowbridgeReitzD(wh, alphax, alphay);
+            float3 specular = SchlickFresnel(dot(wi, wh)) * D / (4.0 * abs(dot(wi, wh)) * max(AbsCosTheta(wi), AbsCosTheta(wo)));
+            bsdfSample.reflectance = specular;
+            float pdf_wh = Pdf_wh(D, wh);
+            pdf = fr * pdf_wh / (4.0 * dot(wo, wh));
+        }
+        //pdf = (1.0 - fr) * pdf_diffuse + fr * pdf_specular;
+        bsdfSample.pdf = pdf;
+        bsdfSample.wi = wi;
+        bsdfSample.eta = eta;
+        return bsdfSample;
+    }
+
+    //float Pdf(float3 wo, float3 wi)
+    //{
+    //    if (!SameHemisphere(wo, wi)) 
+    //        return 0;
+    //    float3 wh = normalize(wo + wi);
+    //    //float D = TrowbridgeReitzD(wh, alphax, alphay);
+    //    float pdf_wh = Pdf_wh(wh, alphax, alphay);
+    //    return 0.5f * (AbsCosTheta(wi) * INV_PI + pdf_wh / (4 * dot(wo, wh)));
+    //}
+
+    float3 F(float3 wo, float3 wi, out float pdf)
+    {
+        float3 diffuse = (28.0f / (23.0f * PI)) * R * (1.0 - S) *
+            (1.0 - Pow5(1.0 - 0.5f * AbsCosTheta(wi))) *
+            (1.0 - Pow5(1.0 - 0.5f * AbsCosTheta(wo)));
+        float3 wh = wi + wo;
+        if (wh.x == 0 && wh.y == 0 && wh.z == 0) 
+            return 0;
+        wh = normalize(wh);
+        float fr = FrDielectric(CosTheta(wo), 1.0 / eta.x);
+        float D = TrowbridgeReitzD(wh, alphax, alphay);
+        float3 specular = SchlickFresnel(dot(wi, wh)) * D / (4.0 * abs(dot(wi, wh)) * max(AbsCosTheta(wi), AbsCosTheta(wo)));
+        float pdf_wh = Pdf_wh(D, wh);
+        pdf = (1.0 - fr) * AbsCosTheta(wi) * INV_PI + fr * pdf_wh / (4.0 * dot(wo, wh));
+        return diffuse + specular;
     }
 };
 

@@ -1,0 +1,28 @@
+#include "sampler.hlsl"
+#include "rtCommon.hlsl"
+#include "materials.hlsl"
+#include "light.hlsl"
+// Each #kernel tells which function to compile; you can have many kernels
+
+#pragma kernel RayMiss
+
+cbuffer cb
+{
+	int bounces;
+	float2 rasterSize;
+	int   queueSizeIndex;
+};
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+
+
+RWStructuredBuffer<Ray>   Rays;
+StructuredBuffer<Interaction>  Intersections;
+RWStructuredBuffer<PathRadiance> pathRadiances;
+
+
+[numthreads(8, 8, 1)]
+void RayMiss(uint3 id : SV_DispatchThreadID)
+{
+	
+}

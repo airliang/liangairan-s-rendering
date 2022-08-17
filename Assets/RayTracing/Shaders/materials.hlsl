@@ -17,7 +17,7 @@
 #define Metal 2
 #define Mirror 3
 #define Glass 4
-#define RoughDielectric 5
+#define Substrate 5
 #define Disney 6
 
 #define TEXTURED_PARAM_MASK 0x80000000
@@ -198,12 +198,11 @@ void ComputeBxDFLambertReflection(ShadingMaterial shadingMaterial, out BxDFLambe
 void ComputeBxDFPlastic(ShadingMaterial shadingMaterial, out BxDFPlastic bxdf)
 {
 	bxdf = (BxDFPlastic)0;
-	bxdf.alphax = RoughnessToAlpha(shadingMaterial.roughness);
-	bxdf.alphay = RoughnessToAlpha(shadingMaterial.roughnessV);
+	bxdf.alphax = shadingMaterial.roughness; // RoughnessToAlpha(shadingMaterial.roughness);
+	bxdf.alphay = shadingMaterial.roughnessV;//RoughnessToAlpha(shadingMaterial.roughnessV);
 	bxdf.R = shadingMaterial.specular;
 	//bxdf.fresnel.fresnelType = FresnelDielectric;
-	bxdf.etaI = 1.5;
-	bxdf.etaT = 1;
+	bxdf.eta = 1.5;
 	//bxdf.fresnel.k = 0;
 
 }
@@ -211,8 +210,8 @@ void ComputeBxDFPlastic(ShadingMaterial shadingMaterial, out BxDFPlastic bxdf)
 void ComputeBxDFMetal(ShadingMaterial shadingMaterial, out BxDFMetal bxdf)
 {
 	bxdf = (BxDFMetal)0;
-	bxdf.alphax = RoughnessToAlpha(shadingMaterial.roughness);
-	bxdf.alphay = RoughnessToAlpha(shadingMaterial.roughnessV);
+	bxdf.alphax = shadingMaterial.roughness;//RoughnessToAlpha(shadingMaterial.roughness);
+	bxdf.alphay = shadingMaterial.roughnessV;//RoughnessToAlpha(shadingMaterial.roughnessV);
 	bxdf.R = 1;
 	bxdf.etaI = float3(1, 1, 1);
 	bxdf.etaT = shadingMaterial.eta;
@@ -233,8 +232,8 @@ void ComputeBxDFMicrofacetTransmission(ShadingMaterial shadingMaterial, out BxDF
 	bxdf.T = shadingMaterial.transmission;
 	bxdf.etaA = 1.0;
 	bxdf.etaB = shadingMaterial.eta.x;
-	bxdf.alphax = RoughnessToAlpha(shadingMaterial.roughness);
-	bxdf.alphay = RoughnessToAlpha(shadingMaterial.roughnessV);
+	bxdf.alphax = shadingMaterial.roughness; //RoughnessToAlpha(shadingMaterial.roughness);
+	bxdf.alphay = shadingMaterial.roughnessV; //RoughnessToAlpha(shadingMaterial.roughnessV);
 
 }
 
@@ -251,8 +250,8 @@ void ComputeBxDFMicrofacetReflection(ShadingMaterial shadingMaterial, out BxDFMi
 	bxdf = (BxDFMicrofacetReflection)0;
 	UnpackFresnel(shadingMaterial, bxdf.fresnel);
 	bxdf.R = shadingMaterial.reflectance;
-	bxdf.alphax = RoughnessToAlpha(shadingMaterial.roughness);
-	bxdf.alphay = RoughnessToAlpha(shadingMaterial.roughnessV);
+	bxdf.alphax = shadingMaterial.roughness; // RoughnessToAlpha(shadingMaterial.roughness);
+	bxdf.alphay = shadingMaterial.roughnessV; // RoughnessToAlpha(shadingMaterial.roughnessV);
 }
 
 void ComputeBxDFFresnelSpecular(ShadingMaterial shadingMaterial, out BxDFFresnelSpecular bxdf)
@@ -262,6 +261,17 @@ void ComputeBxDFFresnelSpecular(ShadingMaterial shadingMaterial, out BxDFFresnel
 	bxdf.T = shadingMaterial.transmission;
 	bxdf.R = shadingMaterial.reflectance;
 	bxdf.eta = shadingMaterial.eta.x;
+}
+
+void ComputeBxDFFresnelBlend(ShadingMaterial shadingMaterial, out BxDFFresnelBlend bxdf)
+{
+	bxdf = (BxDFFresnelBlend)0;
+	//UnpackFresnel(shadingMaterial, bxdf.fresnel);
+	bxdf.R = shadingMaterial.reflectance;
+	bxdf.S = shadingMaterial.specular;
+	bxdf.alphax = shadingMaterial.roughness; // RoughnessToAlpha(shadingMaterial.roughness);
+	bxdf.alphay = shadingMaterial.roughnessV; // RoughnessToAlpha(shadingMaterial.roughnessV);
+	bxdf.eta = shadingMaterial.eta;
 }
 
 float3 MaterialBRDF(Material material, Interaction isect, float3 wo, float3 wi, out float pdf)
@@ -301,7 +311,7 @@ float3 MaterialBRDF(Material material, Interaction isect, float3 wo, float3 wi, 
 		}
 		else if (shadingMaterial.materialType == Glass)
 		{
-			/*
+			/*                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
 			nComponent = 2;
 			BxDFSpecularReflection bxdfSpecularReflection;
 			ComputeBxDFSpecularReflection(shadingMaterial, bxdfSpecularReflection);
@@ -314,9 +324,9 @@ float3 MaterialBRDF(Material material, Interaction isect, float3 wo, float3 wi, 
 			f += bxdfSpecularTransmission.F(wo, wi, pdfTransmission);
 			pdf += pdfTransmission;
 			*/
-			if (shadingMaterial.roughness > 0.0001)
+			if (shadingMaterial.roughness > 0.001)
 			{
-				//nComponent = 2;
+				nComponent = 2;
 				if (SameHemisphere(wo, wi))
 				{
 					BxDFMicrofacetReflection bxdfReflection;
@@ -336,9 +346,7 @@ float3 MaterialBRDF(Material material, Interaction isect, float3 wo, float3 wi, 
 				nComponent = 1;
 				BxDFFresnelSpecular bxdfFresnelSpecular;
 				ComputeBxDFFresnelSpecular(shadingMaterial, bxdfFresnelSpecular);
-				//float pdfReflection = 0;
 				f = bxdfFresnelSpecular.F(wo, wi, pdf);
-				//pdf += pdfReflection;
 			}
 			
 		}
@@ -350,6 +358,13 @@ float3 MaterialBRDF(Material material, Interaction isect, float3 wo, float3 wi, 
 			//float pdfReflection = 0;
 			f = bxdfSpecularReflection.F(wo, wi, pdf);
 		}
+		else if (shadingMaterial.materialType == Substrate)
+		{
+			nComponent = 1;
+			BxDFFresnelBlend bxdfFresnelBlend;
+			ComputeBxDFFresnelBlend(shadingMaterial, bxdfFresnelBlend);
+			f = bxdfFresnelBlend.F(wo, wi, pdf);
+		}
 		else
 		{
 			nComponent = 1;
@@ -359,7 +374,6 @@ float3 MaterialBRDF(Material material, Interaction isect, float3 wo, float3 wi, 
 		if (nComponent > 1)
 		{
 			pdf /= (float)nComponent;
-			//f /= (float)nComponent;
 		}
 	}
 	
@@ -370,6 +384,7 @@ float3 MaterialBRDF(Material material, Interaction isect, float3 wo, float3 wi, 
 BSDFSample SampleLambert(ShadingMaterial material, float3 wo, inout RNG rng)
 {
 	BSDFSample bsdfSample = (BSDFSample)0;
+	bsdfSample.bxdfFlag = BXDF_DIFFUSE;
 	float2 u = Get2D(rng);
 	float3 wi = CosineSampleHemisphere(u);
 	if (wo.z < 0)
@@ -382,8 +397,8 @@ BSDFSample SampleLambert(ShadingMaterial material, float3 wo, inout RNG rng)
 
 BSDFSample SamplePlastic(ShadingMaterial material, float3 wo, inout RNG rng)
 {
-	BxDFLambertReflection lambert;
-	ComputeBxDFLambertReflection(material, lambert);
+	//BxDFLambertReflection lambert;
+	//ComputeBxDFLambertReflection(material, lambert);
 	BxDFMicrofacetReflection bxdfReflection;
 	ComputeBxDFMicrofacetReflection(material, bxdfReflection);
 	bxdfReflection.fresnel.etaI = 1.5;
@@ -480,6 +495,15 @@ BSDFSample SampleGlass(ShadingMaterial material, float3 wo, inout RNG rng)
 	
 }
 
+BSDFSample SampleSubstrate(ShadingMaterial material, float3 wo, inout RNG rng)
+{
+	BxDFFresnelBlend bxdf;
+	ComputeBxDFFresnelBlend(material, bxdf);
+	float uc = Get1D(rng);
+	float2 u = Get2D(rng);
+	return bxdf.Sample_F(uc, u, wo);
+}
+
 //wi wo is a vector which in local space of the interfaction surface
 BSDFSample SampleMaterialBRDF(Material material, Interaction isect, float3 wo, inout RNG rng)
 {
@@ -502,6 +526,8 @@ BSDFSample SampleMaterialBRDF(Material material, Interaction isect, float3 wo, i
 		return SampleMirror(shadingMaterial, wo, rng);
 	case Glass:
 		return SampleGlass(shadingMaterial, wo, rng);
+	case Substrate:
+		return SampleSubstrate(shadingMaterial, wo, rng);
 	default:
 	{
 		return SampleLambert(shadingMaterial, wo, rng);

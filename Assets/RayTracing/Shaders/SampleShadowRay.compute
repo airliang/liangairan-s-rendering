@@ -7,8 +7,8 @@
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel CSMain
 
-#pragma multi_compile __ _ENVMAP_ENABLE
-#pragma multi_compile _ _UNIFORM_SAMPLE_LIGHT
+//#pragma multi_compile __ _ENVMAP_ENABLE
+//#pragma multi_compile _ _UNIFORM_SAMPLE_LIGHT
 
 uniform int    bounces;
 uniform float2 rasterSize;
@@ -35,25 +35,24 @@ ShadowRay SampleShadowRay(Light light, Interaction isect, float lightSourcePdf, 
 	float3 samplePointOnLight;
 	float3 Li = SampleLightRadiance(Distributions1D, light, isect, rng, wi, lightPdf, samplePointOnLight);
 
-	if (lightPdf > 0 && !IsBlack(Li))
+	if (!IsBlack(Li))
 	{
 		lightPdf *= lightSourcePdf;
 		shadowRay.p0 = isect.p.xyz;
 		shadowRay.p1 = samplePointOnLight;
 		//shadowRay.pdf = triPdf;
 		shadowRay.lightPdf = lightPdf;
+		Material material = materials[isect.materialID];
+		float3 wiLocal = isect.WorldToLocal(wi);
+		float3 woLocal = isect.WorldToLocal(isect.wo.xyz);
+		float scatteringPdf = 0;
+		float3 f = MaterialBRDF(material, isect, woLocal, wiLocal, scatteringPdf);
 
-		bool shadowRayVisible = ShadowRayVisibilityTest(shadowRay, isect.normal);
-
-		if (shadowRayVisible)
+		if (!IsBlack(f) && scatteringPdf > 0)
 		{
-			Material material = materials[isect.materialID];
-			float3 wiLocal = isect.WorldToLocal(wi);
-			float3 woLocal = isect.WorldToLocal(isect.wo.xyz);
-			float scatteringPdf = 0;
+			bool shadowRayVisible = ShadowRayVisibilityTest(shadowRay, isect.normal);
 
-			float3 f = MaterialBRDF(material, isect, woLocal, wiLocal, scatteringPdf);
-			if (!IsBlack(f))
+			if (shadowRayVisible)
 			{
 				f *= abs(dot(wi, isect.normal));
 				//sample psdf and compute the mis weight
@@ -62,9 +61,7 @@ ShadowRay SampleShadowRay(Light light, Interaction isect, float lightSourcePdf, 
 				//weight = 1;
 				shadowRay.radiance = f * Li * weight / lightPdf;
 			}
-			
 		}
-
 	}
 	
 	return shadowRay;

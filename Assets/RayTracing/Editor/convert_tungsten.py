@@ -20,11 +20,11 @@ table = {
 
 material_table = {
     "dielectric" : 4,
-    "rough_plastic" : 1,
+    "rough_plastic" : 5,
     "lambert" : 0,
     "rough_conductor" : 2,
     "rough_dielectric" : 4,
-    "plastic" : 1,
+    "plastic" : 5,
     "oren_nayar" : 0,
 }
     
@@ -46,6 +46,7 @@ def convert_material(mat_input):
     albedo = mat_input["albedo"]
     albedoTexture = None
     baseColor = [1,1,1]
+    specularColor = [0.04, 0.04, 0.04]
     roughness = 0
     if 'roughness' in mat_input:
         roughness = mat_input["roughness"]
@@ -75,6 +76,12 @@ def convert_material(mat_input):
             "x" : baseColor[0],
             "y" : baseColor[1],
             "z" : baseColor[2]
+        },
+        "specular" : 
+        {
+            "x" : specularColor[0],
+            "y" : specularColor[1],
+            "z" : specularColor[2]
         },
         "albedoTexture" : albedoTexture,
         "normalTexture" : None,
@@ -116,6 +123,11 @@ def convert_materials(scene_input):
 def get_emission(shape):
     if "emission" in shape:
         return convert_vec(shape["emission"], 3)
+    elif "power" in shape:
+        power_scale = 100 * glm.pi()
+        power = convert_vec(shape["power"], 3)
+        emission = glm.vec3(power) / power_scale
+        return [emission[0], emission[1], emission[2]]
     else:
         return [0, 0, 0]
 
@@ -294,20 +306,6 @@ def convert_integrator(scene_input):
     }
     return ret
 
-def convert_light_sampler(scene_input):
-    ret = {
-        "type" : "UniformLightSampler"
-    }
-    return ret
-
-def convert_sampler(scene_input):
-    ret = {
-        "type" : "PCGSampler",
-		"param" : {
-			"spp" : 1
-		}
-    }
-    return ret
 
 def convert_output_config(scene_input):
     renderer = scene_input["renderer"]

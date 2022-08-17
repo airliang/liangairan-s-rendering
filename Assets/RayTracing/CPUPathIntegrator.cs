@@ -2,9 +2,216 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+public static class GeometryMath
+{
+    public static float AbsCosTheta(Vector3 w)
+    {
+        return Mathf.Abs(w.z);
+    }
+
+    public static bool SameHemisphere(Vector3 w, Vector3 wp)
+    {
+        return w.z * wp.z > 0;
+    }
+
+    public static Vector3 Faceforward(Vector3 normal, Vector3 v)
+    {
+        return (Vector3.Dot(normal, v) < 0.0f) ? -normal : normal;
+    }
+
+    public static float CosTheta(Vector3 w) { return w.z; }
+    public static float Cos2Theta(Vector3 w) { return w.z * w.z; }
+    public static float Sin2Theta(Vector3 w)
+    {
+        return Mathf.Max(0, 1.0f - Cos2Theta(w));
+    }
+
+    public static float SinTheta(Vector3 w) { return Mathf.Sqrt(Sin2Theta(w)); }
+
+    public static float TanTheta(Vector3 w) { return SinTheta(w) / CosTheta(w); }
+
+    public static float Tan2Theta(Vector3 w)
+    {
+        return Sin2Theta(w) / Cos2Theta(w);
+    }
+
+    public static float CosPhi(Vector3 w)
+    {
+        float sinTheta = SinTheta(w);
+        return (sinTheta == 0) ? 1 : Mathf.Clamp(w.x / sinTheta, -1, 1);
+    }
+
+    public static float SinPhi(Vector3 w)
+    {
+        float sinTheta = SinTheta(w);
+        return (sinTheta == 0) ? 0 : Mathf.Clamp(w.y / sinTheta, -1, 1);
+    }
+
+    public static float Cos2Phi(Vector3 w)
+    {
+        float v = CosPhi(w);
+        return v * v;
+    }
+
+    public static float Sin2Phi(Vector3 w)
+    {
+        float v = SinPhi(w);
+        return v * v;
+    }
+
+    public static Vector3 SphericalDirection(float sinTheta, float cosTheta, float phi)
+    {
+        return new Vector3(sinTheta * Mathf.Cos(phi), sinTheta * Mathf.Sin(phi), cosTheta);
+    }
+
+    public static float SphericalTheta(Vector3 v)
+    {
+        return Mathf.Acos(Mathf.Clamp(v.z, -1, 1));
+    }
+
+    public static float SphericalPhi(Vector3 v)
+    {
+        float p = Mathf.Atan2(v.y, v.x);
+        return (p < 0) ? (p + 2 * Mathf.PI) : p;
+    }
+
+    public static float Pow5(float v)
+    {
+        return v * v * v * v * v;
+    }
+
+    public static Vector3 Reflect(Vector3 wo, Vector3 n)
+    {
+        return -wo + 2 * Vector3.Dot(wo, n) * n;
+    }
+
+    public static bool Refract(Vector3 wi, Vector3 n, float eta, out Vector3 wt)
+    {
+        float cosThetaI = Vector3.Dot(n, wi);
+        float sin2ThetaI = Mathf.Max(0, 1.0f - cosThetaI * cosThetaI);
+        float sin2ThetaT = eta * eta * sin2ThetaI;
+        wt = Vector3.zero;
+        // Handle total internal reflection for transmission
+        if (sin2ThetaT >= 1.0f)
+            return false;
+        float cosThetaT = Mathf.Sqrt(1.0f - sin2ThetaT);
+        wt = eta * -wi + (eta * cosThetaI - cosThetaT) * n;
+        return true;
+    }
+
+    public static float SchlickWeight(float cosTheta)
+    {
+        float m = Mathf.Clamp(1 - cosTheta, 0, 1);
+        return (m * m) * (m * m) * m;
+    }
+
+    public static float FrSchlick(float R0, float cosTheta)
+    {
+        return Mathf.Lerp(R0, 1, SchlickWeight(cosTheta));
+    }
+
+    public static float TWO_PI = Mathf.PI * 2;
+    public static float HALF_PI = Mathf.PI * 0.5f;
+    public static float INV_PI = 0.31830988618379067154f;
+}
+
+public static class Microfacet
+{
+    public static float RoughnessToAlpha(float roughness)
+    {
+        roughness = Mathf.Max(roughness, 0.001f);
+        float x = Mathf.Log(roughness);
+        return 1.62142f + 0.819955f * x + 0.1734f * x * x +
+            0.0171201f * x * x * x + 0.000640711f * x * x * x * x;
+    }
+
+    public static float Lambda(Vector3 w, float alphax, float alphay)
+    {
+        float absTanTheta = Mathf.Abs(GeometryMath.TanTheta(w));
+        if (float.IsInfinity(absTanTheta))
+            return 0;
+        // Compute _alpha_ for direction _w_
+        float alpha =
+            Mathf.Sqrt(GeometryMath.Cos2Phi(w) * alphax * alphax + GeometryMath.Sin2Phi(w) * alphay * alphay);
+        float alpha2Tan2Theta = (alpha * absTanTheta) * (alpha * absTanTheta);
+        return (-1.0f + Mathf.Sqrt(1.0f + alpha2Tan2Theta)) * 0.5f;
+    }
+
+    public static float Distribution(Vector3 wh, float alphax, float alphay)
+    {
+        float tan2Theta = GeometryMath.Tan2Theta(wh);
+        if (float.IsInfinity(tan2Theta))
+            return 0;
+        float cosTheta2 = GeometryMath.Cos2Theta(wh);
+        float cos4Theta = cosTheta2 * cosTheta2;
+        float e =
+            tan2Theta * (GeometryMath.Cos2Phi(wh) / (alphax * alphax) + GeometryMath.Sin2Phi(wh) / (alphay * alphay));
+        return 1.0f / (Mathf.PI * alphax * alphay * cos4Theta * (1 + e) * (1 + e));
+    }
+
+    public static Vector3 SampleVector(Vector3 wo, Vector2 u, float alphax, float alphay)
+    {
+        float phi = GeometryMath.TWO_PI * u[1];
+        float cosTheta = 0;
+        if (alphax == alphay)
+        {
+            float tanTheta2 = alphax * alphax * u[0] / (1.0f - u[0]);
+            cosTheta = 1.0f / Mathf.Sqrt(1.0f + tanTheta2);
+        }
+        else
+        {
+            //https://agraphicsguy.wordpress.com/2018/07/18/sampling-anisotropic-microfacet-brdf/
+            phi = Mathf.Atan(alphay / alphax * Mathf.Tan(GeometryMath.TWO_PI * u[1] + GeometryMath.HALF_PI));
+            if (u[1] > 0.5f)
+                phi += Mathf.PI;
+            float sinPhi = Mathf.Sin(phi);
+            float cosPhi = Mathf.Cos(phi);
+            float alphax2 = alphax * alphax, alphay2 = alphay * alphay;
+            float alpha2 =
+                1 / (cosPhi * cosPhi / alphax2 + sinPhi * sinPhi / alphay2);
+            float tanTheta2 = alpha2 * u[0] / (1 - u[0]);
+            cosTheta = 1.0f / Mathf.Sqrt(1 + tanTheta2);
+        }
+        float sinTheta =
+            Mathf.Sqrt(Mathf.Max(0, 1.0f - cosTheta * cosTheta));
+        Vector3 wh = GeometryMath.SphericalDirection(sinTheta, cosTheta, phi);
+        if (!GeometryMath.SameHemisphere(wo, wh))
+            wh = -wh;
+
+        return wh;
+    }
+
+    public static float G(Vector3 wo, Vector3 wi, float alphax, float alphay)
+    {
+        return 1.0f / (1 + Lambda(wo, alphax, alphay) + Lambda(wi, alphax, alphay));
+    }
+
+    public static float Pdf_wh(Vector3 wh, float alphaX, float alphaY)
+    {
+        return Distribution(wh, alphaX, alphaY) * GeometryMath.AbsCosTheta(wh);
+    }
+
+    public static float Pdf_wi(Vector3 wo, Vector3 wi, float alphaX, float alphaY)
+    {
+        if (!GeometryMath.SameHemisphere(wo, wi))
+            return 0;
+        Vector3 wh = Vector3.Normalize(wo + wi);
+        float D = Distribution(wh, alphaX, alphaY);
+        return Pdf_wh(wh, alphaX, alphaY) / (4.0f * Vector3.Dot(wo, wh));
+    }
+
+    public static Vector3 BRDF(Vector3 wo, Vector3 wi, Vector3 fr, float cosThetaO, float cosThetaI, float alphaX, float alphaY)
+    {
+        Vector3 wh = Vector3.Normalize(wo + wi);
+        float D = Distribution(wh, alphaX, alphaY);
+        float GTerm = G(wo, wi, alphaX, alphaY);
+        return D * fr * GTerm * 0.25f / Mathf.Abs(cosThetaO * cosThetaI);
+    }
+}
+
 public class CPUPathIntegrator
 {
-    static float INV_PI = 0.31830988618379067154f;
+    
     static float INV_TWO_PI = 0.15915494309189533577f;
     static float INV_FOUR_PI = 0.07957747154594766788f;
     static float HALF_PI = 1.57079632679489661923f;
@@ -18,6 +225,7 @@ public class CPUPathIntegrator
         Metal,
         Mirror,
         Glass,
+        Substrate,
     }
     struct PathVertex
     {
@@ -32,8 +240,9 @@ public class CPUPathIntegrator
     static int BXDF_TRANSMISSION = 1 << 1;
     static int BXDF_DIFFUSE = 1 << 2;
     static int BXDF_SPECULAR = 1 << 3;
+    static int BXDF_GLOSSY = 1 << 4;
 
-    struct BSDFSample
+    public struct BSDFSample
     {
         public Vector3 reflectance;
         public Vector3 wi;   //in local space (z up space)
@@ -47,10 +256,7 @@ public class CPUPathIntegrator
         }
     };
 
-    static Vector3 Faceforward(Vector3 normal, Vector3 v)
-    {
-        return (Vector3.Dot(normal, v) < 0.0f) ? -normal : normal;
-    }
+    
 
     static float PowerHeuristic(int nf, float fPdf, int ng, float gPdf)
     {
@@ -91,10 +297,6 @@ public class CPUPathIntegrator
 
         float z = Mathf.Sqrt(1.0f - rphi.x * rphi.x - rphi.y * rphi.y);
         return new Vector3(rphi.x, rphi.y, z);
-    }
-    static bool SameHemisphere(Vector3 w, Vector3 wp)
-    {
-        return w.z * wp.z > 0;
     }
 
     static float FrDielectric(float cosThetaI, float etaI, float etaT)
@@ -165,7 +367,7 @@ public class CPUPathIntegrator
 
                 // Compute ray direction for specular transmission
                 Vector3 wi = Vector3.zero;
-                bool bValid = Refract(wo, Faceforward(new Vector3(0, 0, 1), wo), etaI / etaT, ref wi);
+                bool bValid = Refract(wo, GeometryMath.Faceforward(new Vector3(0, 0, 1), wo), etaI / etaT, ref wi);
                 bsdfSample.wi = wi;
                 if (!bValid)
                 {
@@ -200,6 +402,97 @@ public class CPUPathIntegrator
         }
     };
 
+    public struct BxDFFresnelBlend
+    {
+        public Vector3 R;
+        public Vector3 S;
+        public float alphax;
+        public float alphay;
+        public Vector3 eta;
+
+        public Vector3 Sample_wh(Vector2 u, Vector3 wo)
+        {
+            return Microfacet.SampleVector(wo, u, alphax, alphay);
+        }
+
+        public Vector3 SchlickFresnel(float cosTheta)
+        {
+            return Vector3.Lerp(S, Vector3.one, GeometryMath.Pow5(1 - cosTheta));//S + GeometryMath.Pow5(1 - cosTheta) * (Vector3.one - S);
+        }
+
+        public BSDFSample Sample_F(float uOrig, Vector2 u, Vector3 wo)
+        {
+            BSDFSample bsdfSample = new BSDFSample();
+            float uc = uOrig;
+            Vector3 wi;
+            float fr = FrDielectric(GeometryMath.CosTheta(wo), 1, eta.x);
+            float pdf = 0;
+            if (uc > fr)
+            {
+                bsdfSample.bxdfFlag = BXDF_REFLECTION | BXDF_DIFFUSE;
+                //u[0] = min(2 * (u[0] - fr), ONE_MINUS_EPSILON);
+                // Cosine-sample the hemisphere, flipping the direction if necessary
+                wi = CosineSampleHemisphere(u);
+                if (wo.z < 0)
+                    wi.z *= -1;
+                pdf = GeometryMath.AbsCosTheta(wi) * GeometryMath.INV_PI * (1.0f - fr);
+                Vector3 diffuse = R.Mul(28.0f / (23.0f * Mathf.PI)).Mul((Vector3.one - S).Mul(
+                    (1.0f - GeometryMath.Pow5(1.0f - 0.5f * GeometryMath.AbsCosTheta(wi))) *
+                    (1.0f - GeometryMath.Pow5(1.0f - 0.5f * GeometryMath.AbsCosTheta(wo)))));
+                bsdfSample.reflectance = diffuse;
+            }
+            else
+            {
+                bsdfSample.bxdfFlag = BXDF_REFLECTION | BXDF_GLOSSY;
+                //u[0] = min(2 * (1.0 - fr) * u[0], ONE_MINUS_EPSILON);
+                // Sample microfacet orientation $\wh$ and reflected direction $\wi$
+                Vector3 wh = Sample_wh(u, wo);
+                wi = Vector3.Normalize(GeometryMath.Reflect(wo, wh));
+                if (!GeometryMath.SameHemisphere(wo, wi))
+                    return bsdfSample;
+                float D = Microfacet.Distribution(wh, alphax, alphay);
+                Vector3 specular = SchlickFresnel(Vector3.Dot(wi, wh)) * D / (4.0f * Mathf.Abs(Vector3.Dot(wi, wh)) * Mathf.Max(GeometryMath.AbsCosTheta(wi), GeometryMath.AbsCosTheta(wo)));
+                bsdfSample.reflectance = specular;
+                float pdf_wh = Microfacet.Pdf_wh(wh, alphax, alphay);
+                pdf = fr * pdf_wh / (4.0f * Vector3.Dot(wo, wh));
+            }
+
+            //bsdfSample.reflectance = F(wo, wi, pdf);
+            bsdfSample.pdf = pdf;
+            bsdfSample.wi = wi;
+            bsdfSample.eta = eta.x;
+            return bsdfSample;
+        }
+
+        public float Pdf(Vector3 wo, Vector3 wi)
+        {
+            if (!GeometryMath.SameHemisphere(wo, wi))
+                return 0;
+            Vector3 wh = Vector3.Normalize(wo + wi);
+            //float D = TrowbridgeReitzD(wh, alphax, alphay);
+            float pdf_wh = Microfacet.Pdf_wh(wh, alphax, alphay);
+            return 0.5f * (GeometryMath.AbsCosTheta(wi) * GeometryMath.INV_PI + pdf_wh / (4.0f * Vector3.Dot(wo, wh)));
+        }
+
+        public Vector3 F(Vector3 wo, Vector3 wi, ref float pdf)
+        {
+            Vector3 diffuse = R.Mul((28.0f / (23.0f * Mathf.PI))).Mul((Vector3.one - S).Mul(
+                (1.0f - GeometryMath.Pow5(1.0f - 0.5f * GeometryMath.AbsCosTheta(wi))) *
+                (1.0f - GeometryMath.Pow5(1.0f - 0.5f * GeometryMath.AbsCosTheta(wo)))));
+            Vector3 wh = wi + wo;
+            pdf = 0;
+            if (wh.x == 0 && wh.y == 0 && wh.z == 0)
+                return Vector3.zero;
+            wh = Vector3.Normalize(wh);
+            float D = Microfacet.Distribution(wh, alphax, alphay);
+            float fr = GeometryMath.FrSchlick(S.x, Vector3.Dot(wi, wh)) * D / (4.0f * Mathf.Abs(Vector3.Dot(wi, wh)) * Mathf.Max(GeometryMath.AbsCosTheta(wi), GeometryMath.AbsCosTheta(wo)));
+            Vector3 specular = new Vector3(fr, fr, fr);
+            float pdf_wh = Microfacet.Pdf_wh(wh, alphax, alphay);
+            pdf = 0.5f * (GeometryMath.AbsCosTheta(wi) * GeometryMath.INV_PI + pdf_wh / (4.0f * Vector3.Dot(wo, wh)));
+            return diffuse + specular;
+        }
+    }
+
 
     static bool Refract(Vector3 wi, Vector3 n, float eta, ref Vector3 wt)
     {
@@ -223,7 +516,7 @@ public class CPUPathIntegrator
     //wi and wo must in local space
     static float LambertPDF(Vector3 wi, Vector3 wo)
     {
-        return SameHemisphere(wo, wi) ? Mathf.Abs(wi.z) / Mathf.PI : 0;
+        return GeometryMath.SameHemisphere(wo, wi) ? Mathf.Abs(wi.z) / Mathf.PI : 0;
     }
 
     static Vector3 MaterialBRDF(GPUMaterial material, GPUInteraction isect, Vector3 wo, Vector3 wi, ref float pdf)
@@ -257,6 +550,15 @@ public class CPUPathIntegrator
                 f += bxdfFresnelSpecular.F(wo, wi, ref pdfReflection);
                 pdf += pdfReflection;
             }
+            else if (material.materialType == (int)BSDFMaterial.Substrate)
+            {
+                nComponent = 1;
+                BxDFFresnelBlend bxdfFresnelBlend = new BxDFFresnelBlend();
+                ComputeBxDFFresnelBlend(material, ref bxdfFresnelBlend);
+                float pdfReflection = 0;
+                f += bxdfFresnelBlend.F(wo, wi, ref pdfReflection);
+                pdf += pdfReflection;
+            }
             else
             {
                 nComponent = 1;
@@ -281,6 +583,14 @@ public class CPUPathIntegrator
         bxdf.eta = shadingMaterial.eta.x;
     }
 
+    static void ComputeBxDFFresnelBlend(GPUMaterial shadingMaterial, ref BxDFFresnelBlend bxdf)
+    {
+        bxdf.R = shadingMaterial.baseColor;
+        bxdf.S = shadingMaterial.specularColor;
+        bxdf.alphax = shadingMaterial.roughness; // RoughnessToAlpha(shadingMaterial.roughness);
+        bxdf.alphay = shadingMaterial.anisotropy; // RoughnessToAlpha(shadingMaterial.roughnessV);
+        bxdf.eta = shadingMaterial.eta;
+    }
 
     static BSDFSample SampleGlass(GPUMaterial material, Vector3 wo)
     {
@@ -304,6 +614,15 @@ public class CPUPathIntegrator
         return bsdfSample;
     }
 
+    static BSDFSample SampleSubstrate(GPUMaterial material, Vector3 wo)
+    {
+        BxDFFresnelBlend bxdf = new BxDFFresnelBlend();
+        ComputeBxDFFresnelBlend(material, ref bxdf);
+        float uc = Get1D();
+        Vector2 u = Get2D();
+        return bxdf.Sample_F(uc, u, wo);
+    }
+
     //wi wo is a vector which in local space of the interfaction surface
     static BSDFSample SampleMaterialBRDF(GPUMaterial material, GPUInteraction isect, Vector3 wo)
     {
@@ -321,6 +640,8 @@ public class CPUPathIntegrator
                 //return SampleMirror(material, wo);
             case (int)BSDFMaterial.Glass:
                 return SampleGlass(material, wo);
+            case (int)BSDFMaterial.Substrate:
+                return SampleSubstrate(material, wo);
             default:
                 return SampleLambert(material, wo);
         }
@@ -357,13 +678,13 @@ public class CPUPathIntegrator
         return ray;
     }
 
-    static bool ClosestHit(GPURay ray, ref GPUInteraction isect, GPUSceneData gpuSceneData)
+    static bool ClosestHit(GPURay ray, ref GPUInteraction isect, GPUSceneData gpuSceneData, ref HitInfo hitInfo)
     {
         bool hitted = true;
         while (true)
         {
             float hitT = 0;
-            hitted = gpuSceneData.BVH.IntersectInstTest(ray, gpuSceneData.meshInstances, gpuSceneData.meshHandles, gpuSceneData.InstanceBVHAddr, out hitT, ref isect, false);
+            hitted = gpuSceneData.BVH.IntersectInstTest(ray, gpuSceneData.meshInstances, gpuSceneData.meshHandles, gpuSceneData.InstanceBVHAddr, out hitT, ref isect, false, ref hitInfo);
             if (!hitted)
                 break;
             else
@@ -387,7 +708,8 @@ public class CPUPathIntegrator
     {
         GPURay ray = SpawnRay(shadowRay.p0, shadowRay.p1 - shadowRay.p0, normal, 1.0f - 0.001f);
         GPUInteraction isect = new GPUInteraction();
-        return !ClosestHit(ray, ref isect, gpuSceneData);
+        HitInfo hitInfo = new HitInfo();
+        return !ClosestHit(ray, ref isect, gpuSceneData, ref hitInfo);
 
         //!IntersectP(ray, hitT, meshInstanceIndex);
     }
@@ -569,13 +891,13 @@ public class CPUPathIntegrator
         else if (light.type == (int)LightInstance.LightType.Envmap)
         {
             Vector2 u = Get2D();
-            //float3 Li = UniformSampleEnviromentLight(u, lightPdf, wi); 
+            //Vector3 Li = UniformSampleEnviromentLight(u, lightPdf, wi); 
             Vector3 Li = Vector3.zero;
             //if (isUniform)
             //    Li = UniformSampleEnviromentLight(u, lightPdf, wi);
             //else
             //    Li = ImportanceSampleEnviromentLight(u, lightPdf, wi);
-            //Li = isUniform ? float3(0.5, 0, 0) : Li;
+            //Li = isUniform ? Vector3(0.5, 0, 0) : Li;
             lightPoint = isect.p + wi * 10000.0f;
             return Li;
         }
@@ -683,12 +1005,13 @@ public class CPUPathIntegrator
         Vector3 wi = isect.LocalToWorld(bsdfSample.wi);
         float scatteringPdf = bsdfSample.pdf;
         Vector3 f = bsdfSample.reflectance * Mathf.Abs(Vector3.Dot(wi, isect.normal));
+        HitInfo hitInfo = new HitInfo();
 
         if (f != Vector3.zero && scatteringPdf > 0)
         {
             GPURay ray = SpawnRay(isect.p, wi, isect.normal, float.MaxValue);
             //Interaction lightISect = (Interaction)0;
-            bool found = ClosestHit(ray, ref pathVertex.nextISect, gpuSceneData);
+            bool found = ClosestHit(ray, ref pathVertex.nextISect, gpuSceneData, ref hitInfo);
             //pathVertex.nextISect = lightISect; 
             //pathVertex.found = found ? 1 : 0;  //can not use this expression or it will be something error. I don't know why.
 
@@ -796,18 +1119,34 @@ public class CPUPathIntegrator
         GPUInteraction isectLast;
         PathVertex pathVertex = new PathVertex();
         GPUInteraction isect = new GPUInteraction();
+        HitInfo hitInfo = new HitInfo();
         for (int bounces = 0; bounces < 5; bounces++)
         {
             bool foundIntersect = false;
             if (bounces == 0)
             {
-                foundIntersect = ClosestHit(ray, ref isect, gpuSceneData);
-                int meshInstanceIndex = (int)isect.meshInstanceID;
-                MeshInstance meshInstance = gpuSceneData.meshInstances[meshInstanceIndex];
-                int triAddrDebug = (int)isect.triangleIndex;
-                RenderDebug.DrawTriangle(meshInstance.localToWorld.MultiplyPoint(gpuSceneData.gpuVertices[gpuSceneData.bvhAccel.m_woodTriangleIndices[triAddrDebug]].position),
-                     meshInstance.localToWorld.MultiplyPoint(gpuSceneData.gpuVertices[gpuSceneData.bvhAccel.m_woodTriangleIndices[triAddrDebug + 1]].position),
-                     meshInstance.localToWorld.MultiplyPoint(gpuSceneData.gpuVertices[gpuSceneData.bvhAccel.m_woodTriangleIndices[triAddrDebug + 2]].position), Color.green);
+                foundIntersect = ClosestHit(ray, ref isect, gpuSceneData, ref hitInfo);
+                if (foundIntersect)
+                {
+                    int meshInstanceIndex = (int)isect.meshInstanceID;
+                    MeshInstance meshInstance = gpuSceneData.meshInstances[meshInstanceIndex];
+                    int triAddrDebug = hitInfo.woodTriangleIndex;
+                    if (triAddrDebug + 2 >= gpuSceneData.bvhAccel.m_woodTriangleIndices.Count)
+                    {
+                        Debug.LogError("triAddrDebug = " + triAddrDebug + " is greater than the woodTriangleIndices");
+                    }
+                    int tri0 = gpuSceneData.bvhAccel.m_woodTriangleIndices[triAddrDebug];
+                    int tri1 = gpuSceneData.bvhAccel.m_woodTriangleIndices[triAddrDebug + 1];
+                    int tri2 = gpuSceneData.bvhAccel.m_woodTriangleIndices[triAddrDebug + 2];
+                    if (tri0 >= gpuSceneData.gpuVertices.Count || tri1 >= gpuSceneData.gpuVertices.Count || tri2 >= gpuSceneData.gpuVertices.Count)
+                    {
+                        Debug.LogError("Triangle Index overflow!");
+                    }
+                    RenderDebug.DrawTriangle(meshInstance.localToWorld.MultiplyPoint(gpuSceneData.gpuVertices[tri0].position),
+                         meshInstance.localToWorld.MultiplyPoint(gpuSceneData.gpuVertices[tri1].position),
+                         meshInstance.localToWorld.MultiplyPoint(gpuSceneData.gpuVertices[tri2].position), Color.green);
+                }
+                
             }
             else
             {

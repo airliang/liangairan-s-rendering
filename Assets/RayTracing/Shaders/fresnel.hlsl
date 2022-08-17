@@ -12,42 +12,32 @@ inline float SchlickWeight(float cosTheta) {
     return (m * m) * (m * m) * m;
 }
 
-inline float FrSchlick(float R0, float cosTheta) {
-    return lerp(SchlickWeight(cosTheta), R0, 1);
-}
+//inline float FrSchlick(float R0, float cosTheta) {
+//    return lerp(R0, 1, SchlickWeight(cosTheta));
+//}
 
 inline float3 FrSchlick(float3 R0, float cosTheta) {
-    return lerp(SchlickWeight(cosTheta), R0, float3(1, 1, 1));
+    return lerp(R0, float3(1, 1, 1), SchlickWeight(cosTheta));
 }
 
-float FrDielectric(float cosThetaI, float etaI, float etaT) {
+float FrDielectric(float cosThetaI, float eta) {
     cosThetaI = clamp(cosThetaI, -1, 1);
-    // Potentially swap indices of refraction
-    //etaI = 0;
-    //etaT = 0;
-    bool entering = cosThetaI > 0;
-    if (!entering)
-    {
-        //swap(etaI, etaT);
-        float tmp = etaI;
-        etaI = etaT;
-        etaT = tmp;
-        cosThetaI = abs(cosThetaI);
+    float cosThetaT = 0;
+    if (cosThetaI < 0.0f) {
+        eta = 1.0f / eta;
+        cosThetaI = -cosThetaI;
     }
+    float sinThetaTSq = eta * eta * (1.0f - cosThetaI * cosThetaI);
+    if (sinThetaTSq > 1.0f) {
+        cosThetaT = 0.0f;
+        return 1.0f;
+    }
+    cosThetaT = sqrt(max(1.0f - sinThetaTSq, 0.0f));
 
-    // Compute _cosThetaT_ using Snell's law
-    float sinThetaI = sqrt(max(0, 1 - cosThetaI * cosThetaI));
-    float sinThetaT = etaI / etaT * sinThetaI;
+    float Rs = (eta * cosThetaI - cosThetaT) / (eta * cosThetaI + cosThetaT);
+    float Rp = (eta * cosThetaT - cosThetaI) / (eta * cosThetaT + cosThetaI);
 
-    // Handle total internal reflection
-    if (sinThetaT >= 1) 
-        return 1;
-    float cosThetaT = sqrt(max((float)0, 1 - sinThetaT * sinThetaT));
-    float Rparl = ((etaT * cosThetaI) - (etaI * cosThetaT)) /
-        ((etaT * cosThetaI) + (etaI * cosThetaT));
-    float Rperp = ((etaI * cosThetaI) - (etaT * cosThetaT)) /
-        ((etaI * cosThetaI) + (etaT * cosThetaT));
-    return (Rparl * Rparl + Rperp * Rperp) / 2;
+    return (Rs * Rs + Rp * Rp) * 0.5f;
 }
 
 // https://seblagarde.wordpress.com/2013/04/29/memo-on-fresnel-equations/
@@ -91,7 +81,7 @@ struct FresnelData
         }
         else if (fresnelType == FresnelDielectric)
         {
-            return FrDielectric(cosThetaI, etaI, etaT);
+            return FrDielectric(cosThetaI, etaI/etaT);
         }
         else if (fresnelType == FresnelConductor)
         {

@@ -23,7 +23,7 @@ public enum BSDFMaterialType
     Metal,
     Mirror,
     Glass,
-    RoughDielectric,
+    Substrate,
     Disney,
 }
 
@@ -43,6 +43,7 @@ public class MaterialParam
     public Texture2D MetallicGlossMap;
     public Color GlossySpecularColor = Color.white;
     public float fresnelType;
+    public bool remappingRoughness = false;
 
     //disney params
     public struct DisneyParam
@@ -60,6 +61,14 @@ public class MaterialParam
     public float RoughnessV;
     public Vector3 Eta;
     public Vector3 K;
+
+    static float RoughnessToAlpha(float roughness)
+    {
+        roughness = Mathf.Max(roughness, 0.001f);
+        float x = Mathf.Log(roughness);
+        return 1.62142f + 0.819955f * x + 0.1734f * x * x +
+            0.0171201f * x * x * x + 0.000640711f * x * x * x * x;
+    }
 
     public static MaterialParam ConvertUnityMaterial(Material material)
     {
@@ -123,6 +132,13 @@ public class MaterialParam
                 materialParam.RoughnessV = material.GetFloat("_roughnessV");
                 materialParam.Eta = material.GetVector("_eta");
             }
+            else if (materialParam.materialType == (int)BSDFMaterialType.Substrate)
+            {
+                materialParam.RoughnessU = material.GetFloat("_roughnessU");
+                materialParam.RoughnessV = material.GetFloat("_roughnessV");
+                materialParam.Eta = material.GetVector("_eta");
+                materialParam.GlossySpecularColor = material.GetColor("_GlossySpecularColor");
+            }
             materialParam.fresnelType = material.GetFloat("_FresnelType");
         }
         else if (material.shader.name == "RayTracing/AreaLight")
@@ -150,6 +166,12 @@ public class MaterialParam
             if (color.a < 1.0f)
                 return null;
         }
+
+        if (materialParam.remappingRoughness)
+        {
+            materialParam.RoughnessU = RoughnessToAlpha(materialParam.RoughnessU);
+            materialParam.RoughnessV = RoughnessToAlpha(materialParam.RoughnessV);
+        }
         return materialParam;
     }
 
@@ -169,6 +191,7 @@ public class MaterialParam
         gpuMaterial.baseColor = useLinearBaseColor ? LinearBaseColor : BaseColor.LinearToVector3();
         gpuMaterial.transmission = Transmission.LinearToVector3();
         gpuMaterial.fresnelType = fresnelType;
+        gpuMaterial.specularColor = GlossySpecularColor.ToVector3();
 
         if (NormalMap != null)
         {
@@ -210,7 +233,12 @@ public class MaterialParam
             gpuMaterial.roughness = RoughnessU;
             gpuMaterial.anisotropy = RoughnessV;
             gpuMaterial.eta = Eta;
-            
+        }
+        else if (materialType == (int)BSDFMaterialType.Substrate)
+        {
+            gpuMaterial.roughness = RoughnessU;
+            gpuMaterial.anisotropy = RoughnessV;
+            gpuMaterial.eta = Eta;
         }
 
         return gpuMaterial;

@@ -95,6 +95,31 @@ class EnviromentLight : LightInstance
             //computeBuffer = new ComputeBuffer(distributions.Length, sizeof(float), ComputeBufferType.Structured);
             //computeBuffer.SetData(distributions);
         }
+        else
+        {
+            int width = 2;
+            int height = 2;
+            float[] distributions = new float[width * height];
+            //Color[] pixels = envmap.GetPixels(mipmap);
+            for (int v = 0; v < height; ++v)
+            {
+                float vp = ((float)(height - 1 - v) + 0.5f) / (float)height;
+                float sinTheta = Mathf.Sin(Mathf.PI * vp);
+                for (int u = 0; u < width; ++u)
+                {
+                    float y = radiance.magnitude;
+                    float distribution = y;
+                    if (distribution == 0)
+                        distribution = float.Epsilon;
+                    distributions[u + v * width] = distribution * sinTheta;
+                }
+            }
+
+            Bounds2D domain = new Bounds2D();
+            domain.min = Vector2.zero;
+            domain.max = Vector2.one; //new Vector2(width, height);
+            envmapDistributions = new Distribution2D(distributions, width, height, domain);
+        }
     }
 }
 
@@ -491,6 +516,7 @@ public class GPUSceneData
             {
                 envLight.radiance = RenderSettings.ambientSkyColor.LinearToVector3();
                 gpuEnvLight.radiance = envLight.radiance;
+                envLight.CreateDistributions();
             }
             else
             {
@@ -665,15 +691,16 @@ public class GPUSceneData
         cs.SetInt("instBVHAddr", instBVHNodeAddr);
         cs.SetInt("bvhNodesNum", bvhAccel.m_nodes.Count);
         cs.SetFloat("worldRadius", worldBound.extents.magnitude);
-        if (_envmapEnable)
-            cs.EnableKeyword("_ENVMAP_ENABLE");
-        else
-            cs.DisableKeyword("_ENVMAP_ENABLE");
-
-        if (_uniformSampleLight)
-            cs.EnableKeyword("_UNIFORM_SAMPLE_LIGHT");
-        else
-            cs.DisableKeyword("_UNIFORM_SAMPLE_LIGHT"); 
+        //if (_envmapEnable)
+        //    cs.EnableKeyword("_ENVMAP_ENABLE");
+        //else
+        //    cs.DisableKeyword("_ENVMAP_ENABLE");
+        cs.SetBool("_EnvMapEnable", _envmapEnable);
+        cs.SetBool("_UniformSampleLight", _uniformSampleLight);
+        //if (_uniformSampleLight)
+        //    cs.EnableKeyword("_UNIFORM_SAMPLE_LIGHT");
+        //else
+        //    cs.DisableKeyword("_UNIFORM_SAMPLE_LIGHT"); 
 
         //light distributions setting
         if (distribution1DBuffer == null && Distributions1D.Count > 0)

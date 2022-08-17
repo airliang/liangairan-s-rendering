@@ -89,6 +89,12 @@ class StackEntry
 	//public int EncodeIdx() { return node.IsLeaf() ? ~idx : idx; }
 };
 
+public struct HitInfo
+{
+	public int woodTriangleIndex;
+	public int meshInstanceIndex;
+}
+
 public static class BVHLib
 {
 	const string BVHLIB_DLL = "BVHLib";
@@ -1070,7 +1076,7 @@ public class BVHAccel
 					  Mathf.Abs(p.z) < origin()? p.z + float_scale() * n.z : p_i.z);
 	}
 
-	public bool IntersectInstTest(GPURay ray, List<MeshInstance> meshInstances, List<MeshHandle> meshHandles, int instBVHOffset, out float hitT, ref GPUInteraction isect, bool anyHit)
+	public bool IntersectInstTest(GPURay ray, List<MeshInstance> meshInstances, List<MeshHandle> meshHandles, int instBVHOffset, out float hitT, ref GPUInteraction isect, bool anyHit, ref HitInfo hitInfo)
 	{
 		const int INVALID_INDEX = 0x76543210;
 		isect = new GPUInteraction();
@@ -1120,6 +1126,8 @@ public class BVHAccel
 					hitIndex = meshHitTriangleIndex;
 					isect.meshInstanceID = 0;
 					isect.materialID = meshInstance.materialIndex;
+					hitInfo.meshInstanceIndex = 0;
+					hitInfo.woodTriangleIndex = meshHitTriangleIndex;
 				}
 			}
 		}
@@ -1239,7 +1247,9 @@ public class BVHAccel
 								isect = tmpInteraction;
 								isect.wo = -ray.direction;
 								isect.materialID = meshInstance.materialIndex;
-								isect.triangleIndex = (uint)meshHitTriangleIndex;
+								hitInfo.meshInstanceIndex = hitMeshIndex;
+								hitInfo.woodTriangleIndex = meshHitTriangleIndex;
+								//isect.triangleIndex = (uint)meshHitTriangleIndex;
 							}
 						}
 						//else if (nextMeshInstanceIds[i] == 1)

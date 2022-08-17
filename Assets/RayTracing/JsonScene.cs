@@ -15,6 +15,7 @@ public static class JsonScene
         public string shaderName;
         public Vector3 baseColor = Vector3.one;
         public Vector3 transmission = Vector3.one;
+        public Vector3 specular = Vector3.zero;
         public string albedoTexture;
         public string normalTexture;
         public int fresnel;

@@ -2,7 +2,7 @@
 #pragma kernel CSMain
 
 #pragma multi_compile __ _ENVMAP_ENABLE
-#pragma multi_compile _ _UNIFORM_SAMPLE_LIGHT
+//#pragma multi_compile _ _UNIFORM_SAMPLE_LIGHT
 #include "sampler.hlsl"
 #include "GPUStructs.hlsl"
 #include "filters.hlsl"

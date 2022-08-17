@@ -45,6 +45,10 @@ public class Raytracing : MonoBehaviour
     void Update()
     {
         _RaytracingKernel.Update(cameraComponent);
+        if (_BlitMaterial != null)
+        {
+            _BlitMaterial.SetInt("_HDRType", (int)_RayTracingData.HDR);
+        }
 
         if (Input.GetMouseButtonUp(0))
         {

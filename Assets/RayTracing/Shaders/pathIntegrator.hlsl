@@ -10,6 +10,7 @@
 RWStructuredBuffer<Interaction>       Intersections;
 RWTexture2D<half4>  RayConeGBuffer;
 int MAX_PATH;
+int MIN_PATH;
 //RWTexture2D<float3> LastISectRayCone;
 //float cameraConeSpreadAngle;
 
@@ -82,39 +83,45 @@ float3 MIS_BSDF(Interaction isect, Material material, Light light, int lightInde
         
         float3 li = 0;
         float lightPdf = 0;
-        //pathVertex.found = found ? 1 : 0;
         
         if (found)
         {
-            //pathVertex.found = 1;
-
             int meshInstanceIndex = pathVertex.nextISect.meshInstanceID;
             MeshInstance meshInstance = MeshInstances[meshInstanceIndex];
-            if (meshInstance.GetLightIndex() == lightIndex)
+            int hitLightIndex = meshInstance.GetLightIndex();
+            if (hitLightIndex >= 0)
             {
-                lightPdf = AreaLightPdf(light, pathVertex.nextISect) * lightSourcePdf;
-
+                Light hitLight = lights[hitLightIndex];
+                lightPdf = AreaLightPdf(hitLight, pathVertex.nextISect) * lightSourcePdf;
                 if (lightPdf > 0)
                 {
-                    li = Light_Le(wi, light);
+                    li = Light_Le(wi, hitLight);
                 }
             }
+            //if (meshInstance.GetLightIndex() == lightIndex)
+            //{
+            //    lightPdf = AreaLightPdf(light, pathVertex.nextISect) * lightSourcePdf;
+
+            //    if (lightPdf > 0)
+            //    {
+            //        li = Light_Le(wi, light);
+            //    }
+            //}
         }
         else if (_EnvLightIndex >= 0)//(light.type == EnvLightType)
         {
             Light envLight = lights[_EnvLightIndex];
             li = Light_Le(wi, envLight);
-            if (light.type != EnvLightType)
+            //if (light.type != EnvLightType)
             {
-                lightSourcePdf = LightSourcePmf(_EnvLightIndex);
+                lightSourcePdf = 1; // LightSourcePmf(_EnvLightIndex);
                 lightPdf = EnvLightLiPdf(wi) * lightSourcePdf;
             }
         }
-        
-        
-        float weight = 1;
-        if (!bsdfSample.IsSpecular())
-            weight = PowerHeuristic(1, scatteringPdf, 1, lightPdf);
+
+        float weight = bsdfSample.IsSpecular() ? 1 : PowerHeuristic(1, scatteringPdf, 1, lightPdf);
+        //if (!bsdfSample.IsSpecular())
+        //    weight = PowerHeuristic(1, scatteringPdf, 1, lightPdf);
         ld = f * li * weight / scatteringPdf;
     }
 
@@ -152,7 +159,7 @@ float3 EstimateDirectLighting(Interaction isect, inout RNG rng, out PathVertex p
     float3 ld = MIS_ShadowRay(light, isect, material, lightSourcePdf, rng);
     ld += MIS_BSDF(isect, material, light, lightIndex, lightSourcePdf, rng, pathVertex);
 
-    if (pathVertex.bsdfPdf == 0)
+    if (pathVertex.bsdfPdf == 0 || MaxValue(pathVertex.bsdfVal) == 0 || MaxValue(ld) == 0)
     {
         breakPath = true;
     }
@@ -224,7 +231,7 @@ float3 PathLi(Ray ray, uint2 id, inout RNG rng)
             beta *= throughput;
 
             //Russian roulette
-            if (bounces > 3)
+            if (bounces > MIN_PATH)
             {
                 float q = max(0.05, 1 - MaxComponent(beta));
                 if (Get1D(rng) < q)

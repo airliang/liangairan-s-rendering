@@ -54,6 +54,7 @@ public class WavefrontKernel : TracingKernel
 
 
     int MAX_PATH = 5;
+    int MIN_PATH = 3;
     //int samplesPerPixel = 1024;
 
 
@@ -419,6 +420,7 @@ public class WavefrontKernel : TracingKernel
         EstimateDirect.SetVector("rasterSize", new Vector4(Screen.width, Screen.height, 0, 0));
         //EstimateDirect.SetMatrix("WorldToRaster", WorldToRaster);
         SetTextures(EstimateDirect, kEstimateDirect);
+        EstimateDirect.SetInt("MIN_DEPTH", _rayTracingData.MinDepth);
     }
 
 

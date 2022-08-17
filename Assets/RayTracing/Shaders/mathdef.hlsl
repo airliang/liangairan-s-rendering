@@ -49,6 +49,11 @@ float Pow2(float x)
 	return x * x;
 }
 
+float3 Pow5(float x)
+{
+	return (x * x) * (x * x) * x;
+}
+
 float Luminance(in const float3 c) {
 	return 0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b;
 }
@@ -61,6 +66,11 @@ bool IsInf(float3 val)
 bool IsNan(float3 val)
 {
 	return isnan(val.x) || isnan(val.y) || isnan(val.z);
+}
+
+float MaxValue(float3 val)
+{
+	return max(max(val.x, val.y), val.z);
 }
 
 #endif
