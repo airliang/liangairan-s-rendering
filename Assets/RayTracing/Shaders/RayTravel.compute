@@ -41,13 +41,13 @@ void RayTraversal(uint3 id : SV_DispatchThreadID)
     uint queueSize = _RayQueueSizeBuffer[queueSizeIndex];
     if (threadId >= queueSize)
         return;
-    uint workIndex = _RayQueue[threadId];
+    uint pixelIndex = _RayQueue[threadId];
 
-    Ray ray = Rays[workIndex];
+    Ray ray = Rays[pixelIndex];
     Interaction isect = (Interaction)0;//Intersections[threadId];
     //float3 lastCone = LastISectRayCone[id.xy];
     half4 gbuffer = RayConeGBuffer[id.xy];
-    PathRadiance pathRadiance = pathRadiances[workIndex];
+    PathRadiance pathRadiance = pathRadiances[pixelIndex];
     //bool foundIntersect = false;
     if (bounces == 0)
     {
@@ -72,7 +72,7 @@ void RayTraversal(uint3 id : SV_DispatchThreadID)
             isect.coneWidth = rayCone.width;
             gbuffer.y = rayCone.spreadAngle + gbuffer.x;
             RayConeGBuffer[id.xy] = gbuffer;
-            Intersections[workIndex] = isect;
+            Intersections[pixelIndex] = isect;
         }
         else
         {
@@ -80,14 +80,14 @@ void RayTraversal(uint3 id : SV_DispatchThreadID)
             if (_EnvLightIndex >= 0)
             {
                 pathRadiance.li += pathRadiance.beta * EnviromentLightLe(ray.direction);
-                pathRadiances[workIndex] = pathRadiance;
+                pathRadiances[pixelIndex] = pathRadiance;
                 return;
             }
         }
     }
     else
     {
-        isect = Intersections[workIndex];
+        isect = Intersections[pixelIndex];
         //half2 surfaceBeta = RayConeGBuffer[id.xy];
         RayCone preCone;
         preCone.width = gbuffer.z;
@@ -96,11 +96,11 @@ void RayTraversal(uint3 id : SV_DispatchThreadID)
         isect.coneWidth = rayCone.width;
         gbuffer.y = rayCone.spreadAngle;
         RayConeGBuffer[id.xy] = gbuffer;
-        Intersections[workIndex] = isect;
+        Intersections[pixelIndex] = isect;
     }
 
-    pathRadiances[workIndex] = pathRadiance;
+    pathRadiances[pixelIndex] = pathRadiance;
 	uint index;
     InterlockedAdd(_RayQueueSizeBuffer[queueSizeIndex + 1], 1, index);
-    _RayQueue[index] = workIndex;
+    _RayQueue[index] = pixelIndex;
 }
