@@ -6,23 +6,42 @@
 
 #pragma kernel RayMiss
 
-cbuffer cb
-{
-	int bounces;
-	float2 rasterSize;
-	int   queueSizeIndex;
-};
+
+int bounces;
+float2 rasterSize;
+int   queueSizeIndex;
+
 // Create a RenderTexture with enableRandomWrite flag and set it
 // with cs.SetTexture
 
-
-RWStructuredBuffer<Ray>   Rays;
-StructuredBuffer<Interaction>  Intersections;
+StructuredBuffer<EscapeRayItem>  EscapeRays;
 RWStructuredBuffer<PathRadiance> pathRadiances;
-
+StructuredBuffer<uint> _EscapeQueueSizeBuffer;
 
 [numthreads(8, 8, 1)]
 void RayMiss(uint3 id : SV_DispatchThreadID)
 {
-	
+	if (id.x >= (uint)rasterSize.x || id.y >= (uint)rasterSize.y)
+		return;
+
+	uint threadId = id.x + id.y * rasterSize.x;
+	uint queueSize = _EscapeQueueSizeBuffer[bounces];
+	if (threadId >= queueSize)
+		return;
+
+	PathRadiance pathRadiance = pathRadiances[pixelIndex];
+	EscapeRayItem rayItem = EscapeRays[threadId];
+
+	if (bounce == 0)
+	{
+		if (_EnvLightIndex >= 0)
+		{
+			pathRadiance.li += rayItem.thoughput * EnviromentLightLe(rayItem.direction);
+			pathRadiances[pixelIndex] = pathRadiance;
+		}
+	}
+	else
+	{
+
+	}
 }

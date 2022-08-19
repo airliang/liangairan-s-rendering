@@ -13,6 +13,8 @@ public class WavefrontResource : ScriptableObject
     public ComputeShader RayTravel;
     [Reload("RayTracing/Shaders/InitSampler.compute")]
     public ComputeShader InitRandom;
+    [Reload("RayTracing/Shaders/RayMiss.compute")]
+    public ComputeShader RayMiss;
     [Reload("RayTracing/Shaders/SampleShadowRay.compute")]
     public ComputeShader SampleShadowRay;
     [Reload("RayTracing/Shaders/EstimateDirect.compute")]

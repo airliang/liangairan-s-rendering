@@ -44,15 +44,12 @@ Ray SpawnRay(float3 p, float3 direction, float3 normal, float tMax)
 
 struct ShadowRay
 {
-	float3 p0;   //isect position
-	float3 p1;   //light sample point position
+	//float3 p0;   //isect position
+	//float3 p1;   //light sample point position
 	float3 radiance;  //light radiance
-	//float3 lightNormal;  //light sample point normal
-	//mis weight
-	//float  weight;
-	float  lightSourcePdf;        //Light Radiance pdf
-	float  lightPdf;   //light sampling pdf
-	float  visibility; //1 is visible, 0 invisible
+	//float  lightSourcePdf;        //Light Radiance pdf
+	//float  lightPdf;   //light sampling pdf
+	//float  visibility; //1 is visible, 0 invisible
 	float  lightIndex; 
 };
 

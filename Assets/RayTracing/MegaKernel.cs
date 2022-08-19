@@ -215,7 +215,7 @@ public class MegaKernel : TracingKernel
 
         if (samplerBuffer == null)
         {
-            samplerBuffer = new ComputeBuffer(Screen.width * Screen.height, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPURandomSampler)), ComputeBufferType.Structured);
+            samplerBuffer = new ComputeBuffer(Screen.width * Screen.height, sizeof(uint), ComputeBufferType.Structured);
         }
         _InitSampler.SetBuffer(_InitSamplerKernel, "RNGs", samplerBuffer);
         _InitSampler.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));

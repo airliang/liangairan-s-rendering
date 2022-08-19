@@ -331,10 +331,10 @@ public class RayTracingTest
 
         if (lightPdf > 0)
         {
-            shadowRay.p0 = isect.p;
-            shadowRay.p1 = samplePointOnLight;
+            Vector3 p0 = isect.p;
+            Vector3 p1 = samplePointOnLight;
             //shadowRay.pdf = triPdf;
-            shadowRay.lightPdf = lightPdf;
+            //shadowRay.lightPdf = lightPdf;
             //Vector3 Li = light.radiance;
             //shadowRay.lightNormal = lightPointNormal;
             //Vector3 wi = normalize(shadowRay.p1 - shadowRay.p0);
@@ -349,18 +349,18 @@ public class RayTracingTest
             float scatteringPdf = LambertPDF(wiLocal, woLocal);
             int meshInstanceIndex = -1;
             float hitT = 0;
-            if (ShadowRayVisibilityTest(shadowRay, isect.normal, bvhAccel, meshInstances, instBVHOffset, out hitT, out meshInstanceIndex))
+            if (ShadowRayVisibilityTest(p0, p1, isect.normal, bvhAccel, meshInstances, instBVHOffset, out hitT, out meshInstanceIndex))
             {
                 //sample psdf and compute the mis weight
                 float weight =
                     PowerHeuristic(1, lightPdf, 1, scatteringPdf);
                 shadowRay.radiance = new Vector3(f.x * Li.x, f.y * Li.y, f.z * Li.z) * weight / lightPdf;
-                shadowRay.visibility = 1;
+                //shadowRay.visibility = 1;
             }
             else
             {
                 shadowRay.radiance = Vector3.zero;
-                shadowRay.visibility = 0;
+                //shadowRay.visibility = 0;
             }
         }
 
@@ -504,12 +504,12 @@ public class RayTracingTest
         return ray;
     }
 
-    public static bool ShadowRayVisibilityTest(GPUShadowRay shadowRay, Vector3 normal, BVHAccel bvhAccel, List<MeshInstance> meshInstances, int instBVHOffset, out float hitT, out int meshInstanceIndex)
+    public static bool ShadowRayVisibilityTest(Vector3 p0, Vector3 p1, Vector3 normal, BVHAccel bvhAccel, List<MeshInstance> meshInstances, int instBVHOffset, out float hitT, out int meshInstanceIndex)
 	{
 		GPURay ray = new GPURay();
-		ray.orig = BVHAccel.offset_ray(shadowRay.p0, normal);
+		ray.orig = BVHAccel.offset_ray(p0, normal);
 		ray.tmax = 1.0f - 0.0001f;
-		ray.direction = shadowRay.p1 - shadowRay.p0;
+		ray.direction = p1 - p0;
 		ray.tmin = 0;
         hitT = 0;
 

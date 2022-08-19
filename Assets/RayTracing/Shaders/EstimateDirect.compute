@@ -23,7 +23,7 @@ RWStructuredBuffer<PathRadiance> pathRadiances;
 
 RWStructuredBuffer<uint> _RayQueueSizeBuffer;
 RWStructuredBuffer<uint> _RayQueue;
-RWStructuredBuffer<Ray>   Rays;
+//RWStructuredBuffer<Ray>   Rays;
 //RWTexture2D<half4> outputTexture;
 
 
@@ -43,15 +43,14 @@ float3 EstimateDirect(Interaction isect, Material material, inout RNG rng, out f
 }
 */
 
-float3 MIS_BSDF(Interaction isect, Material material, ShadowRay shadowRay, inout RNG rng, out PathVertex pathVertex, out Ray ray)
+float3 MIS_BSDF(Interaction isect, Material material, inout RNG rng, out PathVertex pathVertex)
 {
     //return MIS_BSDF_OLD(isect, material, shadowRay, rng, scatteringPdf, beta, ray);
     float3 ld = float3(0, 0, 0);
     float3 woLocal = isect.WorldToLocal(isect.wo);
-    ray = (Ray)0;
     pathVertex = (PathVertex)0;
     float3 wiLocal;
-    float2 u = Get2D(rng);
+    //float2 u = Get2D(rng);
     
     //beta = 0;
     BSDFSample bsdfSample = SampleMaterialBRDF(material, isect, woLocal, rng);
@@ -65,7 +64,7 @@ float3 MIS_BSDF(Interaction isect, Material material, ShadowRay shadowRay, inout
         //beta = f * abs(dot(wi, isect.normal)) / scatteringPdf;
         //int shadowLightIndex = asint(shadowRay.lightIndex);
         //Light light = lights[shadowLightIndex];
-        ray = SpawnRay(isect.p.xyz, wi, isect.normal, FLT_MAX);
+        Ray ray = SpawnRay(isect.p.xyz, wi, isect.normal, FLT_MAX);
         //Interaction lightISect = (Interaction)0;
         bool found = ClosestHit(ray, pathVertex.nextISect);
         //pathVertex.nextISect = lightISect;
@@ -81,7 +80,8 @@ float3 MIS_BSDF(Interaction isect, Material material, ShadowRay shadowRay, inout
             if (hitLightIndex >= 0)
             {
                 Light hitLight = lights[hitLightIndex];
-                lightPdf = AreaLightPdf(hitLight, pathVertex.nextISect) * shadowRay.lightSourcePdf;
+                float lightSourcePmf = LightSourcePmf(hitLightIndex);
+                lightPdf = AreaLightPdf(hitLight, pathVertex.nextISect) * lightSourcePmf;
                 if (lightPdf > 0)
                 {
                     li = Light_Le(wi, hitLight);
@@ -102,12 +102,9 @@ float3 MIS_BSDF(Interaction isect, Material material, ShadowRay shadowRay, inout
         {
             Light envLight = lights[_EnvLightIndex];
             li = Light_Le(wi, envLight);
-            
-            //if (light.type != EnvLightType)
-            {
-                float lightSourcePdf = 1;//LightSourcePmf(_EnvLightIndex);
-                lightPdf = EnvLightLiPdf(wi) * lightSourcePdf;
-            }
+
+            float lightSourcePmf = LightSourcePmf(_EnvLightIndex);
+            lightPdf = EnvLightLiPdf(wi) * lightSourcePmf;
         }
 
         float weight = bsdfSample.IsSpecular() ? 1 : PowerHeuristic(1, scatteringPdf, 1, lightPdf);
@@ -135,7 +132,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     if (threadId >= queueSize)
         return;
     uint pixelIndex = _RayQueue[threadId];
-    RNG rng = GetRNG(threadId);
+    RNG rng = GetRNG(pixelIndex);
 
     ShadowRay shadowRay = ShadowRays[pixelIndex];
     Interaction isect = Intersections[pixelIndex];
@@ -149,15 +146,14 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 	//int shadowLightIndex = asint(shadowRay.lightIndex);
     //Light light = lights[shadowLightIndex];
     float3 Li = shadowRay.radiance;
-	Ray ray;
     PathVertex pathVertex = (PathVertex)0;
     //float3 beta = 0;
-	Li += MIS_BSDF(isect, material, shadowRay, rng, pathVertex, ray);
+    Li += MIS_BSDF(isect, material, rng, pathVertex);
     //Li /= shadowRay.lightSourcePdf;
     pathRadiance.li += Li * pathRadiance.beta;
     //scatteringPdf = pathVertex.bsdfPdf;
 	
-    if (pathVertex.bsdfPdf > 0.01 && !IsBlack(pathVertex.bsdfVal))
+    if (pathVertex.bsdfPdf > 0 && !IsBlack(pathVertex.bsdfVal))
     {
         bool breakPath = false;
         float3 throughput = pathVertex.bsdfVal / pathVertex.bsdfPdf;
@@ -176,7 +172,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 
         if (!breakPath)
         {
-            Rays[pixelIndex] = ray;
+            //Rays[pixelIndex] = ray;
             Intersections[pixelIndex] = pathVertex.nextISect;
             uint index;
             InterlockedAdd(_RayQueueSizeBuffer[queueSizeIndex + 1], 1, index);
@@ -185,5 +181,5 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     }
     //outputTexture[id.xy] = half4(f, 1);
     pathRadiances[pixelIndex] = pathRadiance;
-    WriteRNG(threadId, rng);
+    WriteRNG(pixelIndex, rng);
 }

@@ -296,7 +296,7 @@ struct BxDFSpecularReflection
     {
         BSDFSample bsdfSample = (BSDFSample)0;
         bsdfSample.bxdfFlag = BXDF_REFLECTION | BXDF_SPECULAR;
-        float3 wi = float3(-wo.x, -wo.y, wo.z);
+        float3 wi = normalize(float3(-wo.x, -wo.y, wo.z));
         bsdfSample.wi = wi;
         bsdfSample.pdf = 1;
         float3 fr = fresnel.Evaluate(wi.z);

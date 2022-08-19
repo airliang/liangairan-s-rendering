@@ -126,7 +126,7 @@ float UniformFloat(inout RNG rng)
     uint lcg_a = 1664525u;
     uint lcg_c = 1013904223u;
     rng.state = lcg_a * rng.state + lcg_c;
-    rng.s1 = 0;
+    //rng.s1 = 0;
     return (rng.state & 0x00ffffffu) * (1.0f / (0x01000000u));
 }
 

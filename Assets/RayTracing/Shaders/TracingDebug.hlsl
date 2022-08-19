@@ -30,15 +30,15 @@ float3 MaterialFresnelShadowRay(Light light, Material material, Interaction isec
     ShadowRay shadowRay = (ShadowRay)0;
     if (lightPdf > 0)
     {
-        shadowRay.p0 = isect.p.xyz;
-        shadowRay.p1 = samplePointOnLight;
+        float3 p0 = isect.p.xyz;
+        float3 p1 = samplePointOnLight;
         //shadowRay.pdf = triPdf;
-        shadowRay.lightPdf = lightPdf;
+        //shadowRay.lightPdf = lightPdf;
         //float3 Li = light.radiance;
         //shadowRay.lightNormal = lightPointNormal;
         //float3 wi = normalize(shadowRay.p1 - shadowRay.p0);
 
-        bool shadowRayVisible = ShadowRayVisibilityTest(shadowRay, isect.normal);
+        bool shadowRayVisible = ShadowRayVisibilityTest(p0, p1, isect.normal);
         if (!shadowRayVisible)
         {
             return 0;
@@ -160,15 +160,15 @@ float3 SampleShadowRayRadiance(Light light, Interaction isect, out float3 wi, ou
 
     if (lightPdf > 0)
     {
-        shadowRay.p0 = isect.p.xyz;
-        shadowRay.p1 = samplePointOnLight;
+        float3 p0 = isect.p.xyz;
+        float3 p1 = samplePointOnLight;
         //shadowRay.pdf = triPdf;
-        shadowRay.lightPdf = lightPdf;
+        //shadowRay.lightPdf = lightPdf;
         //float3 Li = light.radiance;
         //shadowRay.lightNormal = lightPointNormal;
         //float3 wi = normalize(shadowRay.p1 - shadowRay.p0);
 
-        bool shadowRayVisible = ShadowRayVisibilityTest(shadowRay, isect.normal);
+        bool shadowRayVisible = ShadowRayVisibilityTest(p0, p1, isect.normal);
         if (shadowRayVisible)
         {
             shadowRay.radiance = Li;

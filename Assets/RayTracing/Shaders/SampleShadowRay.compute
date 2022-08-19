@@ -38,10 +38,9 @@ ShadowRay SampleShadowRay(Light light, Interaction isect, float lightSourcePdf, 
 	if (!IsBlack(Li))
 	{
 		lightPdf *= lightSourcePdf;
-		shadowRay.p0 = isect.p.xyz;
-		shadowRay.p1 = samplePointOnLight;
-		//shadowRay.pdf = triPdf;
-		shadowRay.lightPdf = lightPdf;
+		
+
+		//shadowRay.lightPdf = lightPdf;
 		Material material = materials[isect.materialID];
 		float3 wiLocal = isect.WorldToLocal(wi);
 		float3 woLocal = isect.WorldToLocal(isect.wo.xyz);
@@ -50,7 +49,9 @@ ShadowRay SampleShadowRay(Light light, Interaction isect, float lightSourcePdf, 
 
 		if (!IsBlack(f) && scatteringPdf > 0)
 		{
-			bool shadowRayVisible = ShadowRayVisibilityTest(shadowRay, isect.normal);
+			float3 p0 = isect.p.xyz;
+			float3 p1 = samplePointOnLight;
+			bool shadowRayVisible = ShadowRayVisibilityTest(p0, p1, isect.normal);
 
 			if (shadowRayVisible)
 			{
@@ -79,7 +80,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 	uint queueSize = _RayQueueSizeBuffer[queueSizeIndex];
 	if (threadId >= queueSize)
 		return;
-	uint workIndex = _RayQueue[threadId];
+	uint pixelIndex = _RayQueue[threadId];
 	RNG rng = GetRNG(threadId);
 	//int pathState = pathStates[threadId];
 
@@ -89,11 +90,11 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 	int lightIndex = SampleLightSource(u, DistributionDiscripts[0], Distributions1D, lightSourcePdf);
 	Light light = lights[lightIndex];
 	//float testD = Distributions1D[0].y;
-	Interaction isect = Intersections[workIndex];
+	Interaction isect = Intersections[pixelIndex];
 	ShadowRay shadowRay = SampleShadowRay(light, isect, lightSourcePdf, rng);
-	shadowRay.lightSourcePdf = lightSourcePdf;
+	//shadowRay.lightSourcePdf = lightSourcePdf;
 	shadowRay.lightIndex = asfloat(lightIndex);
-	ShadowRays[workIndex] = shadowRay;
+	ShadowRays[pixelIndex] = shadowRay;
 
 	WriteRNG(threadId, rng);
 }

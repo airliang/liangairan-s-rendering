@@ -704,9 +704,9 @@ public class CPUPathIntegrator
         return hitted;
     }
 
-    static bool ShadowRayVisibilityTest(GPUShadowRay shadowRay, Vector3 normal, GPUSceneData gpuSceneData)
+    static bool ShadowRayVisibilityTest(Vector3 p0, Vector3 p1, Vector3 normal, GPUSceneData gpuSceneData)
     {
-        GPURay ray = SpawnRay(shadowRay.p0, shadowRay.p1 - shadowRay.p0, normal, 1.0f - 0.001f);
+        GPURay ray = SpawnRay(p0, p1 - p0, normal, 1.0f - 0.001f);
         GPUInteraction isect = new GPUInteraction();
         HitInfo hitInfo = new HitInfo();
         return !ClosestHit(ray, ref isect, gpuSceneData, ref hitInfo);
@@ -961,10 +961,7 @@ public class CPUPathIntegrator
         if (Li != Vector3.zero)
         {
             GPUShadowRay shadowRay = new GPUShadowRay();
-            shadowRay.p0 = isect.p;
-            shadowRay.p1 = samplePointOnLight;
-            //shadowRay.pdf = triPdf;
-            //shadowRay.lightPdf = lightPdf;
+            
 
             Vector3 wiLocal = isect.WorldToLocal(wi);
             Vector3 woLocal = isect.WorldToLocal(isect.wo);
@@ -973,7 +970,10 @@ public class CPUPathIntegrator
             Vector3 f = MaterialBRDF(material, isect, woLocal, wiLocal, ref scatteringPdf);
             if (f != Vector3.zero && scatteringPdf > 0)
             {
-                bool shadowRayVisible = ShadowRayVisibilityTest(shadowRay, isect.normal, gpuSceneData);
+                Vector3 p0 = isect.p;
+                Vector3 p1 = samplePointOnLight;
+
+                bool shadowRayVisible = ShadowRayVisibilityTest(p0, p1, isect.normal, gpuSceneData);
 
                 if (shadowRayVisible)
                 {

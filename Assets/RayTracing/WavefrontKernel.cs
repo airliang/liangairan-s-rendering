@@ -17,6 +17,7 @@ public class WavefrontKernel : TracingKernel
     ComputeShader generateRay;
     ComputeShader RayTravel;
     ComputeShader InitRandom;
+    ComputeShader RayMiss;
     ComputeShader SampleShadowRay;
     ComputeShader EstimateDirect;
     ComputeShader ImageReconstruction;
@@ -65,7 +66,7 @@ public class WavefrontKernel : TracingKernel
 
     //float cameraConeSpreadAngle = 0;
     uint[] RayQueueSizeArray;
-    GPURandomSampler[] gpuRandomSamplers = null;
+    //uint[] gpuRandomSamplers = null;
 
     private MeshRenderer[] meshRenderers = null;
 
@@ -78,6 +79,7 @@ public class WavefrontKernel : TracingKernel
         EstimateDirect = resource.EstimateDirect;
         ImageReconstruction = resource.ImageReconstruction;
         DebugView = resource.DebugView;
+        RayMiss = resource.RayMiss;
     }
 
     public GPUSceneData GetGPUSceneData()
@@ -324,13 +326,13 @@ public class WavefrontKernel : TracingKernel
     {
         if (samplerBuffer == null)
         {
-            samplerBuffer = new ComputeBuffer(Screen.width * Screen.height, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPURandomSampler)), ComputeBufferType.Structured);
+            samplerBuffer = new ComputeBuffer(Screen.width * Screen.height, sizeof(uint), ComputeBufferType.Structured);
         }
-        if (gpuRandomSamplers == null)
-        {
-            gpuRandomSamplers = new GPURandomSampler[Screen.width * Screen.height];
-            samplerBuffer.SetData(gpuRandomSamplers);
-        }
+        //if (gpuRandomSamplers == null)
+        //{
+        //    gpuRandomSamplers = new uint[Screen.width * Screen.height];
+        //    samplerBuffer.SetData(gpuRandomSamplers);
+        //}
 
         float rasterWidth = Screen.width;
         float rasterHeight = Screen.height;
@@ -339,7 +341,7 @@ public class WavefrontKernel : TracingKernel
         InitRandom.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
         InitRandom.Dispatch(kInitRandom, (int)rasterWidth / 8 + 1, (int)rasterHeight / 8 + 1, 1);
         //for test
-        samplerBuffer.GetData(gpuRandomSamplers);
+        //samplerBuffer.GetData(gpuRandomSamplers);
 
         //kTestSampler = initRandom.FindKernel("CSTestSampler");
         //initRandom.SetBuffer(kTestSampler, "RNGs", samplerBuffer);
@@ -411,7 +413,7 @@ public class WavefrontKernel : TracingKernel
         kEstimateDirect = EstimateDirect.FindKernel("CSMain");
         gpuSceneData.SetComputeShaderGPUData(EstimateDirect, kEstimateDirect);
         EstimateDirect.SetBuffer(kEstimateDirect, "ShadowRays", shadowRayBuffer);
-        SetComputeBuffer(EstimateDirect, kEstimateDirect, "Rays", rayBuffer);
+        //SetComputeBuffer(EstimateDirect, kEstimateDirect, "Rays", rayBuffer);
     
         EstimateDirect.SetBuffer(kEstimateDirect, "RNGs", samplerBuffer);
         SetComputeBuffer(EstimateDirect, kEstimateDirect, "pathRadiances", pathRadianceBuffer);

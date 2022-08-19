@@ -28,8 +28,7 @@ float3 MIS_ShadowRay(Light light, Interaction isect, Material material, float li
     if (!IsBlack(Li))
     {
         ShadowRay shadowRay = (ShadowRay)0;
-        shadowRay.p0 = isect.p.xyz;
-        shadowRay.p1 = samplePointOnLight;
+        
         //shadowRay.pdf = triPdf;
         //shadowRay.lightPdf = lightPdf;
 
@@ -40,7 +39,10 @@ float3 MIS_ShadowRay(Light light, Interaction isect, Material material, float li
         float3 f = MaterialBRDF(material, isect, woLocal, wiLocal, scatteringPdf);
         if (!IsBlack(f) && scatteringPdf > 0)
         {
-            bool shadowRayVisible = ShadowRayVisibilityTest(shadowRay, isect.normal);
+            float3 p0 = isect.p.xyz;
+            float3 p1 = samplePointOnLight;
+
+            bool shadowRayVisible = ShadowRayVisibilityTest(p0, p1, isect.normal);
  
             if (shadowRayVisible)
             {
@@ -51,14 +53,13 @@ float3 MIS_ShadowRay(Light light, Interaction isect, Material material, float li
                 ld = f * Li * weight / lightPdf;
                 //ld = Li / lightPdf;
             }
-            
         }
     }
 
     return ld;
 }
 
-float3 MIS_BSDF(Interaction isect, Material material, Light light, int lightIndex, float lightSourcePdf, inout RNG rng, out PathVertex pathVertex)
+float3 MIS_BSDF(Interaction isect, Material material, inout RNG rng, out PathVertex pathVertex)
 {
     float3 ld = float3(0, 0, 0);
     float3 woLocal = isect.WorldToLocal(isect.wo);
@@ -66,7 +67,7 @@ float3 MIS_BSDF(Interaction isect, Material material, Light light, int lightInde
     //float scatteringPdf = 0;
     pathVertex = (PathVertex)0;
     //float3 wiLocal;
-    float2 u = Get2D(rng);
+    //float2 u = Get2D(rng);
     
     BSDFSample bsdfSample = SampleMaterialBRDF(material, isect, woLocal, rng);
     float3 wi = isect.LocalToWorld(bsdfSample.wi);
@@ -92,7 +93,8 @@ float3 MIS_BSDF(Interaction isect, Material material, Light light, int lightInde
             if (hitLightIndex >= 0)
             {
                 Light hitLight = lights[hitLightIndex];
-                lightPdf = AreaLightPdf(hitLight, pathVertex.nextISect) * lightSourcePdf;
+                float lightSourcePmf = LightSourcePmf(hitLightIndex);
+                lightPdf = AreaLightPdf(hitLight, pathVertex.nextISect) * lightSourcePmf;
                 if (lightPdf > 0)
                 {
                     li = Light_Le(wi, hitLight);
@@ -114,8 +116,8 @@ float3 MIS_BSDF(Interaction isect, Material material, Light light, int lightInde
             li = Light_Le(wi, envLight);
             //if (light.type != EnvLightType)
             {
-                lightSourcePdf = 1; // LightSourcePmf(_EnvLightIndex);
-                lightPdf = EnvLightLiPdf(wi) * lightSourcePdf;
+                float lightSourcePmf = LightSourcePmf(_EnvLightIndex);
+                lightPdf = EnvLightLiPdf(wi) * lightSourcePmf;
             }
         }
 
@@ -157,7 +159,7 @@ float3 EstimateDirectLighting(Interaction isect, inout RNG rng, out PathVertex p
 
     pathVertex = (PathVertex)0;
     float3 ld = MIS_ShadowRay(light, isect, material, lightSourcePdf, rng);
-    ld += MIS_BSDF(isect, material, light, lightIndex, lightSourcePdf, rng, pathVertex);
+    ld += MIS_BSDF(isect, material, rng, pathVertex);
 
     if (pathVertex.bsdfPdf == 0 || MaxValue(pathVertex.bsdfVal) == 0 || MaxValue(ld) == 0)
     {

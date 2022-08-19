@@ -371,15 +371,12 @@ public struct GPUPathRadiance
 
 public struct GPUShadowRay
 {
-    public Vector3 p0;   //isect position
-    public Vector3 p1;   //light sample point position
+    //public Vector3 p0;   //isect position
+    //public Vector3 p1;   //light sample point position
     public Vector3 radiance;  //light radiance
-    //float3 lightNormal;  //light sample point normal
-    //mis weight
-    //public float weight;
-    public float lightSourcePdf;        //Light Radiance pdf
-    public float lightPdf;   //light sampling pdf
-    public float visibility; //1 is visible, 0 invisible
+    //public float lightSourcePdf;        //Light Radiance pdf
+    //public float lightPdf;   //light sampling pdf
+    //public float visibility; //1 is visible, 0 invisible
     public float lightIndex;
 }
 
@@ -426,3 +423,9 @@ struct GPUShadingMaterial
     float eta;
 };
 
+public struct GPUEscapeRayItem
+{
+    Vector3 orig;
+    Vector3 direction;
+    Vector3 throughput;
+}

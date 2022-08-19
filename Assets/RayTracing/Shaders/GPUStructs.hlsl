@@ -82,7 +82,7 @@ struct CameraSample
 struct RNG
 {
 	uint state;
-	uint s1;
+	//uint s1;
 };
 
 struct PathRadiance
@@ -91,7 +91,12 @@ struct PathRadiance
 	float3 beta;  //one path compute throughput
 };
 
-
+struct EscapeRayItem
+{
+	float3 orig;
+	float3 direction;
+	float3 throughput;
+};
 
 struct RayCone
 {
