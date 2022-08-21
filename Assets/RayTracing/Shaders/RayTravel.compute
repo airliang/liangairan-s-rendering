@@ -11,7 +11,7 @@
 
 float2 rasterSize;
 uniform int    bounces;
-uniform int   queueSizeIndex;
+uniform int   curQueueSizeIndex;
 
 
 
@@ -38,16 +38,15 @@ void RayTraversal(uint3 id : SV_DispatchThreadID)
         return;
 
     int threadId = id.x + id.y * rasterSize.x;
-    uint queueSize = _RayQueueSizeBuffer[queueSizeIndex];
-    if (threadId >= queueSize)
-        return;
-    uint pixelIndex = _RayQueue[threadId];
+    
+    uint pixelIndex = threadId;
 
     Ray ray = Rays[pixelIndex];
     Interaction isect = (Interaction)0;//Intersections[threadId];
     //float3 lastCone = LastISectRayCone[id.xy];
     half4 gbuffer = RayConeGBuffer[id.xy];
-    PathRadiance pathRadiance = pathRadiances[pixelIndex];
+    PathRadiance pathRadiance = (PathRadiance)0;
+    pathRadiance.beta = 1;
     //bool foundIntersect = false;
     if (bounces == 0)
     {
@@ -58,21 +57,27 @@ void RayTraversal(uint3 id : SV_DispatchThreadID)
             MeshInstance meshInstance = MeshInstances[meshInstanceIndex];
             int lightIndex = meshInstance.GetLightIndex();
 
-            RayCone rayCone;
-            rayCone.spreadAngle = cameraConeSpreadAngle;
-            rayCone.width = cameraConeSpreadAngle * isect.hitT;
-            //LastISectRayCone[id.xy] = lastCone;
-
-            //isect.p.w = 1;
             if (lightIndex >= 0)
             {
                 Light light = lights[lightIndex];
                 pathRadiance.li += pathRadiance.beta * light.radiance;
+                pathRadiances[pixelIndex] = pathRadiance;
             }
-            isect.coneWidth = rayCone.width;
-            gbuffer.y = rayCone.spreadAngle + gbuffer.x;
-            RayConeGBuffer[id.xy] = gbuffer;
-            Intersections[pixelIndex] = isect;
+            else
+            {
+                RayCone rayCone;
+                rayCone.spreadAngle = cameraConeSpreadAngle;
+                rayCone.width = cameraConeSpreadAngle * isect.hitT;
+                isect.coneWidth = rayCone.width;
+                gbuffer.y = rayCone.spreadAngle + gbuffer.x;
+                RayConeGBuffer[id.xy] = gbuffer;
+                Intersections[pixelIndex] = isect;
+                
+                uint index;
+                InterlockedAdd(_RayQueueSizeBuffer[curQueueSizeIndex], 1, index);
+                _RayQueue[index] = pixelIndex;
+            }
+            
         }
         else
         {
@@ -87,6 +92,11 @@ void RayTraversal(uint3 id : SV_DispatchThreadID)
     }
     else
     {
+        uint queueSize = _RayQueueSizeBuffer[curQueueSizeIndex];
+        if (threadId >= queueSize)
+            return;
+        pixelIndex = _RayQueue[threadId];
+        //pathRadiance = pathRadiances[pixelIndex];
         isect = Intersections[pixelIndex];
         //half2 surfaceBeta = RayConeGBuffer[id.xy];
         RayCone preCone;
@@ -99,8 +109,6 @@ void RayTraversal(uint3 id : SV_DispatchThreadID)
         Intersections[pixelIndex] = isect;
     }
 
-    pathRadiances[pixelIndex] = pathRadiance;
-	uint index;
-    InterlockedAdd(_RayQueueSizeBuffer[queueSizeIndex + 1], 1, index);
-    _RayQueue[index] = pixelIndex;
+    //pathRadiances[pixelIndex] = pathRadiance;
+	
 }

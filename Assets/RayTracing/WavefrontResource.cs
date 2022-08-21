@@ -19,6 +19,8 @@ public class WavefrontResource : ScriptableObject
     public ComputeShader SampleShadowRay;
     [Reload("RayTracing/Shaders/EstimateDirect.compute")]
     public ComputeShader EstimateDirect;
+    [Reload("RayTracing/Shaders/RayQueueClear.compute")]
+    public ComputeShader RayQueueClear;
     [Reload("RayTracing/Shaders/ImageReconstruction.compute")]
     public ComputeShader ImageReconstruction;
     [Reload("RayTracing/Shaders/TracingDebug.compute")]

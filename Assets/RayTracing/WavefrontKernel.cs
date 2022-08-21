@@ -18,15 +18,18 @@ public class WavefrontKernel : TracingKernel
     ComputeShader RayTravel;
     ComputeShader InitRandom;
     ComputeShader RayMiss;
+    ComputeShader RayQueueClear;
     ComputeShader SampleShadowRay;
     ComputeShader EstimateDirect;
     ComputeShader ImageReconstruction;
     ComputeShader DebugView;
     int kGeneratePrimaryRay = -1;
     int kRayTraversal = -1;
+    int kRayMiss = -1;
     int kInitRandom = -1;
     int kSampleShadowRay = -1;
     int kEstimateDirect = -1;
+    int kRayQueueClear = -1;
     int kImageReconstruction = -1;
     int kDebugView = -1;
 
@@ -43,7 +46,7 @@ public class WavefrontKernel : TracingKernel
 
     ComputeBuffer rayQueueSizeBuffer;
     ComputeBuffer rayQueueBuffer;
-
+    ComputeBuffer nextRayQueueBuffer;
 
     RenderTexture outputTexture;
     RenderTexture rayConeGBuffer;
@@ -80,6 +83,7 @@ public class WavefrontKernel : TracingKernel
         ImageReconstruction = resource.ImageReconstruction;
         DebugView = resource.DebugView;
         RayMiss = resource.RayMiss;
+        RayQueueClear = resource.RayQueueClear;
     }
 
     public GPUSceneData GetGPUSceneData()
@@ -140,6 +144,8 @@ public class WavefrontKernel : TracingKernel
         Profiler.BeginSample("SetupImageReconstruction");
         SetupImageReconstruction();
         Profiler.EndSample();
+
+        SetupRayQueueClear();
     }
 
     public RenderTexture GetOutputTexture()
@@ -205,6 +211,7 @@ public class WavefrontKernel : TracingKernel
         ReleaseComputeBuffer(shadowRayBuffer);
         ReleaseComputeBuffer(rayQueueSizeBuffer);
         ReleaseComputeBuffer(rayQueueBuffer);
+        ReleaseComputeBuffer(nextRayQueueBuffer);
     }
 
     public void Update(Camera camera)
@@ -222,7 +229,7 @@ public class WavefrontKernel : TracingKernel
 
         //bvhAccel.DrawDebug(meshInstances, true);
 
-        if (framesNum >= _rayTracingData.SamplesPerPixel)
+        if (framesNum++ >= _rayTracingData.SamplesPerPixel)
         {
             //GPUFilterSample uv = filter.Sample(MathUtil.GetRandom01());
             //Debug.Log(uv.p);
@@ -238,47 +245,71 @@ public class WavefrontKernel : TracingKernel
         if (generateRay != null)
             generateRay.SetFloat("_time", Time.time);
 
-        int queueSizeIndex = 0;
+        int curRaySizeIndex = 0;
+        int nextRaySizeIndex = 1;
 
         generateRay.SetMatrix("RasterToCamera", gpuSceneData.RasterToCamera);
         generateRay.SetMatrix("CameraToWorld", camera.cameraToWorldMatrix);
-        generateRay.Dispatch(kGeneratePrimaryRay, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
+        
+        int threadGroupX = Screen.width / 8 + ((Screen.width % 8) != 0 ? 1 : 0);
+        int threadGroupY = Screen.height / 8 + ((Screen.height % 8) != 0 ? 1 : 0);
+        generateRay.Dispatch(kGeneratePrimaryRay, threadGroupX, threadGroupY, 1);
+        ComputeBuffer curRayQueue = rayQueueBuffer;
+        ComputeBuffer nextRayQueue = nextRayQueueBuffer;
 
-        if (_rayTracingData.viewMode == RaytracingData.TracingView.ColorView)
+        //for (int y = 0; y < rasterHeight; y += 8)
         {
-            for (int i = 0; i < MAX_PATH; ++i)
+            if (_rayTracingData.viewMode == RaytracingData.TracingView.ColorView)
             {
-                RayTravel.SetFloat("_time", Time.time);
-                RayTravel.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
+                for (int i = 0; i < MAX_PATH; ++i)
+                {
+                    RayTravel.SetFloat("_time", Time.time);
+                    RayTravel.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
 
-                RayTravel.SetInt("bounces", i);
-                RayTravel.SetInt("queueSizeIndex", queueSizeIndex++);
-                RayTravel.Dispatch(kRayTraversal, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
-                
-                SampleShadowRay.SetInt("bounces", i);
-                SampleShadowRay.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
-                SampleShadowRay.SetInt("queueSizeIndex", queueSizeIndex);
-                SampleShadowRay.Dispatch(kSampleShadowRay, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
+                    RayTravel.SetInt("bounces", i);
+                    RayTravel.SetInt("curQueueSizeIndex", curRaySizeIndex);
+                    RayTravel.SetBuffer(kRayTraversal, "_RayQueue", curRayQueue);
+                    RayTravel.Dispatch(kRayTraversal, threadGroupX, threadGroupY, 1);
 
-                EstimateDirect.SetInt("bounces", i);
-                EstimateDirect.SetInt("queueSizeIndex", queueSizeIndex++);
-                EstimateDirect.Dispatch(kEstimateDirect, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
+                    SampleShadowRay.SetInt("bounces", i);
+                    SampleShadowRay.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
+                    SampleShadowRay.SetInt("curQueueSizeIndex", curRaySizeIndex);
+                    SampleShadowRay.SetBuffer(kSampleShadowRay, "_RayQueue", curRayQueue);
+                    SampleShadowRay.Dispatch(kSampleShadowRay, threadGroupX, threadGroupY, 1);
+
+                    EstimateDirect.SetInt("bounces", i);
+                    EstimateDirect.SetInt("curQueueSizeIndex", curRaySizeIndex);
+                    EstimateDirect.SetInt("nextQueueSizeIndex", nextRaySizeIndex);
+                    EstimateDirect.SetBuffer(kEstimateDirect, "_RayQueue", curRayQueue);
+                    EstimateDirect.SetBuffer(kEstimateDirect, "_NextRayQueue", nextRayQueue);
+                    EstimateDirect.Dispatch(kEstimateDirect, threadGroupX, threadGroupY, 1);
+
+                    RayQueueClear.SetInt("curQueueSizeIndex", curRaySizeIndex);
+                    RayQueueClear.Dispatch(kRayQueueClear, 1, 1, 1);
+
+                    ComputeBuffer tmpBuffer = nextRayQueue;
+                    nextRayQueue = curRayQueue;
+                    curRayQueue = tmpBuffer;
+                    int tmpIndex = nextRaySizeIndex;
+                    nextRaySizeIndex = curRaySizeIndex;
+                    curRaySizeIndex = tmpIndex;
+                }
+
+                ImageReconstruction.SetInt("framesNum", framesNum);
+                ImageReconstruction.SetFloat("_Exposure", _Exposure);
+                ImageReconstruction.Dispatch(kImageReconstruction, threadGroupX, threadGroupY, 1);
             }
+            else
+            {
+                if (kDebugView < 0)
+                    SetupDebugView(camera);
 
-            ImageReconstruction.SetInt("framesNum", ++framesNum);
-            ImageReconstruction.SetFloat("_Exposure", _Exposure);
-            ImageReconstruction.Dispatch(kImageReconstruction, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
-        }
-        else
-        {
-            if (kDebugView < 0)
-                SetupDebugView(camera);
+                DebugView.SetInt("debugView", (int)_rayTracingData.viewMode);
+                DebugView.SetInt("bounces", 0);
 
-            DebugView.SetInt("debugView", (int)_rayTracingData.viewMode);
-            DebugView.SetInt("bounces", 0);
-
-            DebugView.Dispatch(kDebugView, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
-            ++framesNum;
+                DebugView.Dispatch(kDebugView, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
+                
+            }
         }
     }
 
@@ -387,8 +418,8 @@ public class WavefrontKernel : TracingKernel
         generateRay.SetBuffer(kGeneratePrimaryRay, "RNGs", samplerBuffer);
         generateRay.SetBuffer(kGeneratePrimaryRay, "pathRadiances", pathRadianceBuffer);
         gpuFilterData.SetComputeShaderGPUData(generateRay, kGeneratePrimaryRay);
-        generateRay.SetBuffer(kGeneratePrimaryRay, "_RayQueueSizeBuffer", rayQueueSizeBuffer);
-        generateRay.SetBuffer(kGeneratePrimaryRay, "_RayQueue", rayQueueBuffer);
+        //generateRay.SetBuffer(kGeneratePrimaryRay, "_RayQueueSizeBuffer", rayQueueSizeBuffer);
+        //generateRay.SetBuffer(kGeneratePrimaryRay, "_RayQueue", rayQueueBuffer);
     }
 
     void SetupEstimateNextEvent()
@@ -396,6 +427,11 @@ public class WavefrontKernel : TracingKernel
         if (shadowRayBuffer == null)
         {
             shadowRayBuffer = new ComputeBuffer(Screen.width * Screen.height, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUShadowRay)), ComputeBufferType.Default);
+        }
+
+        if (nextRayQueueBuffer == null)
+        {
+            nextRayQueueBuffer = new ComputeBuffer(Screen.width * Screen.height, sizeof(int), ComputeBufferType.Structured);
         }
 
         kSampleShadowRay = SampleShadowRay.FindKernel("CSMain");
@@ -419,6 +455,7 @@ public class WavefrontKernel : TracingKernel
         SetComputeBuffer(EstimateDirect, kEstimateDirect, "pathRadiances", pathRadianceBuffer);
         SetComputeBuffer(EstimateDirect, kEstimateDirect, "_RayQueueSizeBuffer", rayQueueSizeBuffer);
         SetComputeBuffer(EstimateDirect, kEstimateDirect, "_RayQueue", rayQueueBuffer);
+        SetComputeBuffer(EstimateDirect, kEstimateDirect, "_NextRayQueue", nextRayQueueBuffer);
         EstimateDirect.SetVector("rasterSize", new Vector4(Screen.width, Screen.height, 0, 0));
         //EstimateDirect.SetMatrix("WorldToRaster", WorldToRaster);
         SetTextures(EstimateDirect, kEstimateDirect);
@@ -518,5 +555,14 @@ public class WavefrontKernel : TracingKernel
         }
         RayTravel.SetTexture(kRayTraversal, "RayConeGBuffer", rayConeGBuffer);
         //RayTravel.SetTexture(kRayTraversal, "outputTexture", outputTexture);
+    }
+
+    void SetupRayQueueClear()
+    {
+        if (kRayQueueClear == -1)
+        {
+            kRayQueueClear = RayQueueClear.FindKernel("CSMain");
+            RayQueueClear.SetBuffer(kRayQueueClear, "_RayQueueSizeBuffer", rayQueueSizeBuffer);
+        }
     }
 }

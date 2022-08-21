@@ -17,8 +17,8 @@ float2 rasterSize;
 RWStructuredBuffer<Ray>    Rays;
 RWStructuredBuffer<PathRadiance> pathRadiances;
 //RWStructuredBuffer<int>    pathStates;
-RWStructuredBuffer<uint> _RayQueueSizeBuffer;
-RWStructuredBuffer<uint> _RayQueue;
+//RWStructuredBuffer<uint> _RayQueueSizeBuffer;
+//RWStructuredBuffer<uint> _RayQueue;
 
 
 CameraSample GetCameraSample(float2 pRaster, float2 u)
@@ -36,7 +36,7 @@ void GeneratePrimary(uint3 id : SV_DispatchThreadID)
     if (id.x >= rasterSize.x || id.y >= rasterSize.y)
         return;
     uint threadId = id.x + id.y * rasterSize.x;
-    uint workIndex = _RayQueue[threadId];
+    //uint workIndex = _RayQueue[threadId];
     //Result[id.xy] = float4(id.x & id.y, (id.x & 15)/15.0, (id.y & 15)/15.0, 0.0);
     RNG rng = GetRNG(threadId);
     float2 u = Get2D(rng);
@@ -57,9 +57,9 @@ void GeneratePrimary(uint3 id : SV_DispatchThreadID)
     bounceRadiance.beta = 1.0;
     pathRadiances[threadId] = bounceRadiance;
     //pathStates[threadId] = 1;
-    uint index;
-    InterlockedAdd(_RayQueueSizeBuffer[0], 1, index);
-    _RayQueue[index] = threadId;
+    //uint index;
+    //InterlockedAdd(_RayQueueSizeBuffer[0], 1, index);
+    //_RayQueue[index] = threadId;
     WriteRNG(threadId, rng);
 }
 

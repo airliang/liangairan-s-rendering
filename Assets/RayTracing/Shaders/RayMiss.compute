@@ -28,15 +28,16 @@ void RayMiss(uint3 id : SV_DispatchThreadID)
 	uint queueSize = _EscapeQueueSizeBuffer[bounces];
 	if (threadId >= queueSize)
 		return;
+	uint pixelIndex = threadId;
 
 	PathRadiance pathRadiance = pathRadiances[pixelIndex];
 	EscapeRayItem rayItem = EscapeRays[threadId];
 
-	if (bounce == 0)
+	if (bounces == 0)
 	{
 		if (_EnvLightIndex >= 0)
 		{
-			pathRadiance.li += rayItem.thoughput * EnviromentLightLe(rayItem.direction);
+			pathRadiance.li += rayItem.throughput * EnviromentLightLe(rayItem.direction);
 			pathRadiances[pixelIndex] = pathRadiance;
 		}
 	}

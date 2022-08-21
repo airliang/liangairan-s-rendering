@@ -14,7 +14,8 @@
 
 int    bounces;
 float2 rasterSize;
-int    queueSizeIndex;
+int    curQueueSizeIndex;
+int    nextQueueSizeIndex;
 int    MIN_DEPTH;
 
 RWStructuredBuffer<Interaction>  Intersections;
@@ -22,7 +23,8 @@ StructuredBuffer<ShadowRay>  ShadowRays;
 RWStructuredBuffer<PathRadiance> pathRadiances;
 
 RWStructuredBuffer<uint> _RayQueueSizeBuffer;
-RWStructuredBuffer<uint> _RayQueue;
+StructuredBuffer<uint> _RayQueue;
+RWStructuredBuffer<uint> _NextRayQueue;
 //RWStructuredBuffer<Ray>   Rays;
 //RWTexture2D<half4> outputTexture;
 
@@ -128,10 +130,11 @@ void CSMain (uint3 id : SV_DispatchThreadID)
         return;
 
     uint threadId = id.x + id.y * rasterSize.x;
-    uint queueSize = _RayQueueSizeBuffer[queueSizeIndex];
+    uint queueSize = _RayQueueSizeBuffer[curQueueSizeIndex];
     if (threadId >= queueSize)
         return;
     uint pixelIndex = _RayQueue[threadId];
+    //uint pixelIndex = threadId;
     RNG rng = GetRNG(pixelIndex);
 
     ShadowRay shadowRay = ShadowRays[pixelIndex];
@@ -175,8 +178,8 @@ void CSMain (uint3 id : SV_DispatchThreadID)
             //Rays[pixelIndex] = ray;
             Intersections[pixelIndex] = pathVertex.nextISect;
             uint index;
-            InterlockedAdd(_RayQueueSizeBuffer[queueSizeIndex + 1], 1, index);
-            _RayQueue[index] = pixelIndex;
+            InterlockedAdd(_RayQueueSizeBuffer[nextQueueSizeIndex], 1, index);
+            _NextRayQueue[index] = pixelIndex;
         }
     }
     //outputTexture[id.xy] = half4(f, 1);

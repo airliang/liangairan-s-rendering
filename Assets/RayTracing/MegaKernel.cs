@@ -156,12 +156,13 @@ public class MegaKernel : TracingKernel
             return;
         }
         //_InitSampler.Dispatch(_InitSamplerKernel, (int)Screen.width / 8 + 1, (int)Screen.height / 8 + 1, 1);
-
+        int threadGroupX = Screen.width / 8 + ((Screen.width % 8) != 0 ? 1 : 0);
+        int threadGroupY = Screen.height / 8 + ((Screen.height % 8) != 0 ? 1 : 0);
         RenderToGBuffer(camera);
         _MegaCompute.SetMatrix("RasterToCamera", gpuSceneData.RasterToCamera);
         _MegaCompute.SetMatrix("CameraToWorld", camera.cameraToWorldMatrix);
         _MegaCompute.SetInt("framesNum", ++framesNum);
-        _MegaCompute.Dispatch(_MegaComputeKernel, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
+        _MegaCompute.Dispatch(_MegaComputeKernel, threadGroupX, threadGroupY, 1);
     }
 
     private void RenderToGBuffer(Camera camera)

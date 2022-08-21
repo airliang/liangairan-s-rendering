@@ -12,7 +12,7 @@
 
 uniform int    bounces;
 uniform float2 rasterSize;
-uniform int    queueSizeIndex;
+uniform int    curQueueSizeIndex;
 
 StructuredBuffer<Interaction>  Intersections;
 RWStructuredBuffer<ShadowRay>  ShadowRays;
@@ -77,11 +77,12 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 		return;
 
 	uint threadId = id.x + id.y * rasterSize.x;
-	uint queueSize = _RayQueueSizeBuffer[queueSizeIndex];
+	uint queueSize = _RayQueueSizeBuffer[curQueueSizeIndex];
 	if (threadId >= queueSize)
 		return;
 	uint pixelIndex = _RayQueue[threadId];
-	RNG rng = GetRNG(threadId);
+	//uint pixelIndex = threadId;
+	RNG rng = GetRNG(pixelIndex);
 	//int pathState = pathStates[threadId];
 
 	float lightSourcePdf = 1.0;
@@ -96,5 +97,5 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 	shadowRay.lightIndex = asfloat(lightIndex);
 	ShadowRays[pixelIndex] = shadowRay;
 
-	WriteRNG(threadId, rng);
+	WriteRNG(pixelIndex, rng);
 }
