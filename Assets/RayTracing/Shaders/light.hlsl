@@ -314,15 +314,15 @@ float3 Light_Le(float3 wi, Light light)
 	return 0;
 }
 
-float AreaLightPdf(Light light, Interaction isect)
+float AreaLightPdf(Light light, int triangleIndex, float triangleArea)
 {
 	float lightPdf = 0;
 	if (light.type == AreaLightType)
 	{
 		DistributionDiscript discript = DistributionDiscripts[light.distributionDiscriptIndex];
-		int distributionIndex = isect.triangleIndex;
+		int distributionIndex = triangleIndex;
 		float pmf = DiscretePdf(distributionIndex, discript, Distributions1D);
-		lightPdf = pmf * 1.0 / isect.primArea;
+		lightPdf = pmf * 1.0 / triangleArea;
 	}
 
 	return lightPdf;

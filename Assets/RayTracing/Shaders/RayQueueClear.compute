@@ -1,12 +1,12 @@
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel CSMain
 
-int   curQueueSizeIndex;
+int   clearQueueIndex;
 RWStructuredBuffer<uint> _RayQueueSizeBuffer;
 
 [numthreads(1,1,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
     uint value;
-    InterlockedExchange(_RayQueueSizeBuffer[curQueueSizeIndex], 0, value);
+    InterlockedExchange(_RayQueueSizeBuffer[clearQueueIndex], 0, value);
 }

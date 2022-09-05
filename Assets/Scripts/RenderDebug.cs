@@ -56,11 +56,36 @@ public class RenderDebug
         Debug.DrawLine(barycenter, barycenter + normal, Color.green);
     }
 
+    static GameObject sphere0;
+    static GameObject sphere1;
+    static GameObject sphere2;
+
     public static void DrawTriangle(Vector3 p0, Vector3 p1, Vector3 p2, Color color)
     {
-        Debug.DrawLine(p0, p1, color);
-        Debug.DrawLine(p0, p2, color);
-        Debug.DrawLine(p2, p1, color);
+        Debug.DrawLine(p0, p1, color, 50, false);
+        Debug.DrawLine(p0, p2, color, 50, false);
+        Debug.DrawLine(p2, p1, color, 50, false);
+
+        if (sphere0 == null)
+        {
+            sphere0 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            sphere0.transform.localScale = Vector3.one.Mul(0.5f);
+        }
+
+        if (sphere1 == null)
+        {
+            sphere1 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            sphere1.transform.localScale = Vector3.one.Mul(0.5f);
+        }
+
+        if (sphere2 == null)
+        {
+            sphere2 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            sphere2.transform.localScale = Vector3.one.Mul(0.5f);
+        }
+        sphere0.transform.position = p0;
+        sphere1.transform.position = p1;
+        sphere2.transform.position = p2;
     }
 #endif
 }

@@ -53,7 +53,13 @@ float3 MaterialFresnelShadowRay(Light light, Material material, Interaction isec
     }
     else
     {
-        UnpackShadingMaterial(material, shadingMaterial, isect);
+        TextureSampleInfo texLod = (TextureSampleInfo)0;
+        texLod.cosine = dot(isect.wo, isect.normal);
+        texLod.coneWidth = isect.coneWidth;
+        texLod.screenSpaceArea = isect.screenSpaceArea;
+        texLod.uvArea = isect.uvArea;
+        texLod.uv = isect.uv.xy;
+        UnpackShadingMaterial(material, shadingMaterial, texLod);
         int nComponent = 0;
         if (shadingMaterial.materialType == Plastic)
         {
@@ -103,7 +109,13 @@ float3 MaterialFresnel(Material material, Interaction isect, inout RNG rng)
     float3 wo = isect.WorldToLocal(isect.wo.xyz);
 
     ShadingMaterial shadingMaterial = (ShadingMaterial)0;
-    UnpackShadingMaterial(material, shadingMaterial, isect);
+    TextureSampleInfo texLod = (TextureSampleInfo)0;
+    texLod.cosine = dot(isect.wo, isect.normal);
+    texLod.coneWidth = isect.coneWidth;
+    texLod.screenSpaceArea = isect.screenSpaceArea;
+    texLod.uvArea = isect.uvArea;
+    texLod.uv = isect.uv.xy;
+    UnpackShadingMaterial(material, shadingMaterial, texLod);
 
     switch (shadingMaterial.materialType)
     {
@@ -185,12 +197,13 @@ float3 FresnelColor(Interaction isect, Material material, inout RNG rng)
 
 half3 TracingDebug(uint2 id, Ray ray, int view, float2 rayCone, float cameraConeSpreadAngle, inout RNG rng)
 {
-    Interaction isect = (Interaction)0;//Intersections[threadId];
-
-    bool foundIntersect = ClosestHit(ray, isect);//IntersectBVH(ray, isect);
+    HitInfo hitInfo = (HitInfo)0;
+    bool foundIntersect = ClosestHit(ray, hitInfo);//IntersectBVH(ray, isect);
     half3 color = half3(0, 0, 0);
     if (foundIntersect)
     {
+        Interaction isect = (Interaction)0;
+        ComputeSurfaceIntersection(hitInfo, -ray.direction, isect);
         int meshInstanceIndex = isect.meshInstanceID;
         MeshInstance meshInstance = MeshInstances[meshInstanceIndex];
 
@@ -208,7 +221,12 @@ half3 TracingDebug(uint2 id, Ray ray, int view, float2 rayCone, float cameraCone
             color = half3(isect.hitT, isect.hitT, isect.hitT) / cameraFar;
             break;
         case MipmapView:
-            float mipmapLevel = ComputeTextureLOD(isect) / log2(512);
+            TextureSampleInfo texLod = (TextureSampleInfo)0;
+            texLod.cosine = dot(isect.wo, isect.normal);
+            texLod.coneWidth = isect.coneWidth;
+            texLod.screenSpaceArea = isect.screenSpaceArea;
+            texLod.uvArea = isect.uvArea;
+            float mipmapLevel = ComputeTextureLOD(texLod) / log2(512);
             color = lerp(half3(0, 0, 1), half3(1, 0, 0), mipmapLevel * 2);
             break;
         case GBuffer:

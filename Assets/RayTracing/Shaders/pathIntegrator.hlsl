@@ -7,7 +7,7 @@
 #include "bvhaccel.hlsl"
 #include "materials.hlsl"
 
-RWStructuredBuffer<Interaction>       Intersections;
+//RWStructuredBuffer<Interaction>       Intersections;
 RWTexture2D<half4>  RayConeGBuffer;
 int MAX_PATH;
 int MIN_PATH;
@@ -62,14 +62,14 @@ float3 MIS_ShadowRay(Light light, Interaction isect, Material material, float li
 float3 MIS_BSDF(Interaction isect, Material material, inout RNG rng, out PathVertex pathVertex)
 {
     float3 ld = float3(0, 0, 0);
-    float3 woLocal = isect.WorldToLocal(isect.wo);
+    //float3 woLocal = isect.WorldToLocal(isect.wo);
     //float3 wi;
     //float scatteringPdf = 0;
     pathVertex = (PathVertex)0;
     //float3 wiLocal;
     //float2 u = Get2D(rng);
     
-    BSDFSample bsdfSample = SampleMaterialBRDF(material, isect, woLocal, rng);
+    BSDFSample bsdfSample = SampleMaterialBRDF(material, isect, rng);
     float3 wi = isect.LocalToWorld(bsdfSample.wi);
     float scatteringPdf = bsdfSample.pdf;
     float3 f = bsdfSample.reflectance * abs(dot(wi, isect.normal));
@@ -78,7 +78,8 @@ float3 MIS_BSDF(Interaction isect, Material material, inout RNG rng, out PathVer
     {
         Ray ray = SpawnRay(isect.p.xyz, wi, isect.normal, FLT_MAX);
         //Interaction lightISect = (Interaction)0;
-        bool found = ClosestHit(ray, pathVertex.nextISect);
+        HitInfo hitInfo = (HitInfo)0;
+        bool found = ClosestHit(ray, hitInfo);
         //pathVertex.nextISect = lightISect; 
         pathVertex.found = found ? 1 : 0;  //can not use this expression or it will be something error. I don't know why.
         
@@ -87,6 +88,7 @@ float3 MIS_BSDF(Interaction isect, Material material, inout RNG rng, out PathVer
         
         if (found)
         {
+            ComputeSurfaceIntersection(hitInfo, -ray.direction, pathVertex.nextISect);
             int meshInstanceIndex = pathVertex.nextISect.meshInstanceID;
             MeshInstance meshInstance = MeshInstances[meshInstanceIndex];
             int hitLightIndex = meshInstance.GetLightIndex();
@@ -94,7 +96,7 @@ float3 MIS_BSDF(Interaction isect, Material material, inout RNG rng, out PathVer
             {
                 Light hitLight = lights[hitLightIndex];
                 float lightSourcePmf = LightSourcePmf(hitLightIndex);
-                lightPdf = AreaLightPdf(hitLight, pathVertex.nextISect) * lightSourcePmf;
+                lightPdf = AreaLightPdf(hitLight, pathVertex.nextISect.triangleIndex, pathVertex.nextISect.primArea) * lightSourcePmf;
                 if (lightPdf > 0)
                 {
                     li = Light_Le(wi, hitLight);
@@ -180,7 +182,14 @@ float3 PathLi(Ray ray, uint2 id, inout RNG rng)
 	{
         bool foundIntersect = false;
         if (bounces == 0)
-            foundIntersect = ClosestHit(ray, isect);
+        {
+            HitInfo hitInfo = (HitInfo)0;
+            foundIntersect = ClosestHit(ray, hitInfo);
+            if (foundIntersect)
+            {
+                ComputeSurfaceIntersection(hitInfo, -ray.direction, isect);
+            }
+        }
         else
         {
             foundIntersect = pathVertex.found == 1;
@@ -258,12 +267,6 @@ float3 PathLi(Ray ray, uint2 id, inout RNG rng)
 
         //ray = SpawnRay(isect.p.xyz, pathVertex.wi, isect.normal, FLT_MAX);
         isect = pathVertex.nextISect;
-        //if (pathVertex.found == 1 && pathVertex.nextISect.hitT == 0)
-        //{
-        //    //some error happen!
-        //    return 0;
-        //}
-        
 	}
 	return li;
 }

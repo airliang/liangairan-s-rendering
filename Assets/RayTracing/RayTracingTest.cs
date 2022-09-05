@@ -430,43 +430,6 @@ public class RayTracingTest
         return lightPdf;
     }
 
-    public static Vector3 EstimateDirect(BVHAccel bvhaccel, GPUShadowRay shadowRay, GPUInteraction isect, Vector2 u, 
-        List<GPUMaterial> materials, List<GPULight> lights, List<MeshInstance> meshInstances, List<int> TriangleIndices, List<GPUVertex> Vertices, List<Vector2> distributions1D, out float pdf)
-    {
-        Vector3 Ld = shadowRay.radiance;
-        GPUMaterial material = materials[(int)isect.materialID];
-        Vector3 woLocal = isect.WorldToLocal(isect.wo);
-        Vector3 wi;
-        float scatteringPdf = 0;
-        Vector3 wiLocal;
-        Vector3 f = SampleLambert(material, woLocal, out wiLocal, u, out scatteringPdf);
-
-        wi = isect.LocalToWorld(wiLocal);
-        f *= Mathf.Abs(Vector3.Dot(wi, isect.normal));
-
-        if (scatteringPdf > 0)
-        {
-            GPULight light = lights[MathUtil.SingleToInt32Bits(shadowRay.lightIndex)];
-            GPURay ray = SpawnRay(isect.p, wi, isect.normal, float.MaxValue);
-            //for test
-            //Vector3 lightPos = new Vector3(-2.750401f, 5.5f, -6.640179f);
-            //wi = lightPos - (Vector3)isect.p;
-            //wi.Normalize();
-            //ray = SpawnRay(isect.p, wi, isect.normal, float.MaxValue);
-            //end for test
-            float lightPdf = AreaLightPdf(bvhaccel, ray, light, lights.Count, meshInstances, TriangleIndices, Vertices, distributions1D);
-            if (lightPdf > 0)
-            {
-                //caculate the mis weight
-                float weight = PowerHeuristic(1, lightPdf, 1, scatteringPdf);
-
-                Ld += f.Mul(light.radiance) * weight / scatteringPdf;
-            }
-        }
-        pdf = scatteringPdf;
-
-        return Ld;
-    }
 
     public static GPURay GeneratePath(ref GPUInteraction isect, ref GPUPathRadiance pathRadiance, GPURay ray, List<GPUMaterial> materials, out bool breakLoop, out float pdf)
     {

@@ -19,7 +19,7 @@ public struct GPULight
     public float intensity;
     public float pointRadius;
     public Vector3 radiance;
-    public float textureMask;
+    //public float textureMask;
 }
 
 public struct GPURay
@@ -348,36 +348,26 @@ public struct GPUMaterial
     public float metallicMapMask;
     public float fresnelType;
 
-    //public Color ks;
-    //public Color kr;
-
-    //public GPUMaterial(int type, float sigma, float roughness, Color kd, Color ks, Color kr)
-    //{
-    //    this.kd = kd.linear;
-    //    this.ks = ks.linear;
-    //    this.kr = kr.linear;
-    //    materialParams.x = type;
-    //    materialParams.y = sigma;
-    //    materialParams.z = roughness;
-    //    materialParams.w = 0;
-    //}
 }
 
 public struct GPUPathRadiance
 {
     public Vector3 li;
     public Vector3 beta;
+    public Vector2 pad;
 }
 
 public struct GPUShadowRay
 {
-    //public Vector3 p0;   //isect position
-    //public Vector3 p1;   //light sample point position
+    public Vector3 p0;   //isect position
+    public Vector3 p1;   //light sample point position
     public Vector3 radiance;  //light radiance
+    public Vector3 normal;
     //public float lightSourcePdf;        //Light Radiance pdf
     //public float lightPdf;   //light sampling pdf
+    //public Vector3 throughput;
     //public float visibility; //1 is visible, 0 invisible
-    public float lightIndex;
+    //public float lightIndex;
 }
 
 public struct GPUDistributionDiscript

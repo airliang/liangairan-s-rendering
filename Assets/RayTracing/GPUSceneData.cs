@@ -521,7 +521,7 @@ public class GPUSceneData
             else
             {
                 uint mask = 1;
-                gpuEnvLight.textureMask = MathUtil.UInt32BitsToSingle(mask);
+                //gpuEnvLight.textureMask = MathUtil.UInt32BitsToSingle(mask);
             }
 
             envmapEnable = true;

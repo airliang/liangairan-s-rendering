@@ -42,19 +42,6 @@ Ray SpawnRay(float3 p, float3 direction, float3 normal, float tMax)
 	return ray;
 }
 
-struct ShadowRay
-{
-	//float3 p0;   //isect position
-	//float3 p1;   //light sample point position
-	float3 radiance;  //light radiance
-	//float  lightSourcePdf;        //Light Radiance pdf
-	//float  lightPdf;   //light sampling pdf
-	//float  visibility; //1 is visible, 0 invisible
-	float  lightIndex; 
-};
-
-
-
 struct AreaLight
 {
 	float3 Lemit;  //xyz radiance
@@ -130,6 +117,7 @@ struct Vertex
 	float3 normal;
 };
 
+/*
 bool BoundIntersectP(Ray ray, Bounds bounds, float3 invDir, int dirIsNeg[3])
 {
 	// Check for ray intersection against $x$ and $y$ slabs
@@ -192,6 +180,7 @@ bool BoundIntersect(Ray ray, Bounds bounds, float3 invDir, int dirIsNeg[3])
 	if (tzMax < tMax) tMax = tzMax;
 	return (tMin < ray.tmax) && (tMax > 0);
 }
+*/
 
 float MinComponent(float3 v) {
 	return min(v.x, min(v.y, v.z));

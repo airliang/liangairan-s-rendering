@@ -3,6 +3,7 @@
 #include "materials.hlsl"
 #include "light.hlsl"
 #include "distributions.hlsl"
+#include "wavefrontQueues.hlsl"
 
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel CSMain
@@ -16,17 +17,24 @@ uniform int    curQueueSizeIndex;
 
 StructuredBuffer<Interaction>  Intersections;
 RWStructuredBuffer<ShadowRay>  ShadowRays;
+StructuredBuffer<PathRadiance> pathRadiances;
 //StructuredBuffer<ShadingMaterial>  _ShadingMaterials;
 //StructuredBuffer<int>    pathStates;
 //x pdf y cdf
 
-StructuredBuffer<uint> _RayQueueSizeBuffer;
+RWStructuredBuffer<uint> _RayQueueSizeBuffer;
 StructuredBuffer<uint> _RayQueue;
+RWStructuredBuffer<uint> _ShadowRayQueue;
 //RWTexture2D<half4> outputTexture;
 
+struct ShadowRaySample
+{
+	float3 Li;
+	float3 samplePoint;
+	float  lightPdf;
+};
 
-
-ShadowRay SampleShadowRay(Light light, Interaction isect, float lightSourcePdf, inout RNG rng)
+ShadowRaySample SampleShadowRay(Light light, Interaction isect, float lightSourcePdf, inout RNG rng)
 {
 	ShadowRay shadowRay = (ShadowRay)0;
 	
@@ -34,7 +42,14 @@ ShadowRay SampleShadowRay(Light light, Interaction isect, float lightSourcePdf, 
 	float lightPdf = 0;
 	float3 samplePointOnLight;
 	float3 Li = SampleLightRadiance(Distributions1D, light, isect, rng, wi, lightPdf, samplePointOnLight);
+	ShadowRaySample shadowRaySample = (ShadowRaySample)0;
+	shadowRaySample.Li = Li;
+	shadowRaySample.samplePoint = samplePointOnLight;
+	lightPdf *= lightSourcePdf;
+	shadowRaySample.lightPdf = lightPdf;
+	return shadowRaySample;
 
+	/*
 	if (!IsBlack(Li))
 	{
 		lightPdf *= lightSourcePdf;
@@ -64,8 +79,9 @@ ShadowRay SampleShadowRay(Light light, Interaction isect, float lightSourcePdf, 
 			}
 		}
 	}
-	
+	shadowRay.radiance = Li;
 	return shadowRay;
+	*/
 }
 
 
@@ -92,10 +108,28 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 	Light light = lights[lightIndex];
 	//float testD = Distributions1D[0].y;
 	Interaction isect = Intersections[pixelIndex];
-	ShadowRay shadowRay = SampleShadowRay(light, isect, lightSourcePdf, rng);
+	ShadowRaySample shadowRaySample = SampleShadowRay(light, isect, lightSourcePdf, rng);
 	//shadowRay.lightSourcePdf = lightSourcePdf;
-	shadowRay.lightIndex = asfloat(lightIndex);
-	ShadowRays[pixelIndex] = shadowRay;
+	if (!IsBlack(shadowRaySample.Li))
+	{
+		float3 p0 = isect.p.xyz;
+		float3 p1 = shadowRaySample.samplePoint;
+		bool shadowRayVisible = ShadowRayVisibilityTest(p0, p1, isect.normal);
+		if (shadowRayVisible)
+		{
+			PathRadiance pathRadiance = pathRadiances[pixelIndex];
+			ShadowRay shadowRay = (ShadowRay)0;
+			//shadowRay.lightIndex = asfloat(lightIndex);
+			shadowRay.radiance = shadowRaySample.Li;
+			//shadowRay.lightPdf = shadowRaySample.lightPdf;
+			//shadowRay.throughput = pathRadiance.beta;
+			ShadowRays[pixelIndex] = shadowRay;
 
+			uint index;
+			InterlockedAdd(_RayQueueSizeBuffer[SHADOW_RAY_QUEUE_INDEX], 1, index);
+			_ShadowRayQueue[index] = pixelIndex;
+		}
+	}
+	
 	WriteRNG(pixelIndex, rng);
 }

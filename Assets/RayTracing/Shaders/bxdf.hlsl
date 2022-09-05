@@ -10,6 +10,11 @@
 #define BXDF_SPECULAR 1 << 3
 #define BXDF_GLOSSY 1 << 4
 
+bool IsSpecular(int bxdfFlag)
+{
+    return (bxdfFlag & BXDF_SPECULAR) > 0;
+}
+
 struct BSDFSample
 {
     float3 reflectance;
@@ -450,6 +455,7 @@ struct BxDFMicrofacetTransmission
     {
         //https://www.cs.cornell.edu/~srm/publications/EGSR07-btdf.pdf
         //formular (21)
+        pdf = 0;
 
         if (SameHemisphere(wo, wi)) 
             return 0;  

@@ -15,20 +15,26 @@ public class WavefrontKernel : TracingKernel
     GPUFilterData gpuFilterData;
 
     ComputeShader generateRay;
+    ComputeShader ResetRayQueues;
     ComputeShader RayTravel;
     ComputeShader InitRandom;
     ComputeShader RayMiss;
+    ComputeShader HitAreaLight;
     ComputeShader RayQueueClear;
-    ComputeShader SampleShadowRay;
+    //ComputeShader SampleShadowRay;
     ComputeShader EstimateDirect;
+    ComputeShader ShadowRayLighting;
     ComputeShader ImageReconstruction;
     ComputeShader DebugView;
     int kGeneratePrimaryRay = -1;
+    int kResetRayQueues = -1;
     int kRayTraversal = -1;
     int kRayMiss = -1;
+    int kHitAreaLight = -1;
     int kInitRandom = -1;
-    int kSampleShadowRay = -1;
+    //int kSampleShadowRay = -1;
     int kEstimateDirect = -1;
+    int kShadowRayLighting = -1;
     int kRayQueueClear = -1;
     int kImageReconstruction = -1;
     int kDebugView = -1;
@@ -36,17 +42,27 @@ public class WavefrontKernel : TracingKernel
     private CommandBuffer renderGBufferCmd;
     public float _Exposure = 1;
 
-    ComputeBuffer rayBuffer;
+    //ComputeBuffer rayBuffer;
+    ComputeBuffer workItemBuffer;
     ComputeBuffer samplerBuffer;
     ComputeBuffer pathRadianceBuffer;
 
-    ComputeBuffer shadowRayBuffer;
+    //ComputeBuffer shadowRayBuffer;
     RenderTexture imageSpectrumsBuffer;
 
 
     ComputeBuffer rayQueueSizeBuffer;
     ComputeBuffer rayQueueBuffer;
     ComputeBuffer nextRayQueueBuffer;
+    ComputeBuffer escapeRayQueueBuffer;
+    ComputeBuffer hitLightQueueBuffer;
+    ComputeBuffer materialShadingQueueBuffer;
+    ComputeBuffer shadowRayQueueBuffer;
+
+    ComputeBuffer escapeRayItemBuffer;
+    ComputeBuffer hitLightItemBuffer;
+    ComputeBuffer materialShadingItemBuffer;
+    ComputeBuffer shadowRayItemBuffer;
 
     RenderTexture outputTexture;
     RenderTexture rayConeGBuffer;
@@ -73,16 +89,26 @@ public class WavefrontKernel : TracingKernel
 
     private MeshRenderer[] meshRenderers = null;
 
+    const int WorkItemSize = 64;
+    const int EscapeQueueItemSize = 64;
+    const int HitLightItemSize = 80;
+    const int MaterialQueueItemSize = 48;
+    const int ShadowRayItemSize = 48;
+
     public WavefrontKernel(WavefrontResource resource)
     {
         generateRay = resource.generateRay;
         RayTravel = resource.RayTravel;
         InitRandom = resource.InitRandom;
-        SampleShadowRay = resource.SampleShadowRay;
+        ResetRayQueues = resource.ResetRayQueues;
+        RayMiss = resource.RayMiss;
+        HitAreaLight = resource.HitAreaLight;
+        //SampleShadowRay = resource.SampleShadowRay;
         EstimateDirect = resource.EstimateDirect;
+        ShadowRayLighting = resource.ShadowRayLighting;
         ImageReconstruction = resource.ImageReconstruction;
         DebugView = resource.DebugView;
-        RayMiss = resource.RayMiss;
+        
         RayQueueClear = resource.RayQueueClear;
     }
 
@@ -126,19 +152,30 @@ public class WavefrontKernel : TracingKernel
 
         SetupSamplers();
 
+        SetupGPUBuffers();
+
         //generate ray
         //init the camera parameters
         Profiler.BeginSample("SetupGenerateRay");
         SetupGenerateRay(camera);
         Profiler.EndSample();
 
+        Profiler.BeginSample("SetupResetRayQueues");
+        SetupResetRayQueues();
+        Profiler.EndSample();
+
         Profiler.BeginSample("SetupRayTraversal");
         SetupRayTraversal();
         Profiler.EndSample();
 
-        Profiler.BeginSample("SetupEstimateNextEvent");
-        SetupEstimateNextEvent();
+        SetupRayMiss();
+        SetupHitAreaLight();
+
+        Profiler.BeginSample("SetupEstimateDirect");
+        SetupEstimateDirect();
         Profiler.EndSample();
+
+        SetupShadowRayLighting();
 
         //SetupGeneratePath();
         Profiler.BeginSample("SetupImageReconstruction");
@@ -206,12 +243,20 @@ public class WavefrontKernel : TracingKernel
         ReleaseRenderTexture(imageSpectrumsBuffer);
 
         ReleaseComputeBuffer(samplerBuffer);
-        ReleaseComputeBuffer(rayBuffer);
+        ReleaseComputeBuffer(workItemBuffer);
         ReleaseComputeBuffer(pathRadianceBuffer);
-        ReleaseComputeBuffer(shadowRayBuffer);
+        //ReleaseComputeBuffer(shadowRayBuffer);
         ReleaseComputeBuffer(rayQueueSizeBuffer);
         ReleaseComputeBuffer(rayQueueBuffer);
         ReleaseComputeBuffer(nextRayQueueBuffer);
+        ReleaseComputeBuffer(escapeRayQueueBuffer);
+        ReleaseComputeBuffer(hitLightQueueBuffer);
+        ReleaseComputeBuffer(materialShadingQueueBuffer);
+        ReleaseComputeBuffer(shadowRayQueueBuffer);
+        ReleaseComputeBuffer(escapeRayItemBuffer);
+        ReleaseComputeBuffer(hitLightItemBuffer);
+        ReleaseComputeBuffer(materialShadingItemBuffer);
+        ReleaseComputeBuffer(shadowRayItemBuffer);
     }
 
     public void Update(Camera camera)
@@ -257,59 +302,81 @@ public class WavefrontKernel : TracingKernel
         ComputeBuffer curRayQueue = rayQueueBuffer;
         ComputeBuffer nextRayQueue = nextRayQueueBuffer;
 
-        //for (int y = 0; y < rasterHeight; y += 8)
+        void SwitchRayQueue()
         {
-            if (_rayTracingData.viewMode == RaytracingData.TracingView.ColorView)
+            ComputeBuffer tmpBuffer = nextRayQueue;
+            nextRayQueue = curRayQueue;
+            curRayQueue = tmpBuffer;
+            int tmpIndex = nextRaySizeIndex;
+            nextRaySizeIndex = curRaySizeIndex;
+            curRaySizeIndex = tmpIndex;
+        }
+
+        ResetRayQueues.Dispatch(kResetRayQueues, 1, 1, 1);
+        if (_rayTracingData.viewMode == RaytracingData.TracingView.ColorView)
+        {
+            for (int i = 0; true; ++i)
             {
-                for (int i = 0; i < MAX_PATH; ++i)
-                {
-                    RayTravel.SetFloat("_time", Time.time);
-                    RayTravel.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
+                ResetQueues(nextRaySizeIndex);
 
-                    RayTravel.SetInt("bounces", i);
-                    RayTravel.SetInt("curQueueSizeIndex", curRaySizeIndex);
-                    RayTravel.SetBuffer(kRayTraversal, "_RayQueue", curRayQueue);
-                    RayTravel.Dispatch(kRayTraversal, threadGroupX, threadGroupY, 1);
+                RayTravel.SetInt("bounces", i);
+                RayTravel.SetInt("curQueueSizeIndex", curRaySizeIndex);
+                RayTravel.SetBuffer(kRayTraversal, "_RayQueue", curRayQueue);
+                RayTravel.Dispatch(kRayTraversal, threadGroupX, threadGroupY, 1);
 
-                    SampleShadowRay.SetInt("bounces", i);
-                    SampleShadowRay.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
-                    SampleShadowRay.SetInt("curQueueSizeIndex", curRaySizeIndex);
-                    SampleShadowRay.SetBuffer(kSampleShadowRay, "_RayQueue", curRayQueue);
-                    SampleShadowRay.Dispatch(kSampleShadowRay, threadGroupX, threadGroupY, 1);
+                RayMiss.SetInt("bounces", i);
+                RayMiss.Dispatch(kRayMiss, threadGroupX, threadGroupY, 1);
 
-                    EstimateDirect.SetInt("bounces", i);
-                    EstimateDirect.SetInt("curQueueSizeIndex", curRaySizeIndex);
-                    EstimateDirect.SetInt("nextQueueSizeIndex", nextRaySizeIndex);
-                    EstimateDirect.SetBuffer(kEstimateDirect, "_RayQueue", curRayQueue);
-                    EstimateDirect.SetBuffer(kEstimateDirect, "_NextRayQueue", nextRayQueue);
-                    EstimateDirect.Dispatch(kEstimateDirect, threadGroupX, threadGroupY, 1);
+                //HitAreaLight.SetInt("bounces", i);
+                HitAreaLight.Dispatch(kHitAreaLight, threadGroupX, threadGroupY, 1);
 
-                    RayQueueClear.SetInt("curQueueSizeIndex", curRaySizeIndex);
-                    RayQueueClear.Dispatch(kRayQueueClear, 1, 1, 1);
+                if (i == MAX_PATH)
+                    break;
 
-                    ComputeBuffer tmpBuffer = nextRayQueue;
-                    nextRayQueue = curRayQueue;
-                    curRayQueue = tmpBuffer;
-                    int tmpIndex = nextRaySizeIndex;
-                    nextRaySizeIndex = curRaySizeIndex;
-                    curRaySizeIndex = tmpIndex;
-                }
+                //SampleShadowRay.SetInt("bounces", i);
+                //SampleShadowRay.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
+                //SampleShadowRay.SetInt("curQueueSizeIndex", curRaySizeIndex);
+                //SampleShadowRay.SetBuffer(kSampleShadowRay, "_RayQueue", curRayQueue);
+                //SampleShadowRay.Dispatch(kSampleShadowRay, threadGroupX, threadGroupY, 1);
 
-                ImageReconstruction.SetInt("framesNum", framesNum);
-                ImageReconstruction.SetFloat("_Exposure", _Exposure);
-                ImageReconstruction.Dispatch(kImageReconstruction, threadGroupX, threadGroupY, 1);
+                EstimateDirect.SetInt("bounces", i);
+                //EstimateDirect.SetInt("curQueueSizeIndex", curRaySizeIndex);
+                EstimateDirect.SetInt("nextQueueSizeIndex", nextRaySizeIndex);
+                EstimateDirect.SetBuffer(kEstimateDirect, "_NextRayQueue", nextRayQueue);
+                EstimateDirect.Dispatch(kEstimateDirect, threadGroupX, threadGroupY, 1);
+
+                //ShadowRayLighting.SetInt("bounces", i);
+                ShadowRayLighting.Dispatch(kShadowRayLighting, threadGroupX, threadGroupY, 1);
+                //clear shadow ray queue
+                SwitchRayQueue();
             }
-            else
-            {
-                if (kDebugView < 0)
-                    SetupDebugView(camera);
 
-                DebugView.SetInt("debugView", (int)_rayTracingData.viewMode);
-                DebugView.SetInt("bounces", 0);
+            ImageReconstruction.SetInt("framesNum", framesNum);
+            ImageReconstruction.SetFloat("_Exposure", _Exposure);
+            ImageReconstruction.Dispatch(kImageReconstruction, threadGroupX, threadGroupY, 1);
+        }
+        else
+        {
+            if (kDebugView < 0)
+                SetupDebugView(camera);
 
-                DebugView.Dispatch(kDebugView, Screen.width / 8 + 1, Screen.height / 8 + 1, 1);
+            DebugView.SetInt("debugView", (int)_rayTracingData.viewMode);
+            DebugView.SetInt("bounces", 0);
+
+            DebugView.Dispatch(kDebugView, threadGroupX, threadGroupY, 1);
                 
-            }
+        }
+    }
+
+    private void ResetQueues(int nextRaySizeIndex)
+    {
+        //we must clear the next queue before using it
+        RayQueueClear.SetInt("clearQueueIndex", nextRaySizeIndex);
+        RayQueueClear.Dispatch(kRayQueueClear, 1, 1, 1);
+        for (int i = 2; i < 6; ++i)
+        {
+            RayQueueClear.SetInt("clearQueueIndex", i);
+            RayQueueClear.Dispatch(kRayQueueClear, 1, 1, 1);
         }
     }
 
@@ -380,18 +447,16 @@ public class WavefrontKernel : TracingKernel
         //samplerBuffer.GetData(gpuRandomSamplers);
     }
 
-    void SetupGenerateRay(Camera camera)
+    void SetupGPUBuffers()
     {
-        //generate ray
-        float rasterWidth = Screen.width;
-        float rasterHeight = Screen.height;
-        //init the camera parameters
+        //if (rayBuffer == null)
+        //{
+        //    rayBuffer = new ComputeBuffer(Screen.width * Screen.height, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPURay)), ComputeBufferType.Structured);
+        //}
 
-        kGeneratePrimaryRay = generateRay.FindKernel("GeneratePrimary");
-
-        if (rayBuffer == null)
+        if (workItemBuffer == null)
         {
-            rayBuffer = new ComputeBuffer(Screen.width * Screen.height, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPURay)), ComputeBufferType.Structured);
+            workItemBuffer = new ComputeBuffer(Screen.width * Screen.height, WorkItemSize, ComputeBufferType.Structured);
         }
 
         if (pathRadianceBuffer == null)
@@ -409,46 +474,117 @@ public class WavefrontKernel : TracingKernel
             rayQueueSizeBuffer = new ComputeBuffer(RayQueueSizeArray.Length, sizeof(uint), ComputeBufferType.Structured);
         }
 
+        if (nextRayQueueBuffer == null)
+        {
+            nextRayQueueBuffer = new ComputeBuffer(Screen.width * Screen.height, sizeof(int), ComputeBufferType.Structured);
+        }
 
-        generateRay.SetBuffer(kGeneratePrimaryRay, "Rays", rayBuffer);
+        if (escapeRayQueueBuffer == null)
+        {
+            escapeRayQueueBuffer = new ComputeBuffer(Screen.width * Screen.height, sizeof(int), ComputeBufferType.Default);
+        }
+
+        if (hitLightQueueBuffer == null)
+        {
+            hitLightQueueBuffer = new ComputeBuffer(Screen.width * Screen.height, sizeof(int), ComputeBufferType.Default);
+        }
+
+        if (materialShadingQueueBuffer == null)
+        {
+            materialShadingQueueBuffer = new ComputeBuffer(Screen.width * Screen.height, sizeof(uint), ComputeBufferType.Default);
+        }
+
+        if (shadowRayQueueBuffer == null)
+        {
+            shadowRayQueueBuffer = new ComputeBuffer(Screen.width * Screen.height, sizeof(uint), ComputeBufferType.Default);
+        }
+
+        if (escapeRayItemBuffer == null)
+        {
+            escapeRayItemBuffer = new ComputeBuffer(Screen.width * Screen.height, EscapeQueueItemSize, ComputeBufferType.Default);
+        }
+
+        if (hitLightItemBuffer == null)
+        {
+            hitLightItemBuffer = new ComputeBuffer(Screen.width * Screen.height, HitLightItemSize, ComputeBufferType.Default);
+        }
+
+        if (materialShadingItemBuffer == null)
+        {
+            materialShadingItemBuffer = new ComputeBuffer(Screen.width * Screen.height, MaterialQueueItemSize, ComputeBufferType.Default);
+        }
+
+        if (shadowRayItemBuffer == null)
+        {
+            shadowRayItemBuffer = new ComputeBuffer(Screen.width * Screen.height, ShadowRayItemSize, ComputeBufferType.Default);
+        }
+    }
+
+    void SetupGenerateRay(Camera camera)
+    {
+        //generate ray
+        float rasterWidth = Screen.width;
+        float rasterHeight = Screen.height;
+        //init the camera parameters
+
+        kGeneratePrimaryRay = generateRay.FindKernel("GeneratePrimary");
+
+        //generateRay.SetBuffer(kGeneratePrimaryRay, "Rays", rayBuffer);
         generateRay.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
         generateRay.SetMatrix("RasterToCamera", gpuSceneData.RasterToCamera);
         generateRay.SetMatrix("CameraToWorld", camera.cameraToWorldMatrix);
         generateRay.SetFloat("_time", Time.time);
         generateRay.SetBuffer(kGeneratePrimaryRay, "RNGs", samplerBuffer);
         generateRay.SetBuffer(kGeneratePrimaryRay, "pathRadiances", pathRadianceBuffer);
+        generateRay.SetBuffer(kGeneratePrimaryRay, "_WorkQueueItems", workItemBuffer);
         gpuFilterData.SetComputeShaderGPUData(generateRay, kGeneratePrimaryRay);
         //generateRay.SetBuffer(kGeneratePrimaryRay, "_RayQueueSizeBuffer", rayQueueSizeBuffer);
-        //generateRay.SetBuffer(kGeneratePrimaryRay, "_RayQueue", rayQueueBuffer);
+        generateRay.SetBuffer(kGeneratePrimaryRay, "_RayQueue", rayQueueBuffer);
     }
 
-    void SetupEstimateNextEvent()
+    void SetupResetRayQueues()
     {
-        if (shadowRayBuffer == null)
-        {
-            shadowRayBuffer = new ComputeBuffer(Screen.width * Screen.height, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUShadowRay)), ComputeBufferType.Default);
-        }
+        float rasterWidth = Screen.width;
+        float rasterHeight = Screen.height;
 
-        if (nextRayQueueBuffer == null)
-        {
-            nextRayQueueBuffer = new ComputeBuffer(Screen.width * Screen.height, sizeof(int), ComputeBufferType.Structured);
-        }
+        kResetRayQueues = ResetRayQueues.FindKernel("CSMain");
+        ResetRayQueues.SetBuffer(kResetRayQueues, "_RayQueueSizeBuffer", rayQueueSizeBuffer);
+        ResetRayQueues.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
+    }
 
-        kSampleShadowRay = SampleShadowRay.FindKernel("CSMain");
-        gpuSceneData.SetComputeShaderGPUData(SampleShadowRay, kSampleShadowRay);
+    void SetupRayMiss()
+    {
+        float rasterWidth = Screen.width;
+        float rasterHeight = Screen.height;
 
-        SampleShadowRay.SetBuffer(kSampleShadowRay, "ShadowRays", shadowRayBuffer);
-        SampleShadowRay.SetBuffer(kSampleShadowRay, "RNGs", samplerBuffer);
+        kRayMiss = RayMiss.FindKernel("CSMain");
+        RayMiss.SetBuffer(kRayMiss, "_RayQueueSizeBuffer", rayQueueSizeBuffer);
+        RayMiss.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
+        RayMiss.SetBuffer(kRayMiss, "_EscapeRayItems", escapeRayItemBuffer);
+        RayMiss.SetBuffer(kRayMiss, "_RayMissQueue", escapeRayQueueBuffer);
+        RayMiss.SetBuffer(kRayMiss, "pathRadiances", pathRadianceBuffer);
+        gpuSceneData.SetComputeShaderGPUData(RayMiss, kRayMiss);
+    }
 
-        SetComputeBuffer(SampleShadowRay, kSampleShadowRay, "_RayQueueSizeBuffer", rayQueueSizeBuffer);
-        SetComputeBuffer(SampleShadowRay, kSampleShadowRay, "_RayQueue", rayQueueBuffer);
-        SampleShadowRay.SetVector("rasterSize", new Vector4(Screen.width, Screen.height, 0, 0));
-        //SampleShadowRay.SetMatrix("WorldToRaster", WorldToRaster);
-        SetTextures(SampleShadowRay, kSampleShadowRay);
+    void SetupHitAreaLight()
+    {
+        float rasterWidth = Screen.width;
+        float rasterHeight = Screen.height;
 
+        kHitAreaLight = RayMiss.FindKernel("CSMain");
+        HitAreaLight.SetBuffer(kHitAreaLight, "_RayQueueSizeBuffer", rayQueueSizeBuffer);
+        HitAreaLight.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
+        HitAreaLight.SetBuffer(kHitAreaLight, "_HitLightQueueItems", hitLightItemBuffer);
+        HitAreaLight.SetBuffer(kHitAreaLight, "_HitLightQueue", hitLightQueueBuffer);
+        HitAreaLight.SetBuffer(kHitAreaLight, "pathRadiances", pathRadianceBuffer);
+        gpuSceneData.SetComputeShaderGPUData(HitAreaLight, kHitAreaLight);
+    }
+
+    void SetupEstimateDirect()
+    {
         kEstimateDirect = EstimateDirect.FindKernel("CSMain");
         gpuSceneData.SetComputeShaderGPUData(EstimateDirect, kEstimateDirect);
-        EstimateDirect.SetBuffer(kEstimateDirect, "ShadowRays", shadowRayBuffer);
+        //EstimateDirect.SetBuffer(kEstimateDirect, "ShadowRays", shadowRayBuffer);
         //SetComputeBuffer(EstimateDirect, kEstimateDirect, "Rays", rayBuffer);
     
         EstimateDirect.SetBuffer(kEstimateDirect, "RNGs", samplerBuffer);
@@ -456,12 +592,27 @@ public class WavefrontKernel : TracingKernel
         SetComputeBuffer(EstimateDirect, kEstimateDirect, "_RayQueueSizeBuffer", rayQueueSizeBuffer);
         SetComputeBuffer(EstimateDirect, kEstimateDirect, "_RayQueue", rayQueueBuffer);
         SetComputeBuffer(EstimateDirect, kEstimateDirect, "_NextRayQueue", nextRayQueueBuffer);
+        SetComputeBuffer(EstimateDirect, kEstimateDirect, "_MaterialQueueItem", materialShadingItemBuffer);
+        SetComputeBuffer(EstimateDirect, kEstimateDirect, "_MaterialShadingQueue", materialShadingQueueBuffer);
+        SetComputeBuffer(EstimateDirect, kEstimateDirect, "_ShadowRayQueue", shadowRayQueueBuffer);
+        SetComputeBuffer(EstimateDirect, kEstimateDirect, "_ShadowRayQueueItems", shadowRayItemBuffer);
+        SetComputeBuffer(EstimateDirect, kRayTraversal, "_WorkQueueItems", workItemBuffer);
         EstimateDirect.SetVector("rasterSize", new Vector4(Screen.width, Screen.height, 0, 0));
         //EstimateDirect.SetMatrix("WorldToRaster", WorldToRaster);
         SetTextures(EstimateDirect, kEstimateDirect);
         EstimateDirect.SetInt("MIN_DEPTH", _rayTracingData.MinDepth);
     }
 
+    void SetupShadowRayLighting()
+    {
+        kShadowRayLighting = ShadowRayLighting.FindKernel("CSMain");
+        gpuSceneData.SetComputeShaderGPUData(ShadowRayLighting, kShadowRayLighting);
+        SetComputeBuffer(ShadowRayLighting, kShadowRayLighting, "pathRadiances", pathRadianceBuffer);
+        SetComputeBuffer(ShadowRayLighting, kShadowRayLighting, "_RayQueueSizeBuffer", rayQueueSizeBuffer);
+        SetComputeBuffer(ShadowRayLighting, kShadowRayLighting, "_ShadowRayQueue", shadowRayQueueBuffer);
+        SetComputeBuffer(ShadowRayLighting, kShadowRayLighting, "_ShadowRayQueueItems", shadowRayItemBuffer);
+        ShadowRayLighting.SetVector("rasterSize", new Vector4(Screen.width, Screen.height, 0, 0));
+    }
 
     void SetupImageReconstruction()
     {
@@ -510,7 +661,7 @@ public class WavefrontKernel : TracingKernel
         float rasterHeight = Screen.height;
         kDebugView = DebugView.FindKernel("CSMain");
         gpuSceneData.SetComputeShaderGPUData(DebugView, kDebugView);
-        DebugView.SetBuffer(kDebugView, "Rays", rayBuffer);
+        DebugView.SetBuffer(kDebugView, "_WorkQueueItems", workItemBuffer);
         DebugView.SetBuffer(kDebugView, "RNGs", samplerBuffer);
         DebugView.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
         
@@ -537,12 +688,20 @@ public class WavefrontKernel : TracingKernel
         kRayTraversal = RayTravel.FindKernel("RayTraversal");
         gpuSceneData.SetComputeShaderGPUData(RayTravel, kRayTraversal);
 
-        RayTravel.SetBuffer(kRayTraversal, "Rays", rayBuffer);
-        RayTravel.SetBuffer(kRayTraversal, "RNGs", samplerBuffer);
-        RayTravel.SetBuffer(kRayTraversal, "pathRadiances", pathRadianceBuffer);
+        RayTravel.SetBuffer(kRayTraversal, "_WorkQueueItems", workItemBuffer);
+        //RayTravel.SetBuffer(kRayTraversal, "RNGs", samplerBuffer);
+        //RayTravel.SetBuffer(kRayTraversal, "pathRadiances", pathRadianceBuffer);
+        RayTravel.SetBuffer(kRayTraversal, "_HitLightQueueItems", hitLightItemBuffer);
+        RayTravel.SetBuffer(kRayTraversal, "_EscapeRayItems", escapeRayItemBuffer);
+        RayTravel.SetBuffer(kRayTraversal, "_MaterialQueueItem", materialShadingItemBuffer);
 
+        //setup rayqueues
         SetComputeBuffer(RayTravel, kRayTraversal, "_RayQueueSizeBuffer", rayQueueSizeBuffer);
         SetComputeBuffer(RayTravel, kRayTraversal, "_RayQueue", rayQueueBuffer);
+        RayTravel.SetBuffer(kRayTraversal, "_NextRayQueue", nextRayQueueBuffer);
+        RayTravel.SetBuffer(kRayTraversal, "_RayMissQueue", escapeRayQueueBuffer);
+        RayTravel.SetBuffer(kRayTraversal, "_HitLightQueue", hitLightQueueBuffer);
+        RayTravel.SetBuffer(kRayTraversal, "_MaterialShadingQueue", materialShadingQueueBuffer);
         RayTravel.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
         //RayTravel.SetFloat("cameraConeSpreadAngle", cameraConeSpreadAngle);
         SetTextures(RayTravel, kRayTraversal);

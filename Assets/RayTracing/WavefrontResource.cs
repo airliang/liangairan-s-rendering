@@ -13,12 +13,18 @@ public class WavefrontResource : ScriptableObject
     public ComputeShader RayTravel;
     [Reload("RayTracing/Shaders/InitSampler.compute")]
     public ComputeShader InitRandom;
+    [Reload("RayTracing/Shaders/ResetRayQueues.compute")]
+    public ComputeShader ResetRayQueues;
     [Reload("RayTracing/Shaders/RayMiss.compute")]
     public ComputeShader RayMiss;
-    [Reload("RayTracing/Shaders/SampleShadowRay.compute")]
-    public ComputeShader SampleShadowRay;
+    [Reload("RayTracing/Shaders/HitAreaLight.compute")]
+    public ComputeShader HitAreaLight;
+    //[Reload("RayTracing/Shaders/SampleShadowRay.compute")]
+    //public ComputeShader SampleShadowRay;
     [Reload("RayTracing/Shaders/EstimateDirect.compute")]
     public ComputeShader EstimateDirect;
+    [Reload("RayTracing/Shaders/ShadowRayLighting.compute")]
+    public ComputeShader ShadowRayLighting;
     [Reload("RayTracing/Shaders/RayQueueClear.compute")]
     public ComputeShader RayQueueClear;
     [Reload("RayTracing/Shaders/ImageReconstruction.compute")]

@@ -16,6 +16,7 @@ public class Raytracing : MonoBehaviour
     public MegaKernelResource megaResource;
     private Camera cameraComponent;
     public Material _BlitMaterial;
+    private int cullingMask = 0;
 
     void Start()
     {
@@ -40,6 +41,9 @@ public class Raytracing : MonoBehaviour
 
             _BlitMaterial.SetInt("_HDRType", (int)_RayTracingData.HDR);
         }
+
+        cullingMask = cameraComponent.cullingMask;
+        cameraComponent.cullingMask = 0;
     }
 
     void Update()
@@ -66,6 +70,7 @@ public class Raytracing : MonoBehaviour
     {
         _RaytracingKernel.Release();
         MeshRenderer[] meshRenderers = GameObject.FindObjectsOfType<MeshRenderer>();
+        cameraComponent.cullingMask = cullingMask;
     }
 
     private void OnRenderImage(RenderTexture source, RenderTexture destination)

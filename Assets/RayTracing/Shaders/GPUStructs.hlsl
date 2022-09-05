@@ -1,6 +1,8 @@
 #ifndef GPUSTRUCTS_HLSL
 #define GPUSTRUCTS_HLSL
 
+
+
 struct MeshInstance
 {
 	float4x4 localToWorld;
@@ -35,7 +37,7 @@ struct Light
 	float  radius;  //for point light
 	float  intensity;
 	float3 radiance;
-	float textureMask;
+	//float textureMask;
 };
 
 struct Material
@@ -89,14 +91,9 @@ struct PathRadiance
 {
 	float3 li; //one path compute li
 	float3 beta;  //one path compute throughput
+	float2 pad;
 };
 
-struct EscapeRayItem
-{
-	float3 orig;
-	float3 direction;
-	float3 throughput;
-};
 
 struct RayCone
 {
@@ -134,7 +131,6 @@ struct Interaction  //64byte
 {
 	float3 p;   //交点
 	float  hitT;
-	//float time;        //应该是相交的ray的参数t
 	float3 wo;
 	float2 uv;
 	float3 normal;
@@ -150,10 +146,10 @@ struct Interaction  //64byte
 	float  uvArea;
 	//int3   vertexIndices;
 	//int    primitive; //intersect with primitives index, -1 represents no intersection
-	bool IsHit()
-	{
-		return hitT > 0;
-	}
+	//bool IsHit()
+	//{
+	//	return hitT > 0;
+	//}
 
 	float3 WorldToLocal(float3 v)
 	{
@@ -170,6 +166,20 @@ struct Interaction  //64byte
 	}
 };
 
+struct ShadowRay
+{
+	float3 p0;   //isect position
+	float3 p1;   //light sample point position
+	float3 radiance;  //light radiance
+	float3 normal;
+	//float  lightSourcePdf;        //Light Radiance pdf
+	//float  lightPdf;   //light sampling pdf
+	//float3  throughput;
+	//float  visibility; //1 is visible, 0 invisible
+	//float  lightIndex;
+};
+
+
 struct PathVertex
 {
 	float3 wi;
@@ -177,6 +187,33 @@ struct PathVertex
 	float  bsdfPdf;
 	Interaction nextISect;
 	int    found;
+};
+
+struct WavefrontPathVertex
+{
+	float  bsdfPdf;
+	float3 bsdfVal;
+	int    bxdfFlag;
+	float3 throughput;
+};
+
+struct RayWorkItem
+{
+	float3 orig;
+	float3 direction;
+	float  tmax;
+	float  tmin;
+	WavefrontPathVertex vertex;
+	int depth;
+};
+
+struct HitInfo
+{
+	int triAddr;
+	int meshInstanceId;
+	int triangleIndexInMesh;
+	float hitT;
+	float2 baryCoord;
 };
 
 RayCone Propagate(RayCone preCone, float surfaceSpreadAngle, float hitT)

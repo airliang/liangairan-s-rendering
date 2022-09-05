@@ -8,7 +8,6 @@
 #define EntrypointSentinel 0x76543210
 
 
-
 int min_min(int a, int b, int c)
 {
 	return min(min(a, b), c);
@@ -50,6 +49,7 @@ bool BoundRayIntersect(in Ray r, in float3 invdir, in float3 bmin, in float3 bma
 	return t1 >= t0;
 }
 
+/*
 bool BoundRayIntersect(Ray ray, float4 bxy, float2 bz, float3 invDir, int3 signs, out float hitTMin)
 {
 	hitTMin = 0;
@@ -88,6 +88,7 @@ bool BoundRayIntersect(Ray ray, float4 bxy, float2 bz, float3 invDir, int3 signs
 	hitTMin = tMin;
 	return (tMin < ray.tmax) && (tMax > 0);
 }
+*/
 
 bool SceneIntersectTest(Ray ray)
 {
@@ -382,9 +383,11 @@ bool IntersectBVHandTriangles(Ray ray, int bvhOffset, out Interaction interactio
 	return hitIndex != -1;
 }
 
-bool IntersectMeshBVH(Ray ray, int bvhOffset, float4x4 objectToWorld, float4x4 worldToObject, int meshIndexStart, out float hitT, out int hitIndex, out Interaction interaction, bool anyHit)
+bool IntersectMeshBVH(Ray ray, int bvhOffset, /*float4x4 objectToWorld, float4x4 worldToObject, out float hitT, out int hitIndex,*/ out HitInfo hitInfo, bool anyHit)
 {
-	interaction = (Interaction)0;
+	//interaction = (Interaction)0;
+	hitInfo = (HitInfo)0;
+	hitInfo.triAddr = -1;
 	int INVALID_INDEX = EntrypointSentinel;
 
 	//GPURay TempRay = new GPURay();
@@ -398,7 +401,7 @@ bool IntersectMeshBVH(Ray ray, int bvhOffset, float4x4 objectToWorld, float4x4 w
 	float3 rayOrig = ray.orig;
 	float3 rayDir = ray.direction;
 	float tmin = ray.tmin;
-	hitT = ray.tmax;
+	float hitT = ray.tmax;
 
 	float ooeps = pow(2, -80.0f);//exp2f(-80.0f); // Avoid div by zero, returns 1/2^80, an extremely small number
 
@@ -414,7 +417,7 @@ bool IntersectMeshBVH(Ray ray, int bvhOffset, float4x4 objectToWorld, float4x4 w
 	signZ = signZ < 0 ? 1 : 0;
 	int3 signs = int3(signX, signY, signZ);
 	int stackIndex = 0;
-	hitIndex = -1;
+	int hitIndex = -1;
 
 	while (nodeAddr != INVALID_INDEX)
 	{
@@ -515,7 +518,13 @@ bool IntersectMeshBVH(Ray ray, int bvhOffset, float4x4 objectToWorld, float4x4 w
 				if (hitTriangle && (hitT > triangleHit/* && triangleHit >= tmin*/))
 				{
 					hitT = triangleHit;
+					hitInfo.hitT = hitT;
+					hitInfo.triAddr = triAddr;
+					hitInfo.baryCoord = uv;
+					hitInfo.triangleIndexInMesh = triangleIndex;
 					hitIndex = triAddr;
+					
+					/*
 					int vertexIndex0 = WoodTriangleIndices[triAddr];
 					int vertexIndex1 = WoodTriangleIndices[triAddr + 1];
 					int vertexIndex2 = WoodTriangleIndices[triAddr + 2];
@@ -541,16 +550,6 @@ bool IntersectMeshBVH(Ray ray, int bvhOffset, float4x4 objectToWorld, float4x4 w
 					normal = normalize(normal0 * uv.x + normal1 * uv.y + normal2 * (1.0 - uv.x - uv.y));
 
 					float3 worldNormal = normalize(mul(normal, (float3x3)worldToObject));
-
-					//float4 v0World = mul(objectToWorld, float4(v0.xyz, 1));
-					//float4 v1World = mul(objectToWorld, float4(v1.xyz, 1));
-					//float4 v2World = mul(objectToWorld, float4(v2.xyz, 1));
-
-					//worldNormal = normalize(cross(v1World.xyz - v0World.xyz, v2World.xyz - v0World.xyz));
-
-					//hitPos.xyz = offset_ray(hitPos.xyz, worldNormal);
-					//hitPos.w = hitT;
-					//materialIndex = v0.w;
 
 					const float2 uv0 = vertex0.uv;
 					const float2 uv1 = vertex1.uv;
@@ -589,28 +588,8 @@ bool IntersectMeshBVH(Ray ray, int bvhOffset, float4x4 objectToWorld, float4x4 w
 					v1Screen /= v1Screen.w;
 					v2Screen /= v2Screen.w;
 					interaction.screenSpaceArea = length(cross(v2Screen.xyz - v0Screen.xyz, v1Screen.xyz - v0Screen.xyz));
-					//º∆À„«–œﬂ
-					/*
-					float3 dp02 = v0.xyz - v2.xyz;
-					float3 dp12 = v1.xyz - v2.xyz;
-					float2 duv02 = uv0.xy - uv2.xy;
-					float2 duv12 = uv1.xy - uv2.xy;
-					float determinant = duv02[0] * duv12[1] - duv02[1] * duv12[0];
-					bool degenerateUV = abs(determinant) < 1e-8;
-					if (!degenerateUV)
-					{
-						float invdet = 1.0 / determinant;
-						interaction.dpdu.xyz = (duv12[1] * dp02 - duv02[1] * dp12) * invdet;
-						interaction.dpdv.xyz = (-duv12[0] * dp02 + duv02[0] * dp12) * invdet;
-					}
-					else
-					{
-						CoordinateSystem(normal, interaction.dpdu.xyz, interaction.dpdv.xyz);
-					}
-
-					interaction.tangent.xyz = normalize(interaction.dpdu.xyz);
-					interaction.bitangent.xyz = normalize(cross(interaction.tangent.xyz, normal));
 					*/
+
 					if (anyHit)
 						return true;
 				}
@@ -631,10 +610,10 @@ bool IntersectMeshBVH(Ray ray, int bvhOffset, float4x4 objectToWorld, float4x4 w
 }
 
 //bvhOffset x-left child bvh offset y-right child bvh offset
-bool IntersectBVH(Ray ray, out Interaction interaction, bool anyHit)
+bool IntersectBVH(Ray ray, out HitInfo hitInfo, bool anyHit)
 {
-	interaction = (Interaction)0;
-	Interaction tmpInteraction;
+	//interaction = (Interaction)0;
+	//Interaction tmpInteraction;
 	float3 rayOrig = ray.orig;
 	float3 rayDir = ray.direction;
 	int traversalStack[STACK_SIZE];
@@ -677,17 +656,21 @@ bool IntersectBVH(Ray ray, out Interaction interaction, bool anyHit)
 		//invDir = GetInverseDirection(ray.direction);
 		float bvhHit = hitT;
 		int meshHitTriangleIndex = -1;
-		if (IntersectMeshBVH(rayTemp, 0, meshInstance.localToWorld, meshInstance.worldToLocal, meshInstance.triangleStartOffset, bvhHit, meshHitTriangleIndex, tmpInteraction, anyHit))
+		
+		hitInfo.triAddr = -1;
+		hitInfo.hitT = hitT;
+		if (IntersectMeshBVH(rayTemp, 0, /*meshInstance.localToWorld, meshInstance.worldToLocal, bvhHit, meshHitTriangleIndex,*/ hitInfo, anyHit))
 		{
-			if (bvhHit < hitT)
+			if (hitInfo.hitT < hitT)
 			{
-				hitT = bvhHit;
-				hitIndex = meshHitTriangleIndex;
-				tmpInteraction.materialID = meshInstance.GetMaterialID();
-				tmpInteraction.meshInstanceID = 0;
-				tmpInteraction.wo.xyz = -ray.direction;
 				hitBVHNode == 0;
-				interaction = tmpInteraction;
+				hitT = hitInfo.hitT;
+				hitIndex = hitInfo.triAddr;
+				hitInfo.meshInstanceId = 0;
+				//tmpInteraction.materialID = meshInstance.GetMaterialID();
+				//tmpInteraction.meshInstanceID = 0;
+				//tmpInteraction.wo.xyz = -ray.direction;
+				//interaction = tmpInteraction;
 			}
 		}
 	}
@@ -789,19 +772,25 @@ bool IntersectBVH(Ray ray, out Interaction interaction, bool anyHit)
 					MeshInstance meshInstance = MeshInstances[nextMeshInstanceIds[i]];
 					Ray rayTemp = TransformRay(meshInstance.worldToLocal, ray);
 					//invDir = GetInverseDirection(ray.direction);
-					float bvhHit = hitT;
+					//float bvhHit = hitT;
 					int meshHitTriangleIndex = -1;
-					if (IntersectMeshBVH(rayTemp, next[i], meshInstance.localToWorld, meshInstance.worldToLocal, meshInstance.triangleStartOffset, bvhHit, meshHitTriangleIndex, tmpInteraction, anyHit))
+					HitInfo tmpHitInfo = (HitInfo)0;
+					//tmpHitInfo.hitT = hitT;
+					tmpHitInfo.triAddr = -1;
+					
+					if (IntersectMeshBVH(rayTemp, next[i], tmpHitInfo, anyHit))
 					{
-						if (bvhHit < hitT)
+						if (tmpHitInfo.hitT < hitT)
 						{
-							tmpInteraction.materialID = meshInstance.GetMaterialID();
-							tmpInteraction.meshInstanceID = nextMeshInstanceIds[i];
-							tmpInteraction.wo.xyz = -ray.direction;
-							hitT = bvhHit;
-							hitIndex = meshHitTriangleIndex;
+							//tmpInteraction.materialID = meshInstance.GetMaterialID();
+							//tmpInteraction.meshInstanceID = nextMeshInstanceIds[i];
+							//tmpInteraction.wo.xyz = -ray.direction;
+							tmpHitInfo.meshInstanceId = nextMeshInstanceIds[i];
+							hitT = tmpHitInfo.hitT;
+							hitIndex = tmpHitInfo.triAddr;
 							hitBVHNode = next[i];
-							interaction = tmpInteraction;
+							//interaction = tmpInteraction;
+							hitInfo = tmpHitInfo;
 
 							if (anyHit)
 								return true;
@@ -815,62 +804,30 @@ bool IntersectBVH(Ray ray, out Interaction interaction, bool anyHit)
 }
 
 
-bool ClosestHit(Ray ray, out Interaction interaction)
+bool ClosestHit(Ray ray, out HitInfo hitInfo)
 {
-	bool hitted = true;
-	while (true)
-	{
-		hitted = IntersectBVH(ray, interaction, false);
-		if (!hitted)
-			break;
-		else
-		{
-			if (interaction.materialID == -1)
-			{
-				ray = SpawnRay(interaction.p, ray.direction, -interaction.normal, FLT_MAX);
-			}
-			else
-			{
-				//alphatest check must be implemented
-				break;
-			}
-		}
-	}
-	
-	return hitted;
+	hitInfo = (HitInfo)0;
+	//interaction = (Interaction)0;
+	return IntersectBVH(ray, hitInfo, false);
 }
 
-bool AnyHit(Ray ray, out Interaction interaction)
+bool AnyHit(Ray ray)
 {
-	bool hitted = true;
-	while (true)
-	{
-		hitted = IntersectBVH(ray, interaction, true);
-		if (!hitted)
-			break;
-		else
-		{
-			if (interaction.materialID == -1)
-			{
-				ray = SpawnRay(interaction.p, ray.direction, -interaction.normal, FLT_MAX);
-			}
-			else
-			{
-				//alphatest check must be implemented
-				break;
-			}
-		}
-	}
+	//bool hitted = true;
+	HitInfo hitInfo = (HitInfo)0;
 
-	return hitted;
+	return IntersectBVH(ray, hitInfo, true);
+
+	//return hitted;
 }
+
+
 
 
 bool ShadowRayVisibilityTest(float3 p0, float3 p1, float3 normal)
 {
 	Ray ray = SpawnRay(p0, p1 - p0, normal, 1.0 - ShadowEpsilon);
-	Interaction isect = (Interaction)0;
-	return !AnyHit(ray, isect);
+	return !AnyHit(ray);
 
 	//!IntersectP(ray, hitT, meshInstanceIndex);
 }

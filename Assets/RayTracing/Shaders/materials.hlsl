@@ -25,7 +25,14 @@
 #define GET_TEXTUREARRAY_ID(x) (((x) & 0x0000ff00) >> 8)
 #define GET_TEXTUREARRAY_INDEX(x) ((x) & 0x000000ff)
 
-
+struct TextureSampleInfo
+{
+	float cosine;
+	float coneWidth;
+	float screenSpaceArea;
+	float uvArea;
+	float2 uv;
+};
 
 //Texture2DArray albedoTexArray128;
 //Texture2DArray albedoTexArray256;
@@ -54,55 +61,24 @@ float4 SampleGlossySpecularTexture(float2 uv, int texIndex, float mipmapLevel)
 	return glossySpecularTexArray.SampleLevel(Albedo_linear_repeat_sampler, float3(uv, texIndex), mipmapLevel);
 }
 
-float GetTriangleLODConstant(Interaction isect)
+float GetTriangleLODConstant(float screenSpaceArea, float uvArea)
 {
-	/*
-	Vertex vertex0 = Vertices[isect.vertexIndices.x];
-	Vertex vertex1 = Vertices[isect.vertexIndices.y];
-	Vertex vertex2 = Vertices[isect.vertexIndices.z];
-	const float4 v0 = vertex0.position;
-	const float4 v1 = vertex1.position;
-	const float4 v2 = vertex2.position;
-
-	const float2 uv0 = vertex0.uv;
-	const float2 uv1 = vertex1.uv;
-	const float2 uv2 = vertex2.uv;
-	
-	MeshInstance meshInstance = MeshInstances[isect.meshInstanceID];
-	float4x4 objectToWorld = meshInstance.localToWorld;
-
-	float4 v0World = mul(objectToWorld, float4(v0.xyz, 1));
-	float4 v1World = mul(objectToWorld, float4(v1.xyz, 1));
-	float4 v2World = mul(objectToWorld, float4(v2.xyz, 1));
-
-	float4 v0Screen = mul(WorldToRaster, v0World);
-	float4 v1Screen = mul(WorldToRaster, v1World);
-	float4 v2Screen = mul(WorldToRaster, v2World);
-	v0Screen /= v0Screen.w;
-	v1Screen /= v1Screen.w;
-	v2Screen /= v2Screen.w;
-
-
-	float P_a = length(cross(v2Screen.xyz - v0Screen.xyz, v1Screen.xyz - v0Screen.xyz)); //ComputeTriangleArea(); // Eq. 5
-	float T_a = 512 * 512 * length(cross(float3(uv2, 1) - float3(uv0, 1), float3(uv1, 1) - float3(uv0, 1))); //ComputeTextureCoordsArea(); // Eq. 4
-	return 0.5 * max(log2(T_a / P_a), 0); // Eq. 3
-	*/
-	float P_a = isect.screenSpaceArea;     // Eq. 5
-	float T_a = isect.uvArea * 512 * 512;  // Eq. 4
+	float P_a = screenSpaceArea;     // Eq. 5
+	float T_a = uvArea * 512 * 512;  // Eq. 4
 	return 0.5 * max(log2(T_a / P_a), 0); // Eq. 3
 }
 
 
-float ComputeTextureLOD(Interaction isect)
+float ComputeTextureLOD(TextureSampleInfo texLod)
 {
-	float lambda = GetTriangleLODConstant(isect);
-	lambda += max(log2(abs(isect.coneWidth)), 0);
+	float lambda = GetTriangleLODConstant(texLod.screenSpaceArea, texLod.uvArea);
+	lambda += max(log2(abs(texLod.coneWidth)), 0);
 	//lambda += 0.5 * log2(512 * 512);
-	lambda -= max(log2(abs(dot(isect.wo, isect.normal))), 0);
+	lambda -= max(log2(abs(texLod.cosine)), 0);
 	return max(lambda, 0);
 }
 
-void UnpackShadingMaterial(Material material, inout ShadingMaterial shadingMaterial, Interaction isect)
+void UnpackShadingMaterial(Material material, inout ShadingMaterial shadingMaterial, TextureSampleInfo texLod)
 {
 	shadingMaterial = (ShadingMaterial)0;
 	//check if using texture
@@ -118,8 +94,9 @@ void UnpackShadingMaterial(Material material, inout ShadingMaterial shadingMater
 		textureIndex = GET_TEXTUREARRAY_INDEX(mask);
 		//textureArrayId = GET_TEXTUREARRAY_ID(mask);
 		//float4 albedo = testTexture.SampleLevel(linearRepeatSampler, uv, mipmapLevel);
-		float mipmapLevel = ComputeTextureLOD(isect);
-		float4 albedo = SampleAlbedoTexture(isect.uv.xy, textureIndex, mipmapLevel);
+		
+		float mipmapLevel = ComputeTextureLOD(texLod);
+		float4 albedo = SampleAlbedoTexture(texLod.uv.xy, textureIndex, mipmapLevel);
 		shadingMaterial.reflectance *= albedo.rgb;
 	}
 	shadingMaterial.specular = material.ks;
@@ -127,31 +104,6 @@ void UnpackShadingMaterial(Material material, inout ShadingMaterial shadingMater
 	shadingMaterial.roughnessV = material.anisotropy;
 	shadingMaterial.k = material.k;
 	shadingMaterial.eta = material.eta;
-
-	//if (material.materialType == Plastic)
-	//{
-	//	shadingMaterial.specular = material.ks;
-	//	shadingMaterial.roughness = material.roughness;
-	//	shadingMaterial.roughnessV = material.anisotropy;
-	//}
-	//else if (material.materialType == Metal)
-	//{
-	//	shadingMaterial.roughness = material.roughness;
-	//	shadingMaterial.roughnessV = material.anisotropy;
-	//	shadingMaterial.eta = material.eta;
-	//	shadingMaterial.k = material.k;
-	//}
-	
-	//mask = asuint(material.metallicMapMask);
-	//if (IS_TEXTURED_PARAM(mask))
-	//{
-	//	textureIndex = GET_TEXTUREARRAY_INDEX(mask);
-	//	float mipmapLevel = ComputeTextureLOD(isect);
-	//	float4 glossyColor = SampleGlossySpecularTexture(isect.uv.xy, textureIndex, mipmapLevel);
-	//	shadingMaterial.specular *= glossyColor.rgb;
-	//}
-
-	//shadingMaterial.metallic = material.metallic;
 }
 
 
@@ -285,7 +237,13 @@ float3 MaterialBRDF(Material material, Interaction isect, float3 wo, float3 wi, 
 	}
 	else
 	{
-		UnpackShadingMaterial(material, shadingMaterial, isect);
+		TextureSampleInfo texLod = (TextureSampleInfo)0;
+		texLod.cosine = dot(isect.wo, isect.normal);
+		texLod.coneWidth = isect.coneWidth;
+		texLod.screenSpaceArea = isect.screenSpaceArea;
+		texLod.uvArea = isect.uvArea;
+		texLod.uv = isect.uv.xy;
+		UnpackShadingMaterial(material, shadingMaterial, texLod);
 		int nComponent = 0;
 		if (shadingMaterial.materialType == Plastic)
 		{
@@ -505,10 +463,17 @@ BSDFSample SampleSubstrate(ShadingMaterial material, float3 wo, inout RNG rng)
 }
 
 //wi wo is a vector which in local space of the interfaction surface
-BSDFSample SampleMaterialBRDF(Material material, Interaction isect, float3 wo, inout RNG rng)
+BSDFSample SampleMaterialBRDF(Material material, Interaction isect, inout RNG rng)
 {
 	ShadingMaterial shadingMaterial = (ShadingMaterial)0;
-	UnpackShadingMaterial(material, shadingMaterial, isect);
+	TextureSampleInfo texLod = (TextureSampleInfo)0;
+	texLod.cosine = dot(isect.wo, isect.normal);
+	texLod.coneWidth = isect.coneWidth;
+	texLod.screenSpaceArea = isect.screenSpaceArea;
+	texLod.uvArea = isect.uvArea;
+	texLod.uv = isect.uv.xy;
+	UnpackShadingMaterial(material, shadingMaterial, texLod);
+	float3 wo = isect.WorldToLocal(isect.wo);
 		
 	switch (shadingMaterial.materialType)
 	{
