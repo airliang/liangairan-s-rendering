@@ -373,11 +373,6 @@ public class WavefrontKernel : TracingKernel
         //we must clear the next queue before using it
         RayQueueClear.SetInt("clearQueueIndex", nextRaySizeIndex);
         RayQueueClear.Dispatch(kRayQueueClear, 1, 1, 1);
-        for (int i = 2; i < 6; ++i)
-        {
-            RayQueueClear.SetInt("clearQueueIndex", i);
-            RayQueueClear.Dispatch(kRayQueueClear, 1, 1, 1);
-        }
     }
 
     private void RenderToGBuffer(Camera camera)
