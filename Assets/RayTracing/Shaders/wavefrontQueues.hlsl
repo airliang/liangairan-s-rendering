@@ -10,19 +10,6 @@
 #define MATERIAL_SHADING_QUEUE_INDEX 5
 #define MAX_QUEUES 6
 
-//cbuffer ShadowRayQueueSOA
-//{
-//	RWStructuredBuffer<float3> p0;
-//	RWStructuredBuffer<float3> p1;
-//	RWStructuredBuffer<float3> radiance;
-//	RWStructuredBuffer<float3> normal;
-//};
-//
-//cbuffer MaterialShadingQueueSOA
-//{
-//	RWStructuredBuffer<uint> materialID;
-//	RWStructuredBuffer<float3> wo;
-//};
 
 struct WorkQueueItem
 {

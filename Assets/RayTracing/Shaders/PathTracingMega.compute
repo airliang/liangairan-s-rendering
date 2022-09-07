@@ -15,6 +15,8 @@
 float2 rasterSize;
 float _Exposure;
 int framesNum;
+float  _LensRadius;
+float  _FocalLength;
 RWTexture2D<half4> outputTexture;
 RWTexture2D<float4>  spectrums;
 
@@ -36,10 +38,21 @@ Ray GenerateRay(uint2 id, inout RNG rng)
     float3 pFilm = float3(cSample.pFilm, 0);
     float4 nearplanePoint = mul(RasterToCamera, float4(pFilm, 1));
     nearplanePoint /= nearplanePoint.w;
-
+    float3 orig = float3(0, 0, 0);
+    float3 direction = normalize(nearplanePoint.xyz);
+    if (_LensRadius > 0)
+    {
+        //sample the points on the lens
+        float2 uLens = Get2D(rng);
+        float2 pLens = ConcentricSampleDisk(uLens) * _LensRadius;
+        float ft = abs(_FocalLength / direction.z);
+        float3 focusPoint = orig + direction * ft;
+        orig = float3(pLens, 0);
+        direction = normalize(focusPoint - orig);
+    }
     Ray ray;
-    ray.orig = mul(CameraToWorld, float4(0, 0, 0, 1)).xyz;
-    ray.direction = mul(CameraToWorld, float4(normalize(nearplanePoint.xyz), 0));
+    ray.orig = mul(CameraToWorld, float4(orig, 1)).xyz;
+    ray.direction = mul(CameraToWorld, float4(direction, 0)).xyz;
     ray.tmax = FLT_MAX;
     ray.tmin = 0;
     return ray;

@@ -237,6 +237,8 @@ public class MegaKernel : TracingKernel
         //_MegaCompute.SetFloat("cameraConeSpreadAngle", cameraConeSpreadAngle);
         _MegaCompute.SetInt("debugView", (int)_rayTracingData.viewMode);
         _MegaCompute.SetFloat("cameraFar", camera.farClipPlane);
+        _MegaCompute.SetFloat("_LensRadius", _rayTracingData._LensRadius);
+        _MegaCompute.SetFloat("_FocalLength", _rayTracingData._FocalLength);
 
         if (rayConeGBuffer == null)
         {

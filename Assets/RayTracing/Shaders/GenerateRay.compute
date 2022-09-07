@@ -13,6 +13,8 @@
 matrix RasterToCamera;
 matrix CameraToWorld;
 float2 rasterSize;
+float  _LensRadius;
+float  _FocalLength;
 
 RWStructuredBuffer<WorkQueueItem>    _WorkQueueItems;
 RWStructuredBuffer<PathRadiance> pathRadiances;
@@ -47,10 +49,23 @@ void GeneratePrimary(uint3 id : SV_DispatchThreadID)
     nearplanePoint /= nearplanePoint.w;
 
     Ray ray;
-    ray.orig = mul(CameraToWorld, float4(0, 0, 0, 1)).xyz;
-    ray.direction = mul(CameraToWorld, float4(normalize(nearplanePoint.xyz), 0)).xyz;
+    float3 orig = float3(0, 0, 0);
+    float3 direction = normalize(nearplanePoint.xyz);
+    if (_LensRadius > 0)
+    {
+        //sample the points on the lens
+        float2 uLens = Get2D(rng);
+        float2 pLens = ConcentricSampleDisk(uLens) * _LensRadius;
+        float ft = abs(_FocalLength / direction.z);
+        float3 focusPoint = orig + direction * ft;
+        orig = float3(pLens, 0);
+        direction = normalize(focusPoint - orig);
+    }
+    ray.orig = mul(CameraToWorld, float4(orig, 1)).xyz;
+    ray.direction = mul(CameraToWorld, float4(direction, 0)).xyz;
     ray.tmax = FLT_MAX;
     ray.tmin = 0;
+    
     WorkQueueItem workItem = (WorkQueueItem)0;
     workItem.pathVertex.throughput = 1;
     workItem.ray = ray;

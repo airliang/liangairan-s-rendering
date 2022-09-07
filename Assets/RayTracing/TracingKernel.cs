@@ -48,6 +48,9 @@ public class RaytracingData
     public bool _UniformSampleLight = false;
     public bool _UseBVHPlugin = false;
     public bool _SaveOutputTexture = false;
+    //depth of field params
+    public float _LensRadius = 0;
+    public float _FocalLength = 1;
 }
 
 public interface TracingKernel

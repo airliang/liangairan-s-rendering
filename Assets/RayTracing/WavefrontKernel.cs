@@ -295,7 +295,7 @@ public class WavefrontKernel : TracingKernel
 
         generateRay.SetMatrix("RasterToCamera", gpuSceneData.RasterToCamera);
         generateRay.SetMatrix("CameraToWorld", camera.cameraToWorldMatrix);
-        
+
         int threadGroupX = Screen.width / 8 + ((Screen.width % 8) != 0 ? 1 : 0);
         int threadGroupY = Screen.height / 8 + ((Screen.height % 8) != 0 ? 1 : 0);
         generateRay.Dispatch(kGeneratePrimaryRay, threadGroupX, threadGroupY, 1);
@@ -528,7 +528,8 @@ public class WavefrontKernel : TracingKernel
         generateRay.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
         generateRay.SetMatrix("RasterToCamera", gpuSceneData.RasterToCamera);
         generateRay.SetMatrix("CameraToWorld", camera.cameraToWorldMatrix);
-        generateRay.SetFloat("_time", Time.time);
+        generateRay.SetFloat("_LensRadius", _rayTracingData._LensRadius);
+        generateRay.SetFloat("_FocalLength", _rayTracingData._FocalLength);
         generateRay.SetBuffer(kGeneratePrimaryRay, "RNGs", samplerBuffer);
         generateRay.SetBuffer(kGeneratePrimaryRay, "pathRadiances", pathRadianceBuffer);
         generateRay.SetBuffer(kGeneratePrimaryRay, "_WorkQueueItems", workItemBuffer);
