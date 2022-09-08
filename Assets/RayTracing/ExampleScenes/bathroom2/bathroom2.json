@@ -1,0 +1,2585 @@
+{
+    "materials": [
+        {
+            "type": 0,
+            "name": "Wall",
+            "assetPath": "",
+            "shaderName": "RayTracing/Uber",
+            "baseColor": {
+                "x": 0.578596,
+                "y": 0.578596,
+                "z": 0.578596
+            },
+            "transmission": {
+                "x": 0.578596,
+                "y": 0.578596,
+                "z": 0.578596
+            },
+            "specular": {
+                "x": 0.04,
+                "y": 0.04,
+                "z": 0.04
+            },
+            "albedoTexture": null,
+            "normalTexture": null,
+            "fresnel": 0,
+            "roughnessU": 0,
+            "roughnessV": 0,
+            "K": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "eta": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "metal": null
+        },
+        {
+            "type": 3,
+            "name": "Mirror",
+            "assetPath": "",
+            "shaderName": "RayTracing/Uber",
+            "baseColor": {
+                "x": 0.578596,
+                "y": 0.578596,
+                "z": 0.578596
+            },
+            "transmission": {
+                "x": 0.578596,
+                "y": 0.578596,
+                "z": 0.578596
+            },
+            "specular": {
+                "x": 0.04,
+                "y": 0.04,
+                "z": 0.04
+            },
+            "albedoTexture": null,
+            "normalTexture": null,
+            "fresnel": 0,
+            "roughnessU": 0,
+            "roughnessV": 0,
+            "K": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "eta": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "metal": null
+        },
+        {
+            "type": 2,
+            "name": "StainlessRough",
+            "assetPath": "",
+            "shaderName": "RayTracing/Uber",
+            "baseColor": {
+                "x": 0.578596,
+                "y": 0.578596,
+                "z": 0.578596
+            },
+            "transmission": {
+                "x": 0.578596,
+                "y": 0.578596,
+                "z": 0.578596
+            },
+            "specular": {
+                "x": 0.04,
+                "y": 0.04,
+                "z": 0.04
+            },
+            "albedoTexture": null,
+            "normalTexture": null,
+            "fresnel": 0,
+            "roughnessU": 0.01,
+            "roughnessV": 0.01,
+            "K": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "eta": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "metal": "Al"
+        },
+        {
+            "type": 0,
+            "name": "Towel",
+            "assetPath": "",
+            "shaderName": "RayTracing/Uber",
+            "baseColor": {
+                "x": 0.578596,
+                "y": 0.578596,
+                "z": 0.578596
+            },
+            "transmission": {
+                "x": 0.578596,
+                "y": 0.578596,
+                "z": 0.578596
+            },
+            "specular": {
+                "x": 0.04,
+                "y": 0.04,
+                "z": 0.04
+            },
+            "albedoTexture": null,
+            "normalTexture": null,
+            "fresnel": 0,
+            "roughnessU": 0,
+            "roughnessV": 0,
+            "K": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "eta": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "metal": null
+        },
+        {
+            "type": 5,
+            "name": "BlackWoodLacquer",
+            "assetPath": "",
+            "shaderName": "RayTracing/Uber",
+            "baseColor": {
+                "x": 0.05,
+                "y": 0.05,
+                "z": 0.05
+            },
+            "transmission": {
+                "x": 0.05,
+                "y": 0.05,
+                "z": 0.05
+            },
+            "specular": {
+                "x": 0.04,
+                "y": 0.04,
+                "z": 0.04
+            },
+            "albedoTexture": null,
+            "normalTexture": null,
+            "fresnel": 0,
+            "roughnessU": 0.1,
+            "roughnessV": 0.1,
+            "K": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "eta": {
+                "x": 1.5,
+                "y": 1.5,
+                "z": 1.5
+            },
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "metal": null
+        },
+        {
+            "type": 5,
+            "name": "Wood",
+            "assetPath": "",
+            "shaderName": "RayTracing/Uber",
+            "baseColor": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "transmission": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "specular": {
+                "x": 0.04,
+                "y": 0.04,
+                "z": 0.04
+            },
+            "albedoTexture": "textures/WoodPanel.png",
+            "normalTexture": null,
+            "fresnel": 0,
+            "roughnessU": 0.1,
+            "roughnessV": 0.1,
+            "K": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "eta": {
+                "x": 1.5,
+                "y": 1.5,
+                "z": 1.5
+            },
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "metal": null
+        },
+        {
+            "type": 5,
+            "name": "WoodFloor",
+            "assetPath": "",
+            "shaderName": "RayTracing/Uber",
+            "baseColor": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "transmission": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "specular": {
+                "x": 0.04,
+                "y": 0.04,
+                "z": 0.04
+            },
+            "albedoTexture": "textures/WoodFloor.jpg",
+            "normalTexture": null,
+            "fresnel": 0,
+            "roughnessU": 0.1,
+            "roughnessV": 0.1,
+            "K": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "eta": {
+                "x": 1.5,
+                "y": 1.5,
+                "z": 1.5
+            },
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "metal": null
+        },
+        {
+            "type": 0,
+            "name": "Label",
+            "assetPath": "",
+            "shaderName": "RayTracing/Uber",
+            "baseColor": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "transmission": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "specular": {
+                "x": 0.04,
+                "y": 0.04,
+                "z": 0.04
+            },
+            "albedoTexture": "textures/Label.png",
+            "normalTexture": null,
+            "fresnel": 0,
+            "roughnessU": 0,
+            "roughnessV": 0,
+            "K": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "eta": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "metal": null
+        },
+        {
+            "type": 4,
+            "name": "RoughGlass",
+            "assetPath": "",
+            "shaderName": "RayTracing/Uber",
+            "baseColor": {
+                "x": 0.578596,
+                "y": 0.578596,
+                "z": 0.578596
+            },
+            "transmission": {
+                "x": 0.578596,
+                "y": 0.578596,
+                "z": 0.578596
+            },
+            "specular": {
+                "x": 0.04,
+                "y": 0.04,
+                "z": 0.04
+            },
+            "albedoTexture": null,
+            "normalTexture": null,
+            "fresnel": 0,
+            "roughnessU": 0.1,
+            "roughnessV": 0.1,
+            "K": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "eta": {
+                "x": 1.5,
+                "y": 1.5,
+                "z": 1.5
+            },
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "metal": null
+        },
+        {
+            "type": 5,
+            "name": "Plastic",
+            "assetPath": "",
+            "shaderName": "RayTracing/Uber",
+            "baseColor": {
+                "x": 0.578596,
+                "y": 0.578596,
+                "z": 0.578596
+            },
+            "transmission": {
+                "x": 0.578596,
+                "y": 0.578596,
+                "z": 0.578596
+            },
+            "specular": {
+                "x": 0.04,
+                "y": 0.04,
+                "z": 0.04
+            },
+            "albedoTexture": null,
+            "normalTexture": null,
+            "fresnel": 0,
+            "roughnessU": 0,
+            "roughnessV": 0,
+            "K": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "eta": {
+                "x": 1.5,
+                "y": 1.5,
+                "z": 1.5
+            },
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "metal": null
+        },
+        {
+            "type": 0,
+            "name": "DarkPlastic",
+            "assetPath": "",
+            "shaderName": "RayTracing/Uber",
+            "baseColor": {
+                "x": 0.05,
+                "y": 0.05,
+                "z": 0.05
+            },
+            "transmission": {
+                "x": 0.05,
+                "y": 0.05,
+                "z": 0.05
+            },
+            "specular": {
+                "x": 0.04,
+                "y": 0.04,
+                "z": 0.04
+            },
+            "albedoTexture": null,
+            "normalTexture": null,
+            "fresnel": 0,
+            "roughnessU": 0,
+            "roughnessV": 0,
+            "K": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "eta": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "metal": null
+        },
+        {
+            "type": 3,
+            "name": "Bin",
+            "assetPath": "",
+            "shaderName": "RayTracing/Uber",
+            "baseColor": {
+                "x": 0.578596,
+                "y": 0.578596,
+                "z": 0.578596
+            },
+            "transmission": {
+                "x": 0.578596,
+                "y": 0.578596,
+                "z": 0.578596
+            },
+            "specular": {
+                "x": 0.04,
+                "y": 0.04,
+                "z": 0.04
+            },
+            "albedoTexture": null,
+            "normalTexture": null,
+            "fresnel": 0,
+            "roughnessU": 0,
+            "roughnessV": 0,
+            "K": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "eta": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "metal": null
+        },
+        {
+            "type": 0,
+            "name": "WallRight",
+            "assetPath": "",
+            "shaderName": "RayTracing/Uber",
+            "baseColor": {
+                "x": 0.578596,
+                "y": 0.578596,
+                "z": 0.578596
+            },
+            "transmission": {
+                "x": 0.578596,
+                "y": 0.578596,
+                "z": 0.578596
+            },
+            "specular": {
+                "x": 0.04,
+                "y": 0.04,
+                "z": 0.04
+            },
+            "albedoTexture": null,
+            "normalTexture": null,
+            "fresnel": 0,
+            "roughnessU": 0,
+            "roughnessV": 0,
+            "K": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "eta": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "metal": null
+        },
+        {
+            "type": 0,
+            "name": "DarkBorder",
+            "assetPath": "",
+            "shaderName": "RayTracing/Uber",
+            "baseColor": {
+                "x": 0.05,
+                "y": 0.05,
+                "z": 0.05
+            },
+            "transmission": {
+                "x": 0.05,
+                "y": 0.05,
+                "z": 0.05
+            },
+            "specular": {
+                "x": 0.04,
+                "y": 0.04,
+                "z": 0.04
+            },
+            "albedoTexture": null,
+            "normalTexture": null,
+            "fresnel": 0,
+            "roughnessU": 0,
+            "roughnessV": 0,
+            "K": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "eta": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "metal": null
+        },
+        {
+            "type": 0,
+            "name": "Trims",
+            "assetPath": "",
+            "shaderName": "RayTracing/Uber",
+            "baseColor": {
+                "x": 0.578596,
+                "y": 0.578596,
+                "z": 0.578596
+            },
+            "transmission": {
+                "x": 0.578596,
+                "y": 0.578596,
+                "z": 0.578596
+            },
+            "specular": {
+                "x": 0.04,
+                "y": 0.04,
+                "z": 0.04
+            },
+            "albedoTexture": null,
+            "normalTexture": null,
+            "fresnel": 0,
+            "roughnessU": 0,
+            "roughnessV": 0,
+            "K": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "eta": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "metal": null
+        },
+        {
+            "type": 5,
+            "name": "Ceramic",
+            "assetPath": "",
+            "shaderName": "RayTracing/Uber",
+            "baseColor": {
+                "x": 0.578596,
+                "y": 0.578596,
+                "z": 0.578596
+            },
+            "transmission": {
+                "x": 0.578596,
+                "y": 0.578596,
+                "z": 0.578596
+            },
+            "specular": {
+                "x": 0.04,
+                "y": 0.04,
+                "z": 0.04
+            },
+            "albedoTexture": null,
+            "normalTexture": null,
+            "fresnel": 0,
+            "roughnessU": 0,
+            "roughnessV": 0,
+            "K": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "eta": {
+                "x": 1.5,
+                "y": 1.5,
+                "z": 1.5
+            },
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "metal": null
+        }
+    ],
+    "entities": [
+        {
+            "name": "entity_0_RoughGlass",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh029.obj",
+            "material": "RoughGlass",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_1_Plastic",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh038.obj",
+            "material": "Plastic",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_2_Label",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh036.obj",
+            "material": "Label",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_3_StainlessRough",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh028.obj",
+            "material": "StainlessRough",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_4_StainlessRough",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh035.obj",
+            "material": "StainlessRough",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_5_StainlessRough",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh016.obj",
+            "material": "StainlessRough",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_6_Towel",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh026.obj",
+            "material": "Towel",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_7_StainlessRough",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh021.obj",
+            "material": "StainlessRough",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_8_BlackWoodLacquer",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh023.obj",
+            "material": "BlackWoodLacquer",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_9_BlackWoodLacquer",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh020.obj",
+            "material": "BlackWoodLacquer",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_10_BlackWoodLacquer",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh032.obj",
+            "material": "BlackWoodLacquer",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_11_BlackWoodLacquer",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh019.obj",
+            "material": "BlackWoodLacquer",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_12_BlackWoodLacquer",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh033.obj",
+            "material": "BlackWoodLacquer",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_13_BlackWoodLacquer",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh056.obj",
+            "material": "BlackWoodLacquer",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_14_Wall",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh018.obj",
+            "material": "Wall",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_15_Wall",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh030.obj",
+            "material": "Wall",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_16_BlackWoodLacquer",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh051.obj",
+            "material": "BlackWoodLacquer",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_17_Wall",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh043.obj",
+            "material": "Wall",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_18_Wall",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh015.obj",
+            "material": "Wall",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_19_StainlessRough",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh059.obj",
+            "material": "StainlessRough",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_20_StainlessRough",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh039.obj",
+            "material": "StainlessRough",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_21_Wall",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh027.obj",
+            "material": "Wall",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_22_Wall",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh055.obj",
+            "material": "Wall",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_23_StainlessRough",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh024.obj",
+            "material": "StainlessRough",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_24_StainlessRough",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh031.obj",
+            "material": "StainlessRough",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_25_StainlessRough",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh022.obj",
+            "material": "StainlessRough",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_26_StainlessRough",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh040.obj",
+            "material": "StainlessRough",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_27_StainlessRough",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh041.obj",
+            "material": "StainlessRough",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_28_Mirror",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh017.obj",
+            "material": "Mirror",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_29_StainlessRough",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh042.obj",
+            "material": "StainlessRough",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_30_Towel",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh044.obj",
+            "material": "Towel",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_31_StainlessRough",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh047.obj",
+            "material": "StainlessRough",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_32_DarkPlastic",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh034.obj",
+            "material": "DarkPlastic",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_33_StainlessRough",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh049.obj",
+            "material": "StainlessRough",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_34_StainlessRough",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh025.obj",
+            "material": "StainlessRough",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_35_StainlessRough",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh037.obj",
+            "material": "StainlessRough",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_36_Towel",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh050.obj",
+            "material": "Towel",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_37_Towel",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh052.obj",
+            "material": "Towel",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_38_Bin",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh054.obj",
+            "material": "Bin",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_39_DarkPlastic",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh053.obj",
+            "material": "DarkPlastic",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_40_StainlessRough",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh057.obj",
+            "material": "StainlessRough",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_41_StainlessRough",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh058.obj",
+            "material": "StainlessRough",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_42_StainlessRough",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh060.obj",
+            "material": "StainlessRough",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_43_StainlessRough",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh014.obj",
+            "material": "StainlessRough",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_44_StainlessRough",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh013.obj",
+            "material": "StainlessRough",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_45_StainlessRough",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh012.obj",
+            "material": "StainlessRough",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_46_Ceramic",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh011.obj",
+            "material": "Ceramic",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_47_Ceramic",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh010.obj",
+            "material": "Ceramic",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_48_Wall",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh009.obj",
+            "material": "Wall",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_49_Wall",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh007.obj",
+            "material": "Wall",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_50_Wood",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh006.obj",
+            "material": "Wood",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_51_Wood",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh005.obj",
+            "material": "Wood",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_52_Ceramic",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh004.obj",
+            "material": "Ceramic",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_53_DarkBorder",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh003.obj",
+            "material": "DarkBorder",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_54_Wood",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh002.obj",
+            "material": "Wood",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_55_WoodFloor",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh001.obj",
+            "material": "WoodFloor",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_56_WallRight",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh008.obj",
+            "material": "WallRight",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_57_Wall",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh046.obj",
+            "material": "Wall",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_58_Mirror",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh045.obj",
+            "material": "Mirror",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_59_Trims",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh000.obj",
+            "material": "Trims",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_60_Wood",
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": {
+                "x": 1,
+                "y": 1,
+                "z": 1
+            },
+            "rotation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "meshType": "mesh",
+            "mesh": "models/Mesh048.obj",
+            "material": "Wood",
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_61_None",
+            "position": {
+                "x": 0.5878720283508301,
+                "y": 17.100000381469727,
+                "z": 51.901798248291016
+            },
+            "scale": {
+                "x": 35.5546989440918,
+                "y": 35.5546989440918,
+                "z": 35.5546989440918
+            },
+            "rotation": {
+                "x": -90.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "meshType": "quad",
+            "mesh": null,
+            "material": null,
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_62_None",
+            "position": {
+                "x": 0.5878720283508301,
+                "y": 17.100000381469727,
+                "z": 52.89999771118164
+            },
+            "scale": {
+                "x": 39.110198974609375,
+                "y": 39.110198974609375,
+                "z": 39.110198974609375
+            },
+            "rotation": {
+                "x": -90.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "meshType": "quad",
+            "mesh": null,
+            "material": null,
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_63_None",
+            "position": {
+                "x": 0.5878720283508301,
+                "y": 35.89999771118164,
+                "z": 15.399999618530273
+            },
+            "scale": {
+                "x": 39.110198974609375,
+                "y": 39.110198974609375,
+                "z": 76.26499938964844
+            },
+            "rotation": {
+                "x": -0.0,
+                "y": 179.99998474121094,
+                "z": -179.99998474121094
+            },
+            "meshType": "quad",
+            "mesh": null,
+            "material": null,
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_64_None",
+            "position": {
+                "x": 19.38789939880371,
+                "y": 17.399999618530273,
+                "z": 15.399999618530273
+            },
+            "scale": {
+                "x": 39.110198974609375,
+                "y": 39.110198974609375,
+                "z": 76.26499938964844
+            },
+            "rotation": {
+                "x": -0.0,
+                "y": -179.99998474121094,
+                "z": 90.0
+            },
+            "meshType": "quad",
+            "mesh": null,
+            "material": null,
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_65_None",
+            "position": {
+                "x": -18.13800048828125,
+                "y": 17.399999618530273,
+                "z": 15.399900436401367
+            },
+            "scale": {
+                "x": 39.110198974609375,
+                "y": 39.110198974609375,
+                "z": 76.26499938964844
+            },
+            "rotation": {
+                "x": -0.0,
+                "y": -179.99998474121094,
+                "z": 90.0
+            },
+            "meshType": "quad",
+            "mesh": null,
+            "material": null,
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_66_None",
+            "position": {
+                "x": 0.5878720283508301,
+                "y": -1.2999999523162842,
+                "z": 15.399999618530273
+            },
+            "scale": {
+                "x": 39.110198974609375,
+                "y": 39.110198974609375,
+                "z": 76.26499938964844
+            },
+            "rotation": {
+                "x": -0.0,
+                "y": 179.99998474121094,
+                "z": -179.99998474121094
+            },
+            "meshType": "quad",
+            "mesh": null,
+            "material": null,
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_67_None",
+            "position": {
+                "x": 0.58787602186203,
+                "y": -0.07850909978151321,
+                "z": 15.399999618530273
+            },
+            "scale": {
+                "x": 39.110198974609375,
+                "y": 39.110198974609375,
+                "z": 76.26499938964844
+            },
+            "rotation": {
+                "x": -0.0,
+                "y": 179.99998474121094,
+                "z": -179.99998474121094
+            },
+            "meshType": "quad",
+            "mesh": null,
+            "material": null,
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_68_None",
+            "position": {
+                "x": 17.503599166870117,
+                "y": 17.399999618530273,
+                "z": 15.399999618530273
+            },
+            "scale": {
+                "x": 39.110198974609375,
+                "y": 39.110198974609375,
+                "z": 76.26499938964844
+            },
+            "rotation": {
+                "x": -0.0,
+                "y": -179.99998474121094,
+                "z": 90.0
+            },
+            "meshType": "quad",
+            "mesh": null,
+            "material": null,
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_69_None",
+            "position": {
+                "x": -17.19729995727539,
+                "y": 17.399999618530273,
+                "z": 15.399900436401367
+            },
+            "scale": {
+                "x": 39.110198974609375,
+                "y": 39.110198974609375,
+                "z": 76.26499938964844
+            },
+            "rotation": {
+                "x": -0.0,
+                "y": -179.99998474121094,
+                "z": 90.0
+            },
+            "meshType": "quad",
+            "mesh": null,
+            "material": null,
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_70_None",
+            "position": {
+                "x": 0.5878750085830688,
+                "y": 34.15409851074219,
+                "z": 15.399999618530273
+            },
+            "scale": {
+                "x": 39.110198974609375,
+                "y": 39.110198974609375,
+                "z": 76.26499938964844
+            },
+            "rotation": {
+                "x": -0.0,
+                "y": 179.99998474121094,
+                "z": -179.99998474121094
+            },
+            "meshType": "quad",
+            "mesh": null,
+            "material": null,
+            "emission": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "name": "entity_71_None",
+            "position": {
+                "x": 1.6504895687103271,
+                "y": 21.179363250732422,
+                "z": -22.777523040771484
+            },
+            "scale": {
+                "x": 9.025029182434082,
+                "y": 7.72084379196167,
+                "z": 10.69359016418457
+            },
+            "rotation": {
+                "x": -90.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "meshType": "quad",
+            "mesh": null,
+            "material": null,
+            "emission": {
+                "x": 125.0,
+                "y": 100.0,
+                "z": 75.0
+            }
+        }
+    ],
+    "envLight": [],
+    "jsonCamera": {
+        "position": {
+            "x": 4.443147659301758,
+            "y": 16.934431076049805,
+            "z": 49.91023254394531
+        },
+        "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "fov": 60.0,
+        "near": 0.3,
+        "far": 100,
+        "useLookAt": true,
+        "lookAt": {
+            "x": -2.5734899044036865,
+            "y": 9.991769790649414,
+            "z": -10.588199615478516
+        },
+        "up": {
+            "x": 0.0,
+            "y": 1.0,
+            "z": 0.0
+        }
+    },
+    "renderer": {
+        "raytracingData": {
+            "SamplesPerPixel": 64,
+            "MaxDepth": 64,
+            "HDR": 1,
+            "_EnviromentMapEnable": false
+        }
+    }
+}

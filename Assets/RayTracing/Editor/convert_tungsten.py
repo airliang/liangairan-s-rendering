@@ -1,4 +1,11 @@
 # -*- coding:utf-8 -*-
+#how to use this convert tool:
+#This tools is for converting tunsten scene to my raytracing scene
+#python [path of the input file] [output file]
+#example: 
+#cmd: cd D:\github\liangairan-s-rendering\Assets\RayTracing\Editor
+#python convert_tungsten D:\github\tungsten\data\example-scenes\bathroom2\scene.json D:\github\liangairan-s-rendering\Assets\RayTracing\ExampleScenes\bathroom2\bathroom2
+
 
 import json
 from pathlib import Path
@@ -26,6 +33,7 @@ material_table = {
     "rough_dielectric" : 4,
     "plastic" : 5,
     "oren_nayar" : 0,
+    "mirror" : 3,
 }
     
 
@@ -323,16 +331,6 @@ def write_scene(scene_output, filepath):
     abspath = os.path.join(os.getcwd(), filepath)
 
 def main():
-    # fn = 'LumiRender\\res\\render_scene\\staircase\\tungsten_scene.json'
-    # fn = 'LumiRender\\res\\render_scene\\staircase2\\tungsten_scene.json'
-    # fn = 'LumiRender\\res\\render_scene\\bathroom2\\tungsten_scene.json'
-    # fn = 'LumiRender\\res\\render_scene\\kitchen\\tungsten_scene.json'
-    # fn = 'LumiRender\\res\\render_scene\\coffee\\tungsten_scene.json'
-    # fn = 'LumiRender\\res\\render_scene\\spaceship\\tungsten_scene.json'
-    # fn = 'LumiRender\\res\\render_scene\\glass-of-water\\tungsten_scene.json'
-    # fn = 'LumiRender\\res\\render_scene\\living-room\\tungsten_scene.json'
-    # fn = 'LumiRender\\res\\render_scene\\cornell-box\\tungsten_scene.json'
-    # fn = 'LumiRender\\res\\render_scene\\water-caustic\\tungsten_scene.json'
     fn = argv[1]
     if fn == None:
         print('convert file is None, ')
