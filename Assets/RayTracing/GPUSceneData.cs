@@ -461,15 +461,15 @@ public class GPUSceneData
 
         if (woodTriBuffer == null)
         {
-            woodTriBuffer = new ComputeBuffer(bvhAccel.m_woodTriangleVertices.Count, 16, ComputeBufferType.Structured);
+            woodTriBuffer = new ComputeBuffer(WoopTriangleData.m_woopTriangleVertices.Count, 16, ComputeBufferType.Structured);
         }
-        woodTriBuffer.SetData(bvhAccel.m_woodTriangleVertices);
+        woodTriBuffer.SetData(WoopTriangleData.m_woopTriangleVertices);
 
         if (woodTriIndexBuffer == null)
         {
-            woodTriIndexBuffer = new ComputeBuffer(bvhAccel.m_woodTriangleIndices.Count, sizeof(int), ComputeBufferType.Structured);
+            woodTriIndexBuffer = new ComputeBuffer(WoopTriangleData.m_woopTriangleIndices.Count, sizeof(int), ComputeBufferType.Structured);
         }
-        woodTriIndexBuffer.SetData(bvhAccel.m_woodTriangleIndices);
+        woodTriIndexBuffer.SetData(WoopTriangleData.m_woopTriangleIndices);
 
         if (verticesBuffer == null)
         {

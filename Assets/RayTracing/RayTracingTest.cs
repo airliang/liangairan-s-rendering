@@ -404,9 +404,9 @@ public class RayTracingTest
             if (bvhaccel.IntersectMeshBVHP(rayTemp, meshInstance.bvhOffset, out bvhHit, out meshHitTriangleIndex))
             {
                 int triAddr = meshHitTriangleIndex;
-                int vIndex0 = bvhaccel.m_woodTriangleIndices[triAddr];
-                int vIndex1 = bvhaccel.m_woodTriangleIndices[triAddr + 1];
-                int vIndex2 = bvhaccel.m_woodTriangleIndices[triAddr + 2];
+                int vIndex0 = WoopTriangleData.m_woopTriangleIndices[triAddr];
+                int vIndex1 = WoopTriangleData.m_woopTriangleIndices[triAddr + 1];
+                int vIndex2 = WoopTriangleData.m_woopTriangleIndices[triAddr + 2];
                 Vector3 p0 = Vertices[vIndex0].position;
                 Vector3 p1 = Vertices[vIndex1].position;
                 Vector3 p2 = Vertices[vIndex2].position;

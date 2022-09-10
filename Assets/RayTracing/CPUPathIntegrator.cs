@@ -684,7 +684,8 @@ public class CPUPathIntegrator
         while (true)
         {
             float hitT = 0;
-            hitted = gpuSceneData.BVH.IntersectInstTest(ray, gpuSceneData.meshInstances, gpuSceneData.meshHandles, gpuSceneData.InstanceBVHAddr, out hitT, ref isect, false, ref hitInfo);
+            //hitted = gpuSceneData.BVH.IntersectInstTest(ray, gpuSceneData.meshInstances, gpuSceneData.InstanceBVHAddr, out hitT, ref isect, false, ref hitInfo);
+            hitted = gpuSceneData.BVH.BVHHit(ray, ref hitInfo, false, gpuSceneData.meshInstances, gpuSceneData.InstanceBVHAddr);
             if (!hitted)
                 break;
             else
@@ -1130,14 +1131,14 @@ public class CPUPathIntegrator
                 {
                     int meshInstanceIndex = (int)isect.meshInstanceID;
                     MeshInstance meshInstance = gpuSceneData.meshInstances[meshInstanceIndex];
-                    int triAddrDebug = hitInfo.woodTriangleIndex;
-                    if (triAddrDebug + 2 >= gpuSceneData.bvhAccel.m_woodTriangleIndices.Count)
+                    int triAddrDebug = hitInfo.triAddr;
+                    if (triAddrDebug + 2 >= WoopTriangleData.m_woopTriangleIndices.Count)
                     {
                         Debug.LogError("triAddrDebug = " + triAddrDebug + " is greater than the woodTriangleIndices");
                     }
-                    int tri0 = gpuSceneData.bvhAccel.m_woodTriangleIndices[triAddrDebug];
-                    int tri1 = gpuSceneData.bvhAccel.m_woodTriangleIndices[triAddrDebug + 1];
-                    int tri2 = gpuSceneData.bvhAccel.m_woodTriangleIndices[triAddrDebug + 2];
+                    int tri0 = WoopTriangleData.m_woopTriangleIndices[triAddrDebug];
+                    int tri1 = WoopTriangleData.m_woopTriangleIndices[triAddrDebug + 1];
+                    int tri2 = WoopTriangleData.m_woopTriangleIndices[triAddrDebug + 2];
                     if (tri0 >= gpuSceneData.gpuVertices.Count || tri1 >= gpuSceneData.gpuVertices.Count || tri2 >= gpuSceneData.gpuVertices.Count)
                     {
                         Debug.LogError("Triangle Index overflow!");

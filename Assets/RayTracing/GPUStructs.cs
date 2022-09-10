@@ -324,7 +324,8 @@ public struct GPUBVHNode
     public Vector3 b1min;
     public Vector3 b1max;
     //x left node array index, y right node array index, z left node primitive's num if it is leaf, w right node primitive's num if leaf
-    //if z and w < 0, is a meshinstance node, zw is the meshinstance id.
+    //if z and w < 0, is a blas node, else is tlas zw is the meshinstance id.
+    //x is vertex offset when node is blas else is the bottom level node offset
     public Vector4 cids;  
 }
 

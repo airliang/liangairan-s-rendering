@@ -91,8 +91,11 @@ class StackEntry
 
 public struct HitInfo
 {
-	public int woodTriangleIndex;
-	public int meshInstanceIndex;
+	public int triAddr;
+	public int meshInstanceId;
+	public int triangleIndexInMesh;
+	public float hitT;
+	public Vector2 baryCoord;
 }
 
 public static class BVHLib
@@ -115,6 +118,53 @@ public static class BVHLib
 	public static extern void ReleaseBVH(ref BVHHandle handle);
 }
 
+public static class WoopTriangleData
+{
+	public static List<Vector4> m_woopTriangleVertices = new List<Vector4>();
+	public static List<int> m_woopTriangleIndices = new List<int>();
+	//woop's triangle transform
+	public static Vector4[] m_woop = new Vector4[3];
+
+	public static void UnitTriangle(int triIndex, List<GPUVertex> vertices, Primitive[] primitives)
+	{
+		Primitive primitive = primitives[triIndex];
+		//primitive.triangleOffset 
+		Vector3 v0 = vertices[primitive.triIndices.x].position;
+		Vector3 v1 = vertices[primitive.triIndices.y].position;
+		Vector3 v2 = vertices[primitive.triIndices.z].position;
+
+		Matrix4x4 matrix = new Matrix4x4();
+		Vector4 col0 = v0 - v2;
+		col0.w = 0;
+		matrix.SetColumn(0, col0);
+		Vector4 col1 = v1 - v2;
+		col1.w = 0;
+		matrix.SetColumn(1, col1);
+		Vector4 col2 = Vector3.Cross(v0 - v2, v1 - v2);
+		col2.w = 0;
+		matrix.SetColumn(2, col2);
+		Vector4 col3 = v2;
+		col3.w = 1;
+		matrix.SetColumn(3, col3);
+		matrix = Matrix4x4.Inverse(matrix);
+
+		m_woop[0] = matrix.GetRow(0);
+		m_woop[1] = matrix.GetRow(1);
+		m_woop[2] = matrix.GetRow(2);
+
+		//Vector3 normal = Vector3.Cross(m_woop[0], m_woop[1]);
+		//Vector3 normal2 = Vector3.Cross(col0, col1);
+		//normal.Normalize();
+		//normal2.Normalize();
+	}
+
+	public static void Clear()
+    {
+		m_woopTriangleVertices.Clear();
+		m_woopTriangleIndices.Clear();
+	}
+}
+
 public class BVHAccel
 {
 	int maxPrimsInNode;
@@ -129,14 +179,10 @@ public class BVHAccel
 	//public GPUBVHNode[] m_nodes;
 	//gpu中的bvh nodes数组
 	public List<GPUBVHNode> m_nodes = new List<GPUBVHNode>();
-	public List<Vector4> m_woodTriangleVertices = new List<Vector4>();
-	public List<int> m_woodTriangleIndices = new List<int>();
+	
 	public List<GPUVertex> sceneVertices;
-	//如果是instance bvh，下面的Vertices是 local space vertex，否则就是world space vertex
-	//public List<GPUVertex> m_vertices = new List<GPUVertex>();
 
-	//woop's triangle transform
-	Vector4[] m_woop = new Vector4[3];
+	
 
 
 	public int instBVHNodeAddr = 0;
@@ -242,14 +288,14 @@ public class BVHAccel
 					int triAddr = nodeAddr;
 					for (int tri = ~triAddr; ; tri += 3)
 					{
-						Vector4 m0 = m_woodTriangleVertices[tri];     //matrix row 0 
+						Vector4 m0 = WoopTriangleData.m_woopTriangleVertices[tri];     //matrix row 0 
 
 						if (MathUtil.SingleToInt32Bits(m0.x) == 0x7fffffff)
 							break;
 
-						RenderDebug.DrawTriangle(meshInst.localToWorld.MultiplyPoint(sceneVertices[m_woodTriangleIndices[tri]].position),
-						meshInst.localToWorld.MultiplyPoint(sceneVertices[m_woodTriangleIndices[tri + 1]].position),
-						meshInst.localToWorld.MultiplyPoint(sceneVertices[m_woodTriangleIndices[tri + 2]].position), Color.red);
+						RenderDebug.DrawTriangle(meshInst.localToWorld.MultiplyPoint(sceneVertices[WoopTriangleData.m_woopTriangleIndices[tri]].position),
+						meshInst.localToWorld.MultiplyPoint(sceneVertices[WoopTriangleData.m_woopTriangleIndices[tri + 1]].position),
+						meshInst.localToWorld.MultiplyPoint(sceneVertices[WoopTriangleData.m_woopTriangleIndices[tri + 2]].position), Color.red);
 					}
 				}
 				
@@ -271,34 +317,19 @@ public class BVHAccel
 
 					for (int tri = ~triAddr; ; tri += 3)
 					{
-						Vector4 m0 = m_woodTriangleVertices[tri];     //matrix row 0 
+						Vector4 m0 = WoopTriangleData.m_woopTriangleVertices[tri];     //matrix row 0 
 
 						if (MathUtil.SingleToInt32Bits(m0.x) == 0x7fffffff)
 							break;
-						RenderDebug.DrawTriangle(meshInst.localToWorld.MultiplyPoint(sceneVertices[m_woodTriangleIndices[tri]].position),
-						meshInst.localToWorld.MultiplyPoint(sceneVertices[m_woodTriangleIndices[tri + 1]].position),
-						meshInst.localToWorld.MultiplyPoint(sceneVertices[m_woodTriangleIndices[tri + 2]].position), Color.red);
+						RenderDebug.DrawTriangle(meshInst.localToWorld.MultiplyPoint(sceneVertices[WoopTriangleData.m_woopTriangleIndices[tri]].position),
+						meshInst.localToWorld.MultiplyPoint(sceneVertices[WoopTriangleData.m_woopTriangleIndices[tri + 1]].position),
+						meshInst.localToWorld.MultiplyPoint(sceneVertices[WoopTriangleData.m_woopTriangleIndices[tri + 2]].position), Color.red);
 					}
 				}
 			}
 		}
     }
 
-	public static void TestPartition()
-	{
-		List<int> numbers = new List<int>();
-		int[] a = { 5, 2, 9, 3, 7, 1, 6, 0, 4 };
-		for (int i = 0; i < a.Length; ++i)
-			numbers.Add(a[i]);
-
-		int mid = std.partition<int>(ref numbers, 0, numbers.Count,
-			(a) =>
-			{
-				return a < 5;
-			});
-
-		Debug.Log(numbers);
-	}
 
 	//create the gpu bvh nodes
 	//param meshNode代表是否一个mesh下的bvh划分
@@ -329,19 +360,19 @@ public class BVHAccel
             {
                 if (bottomLevel)
                 {
-                    c0 = ~m_woodTriangleVertices.Count;
+                    c0 = ~WoopTriangleData.m_woopTriangleVertices.Count;
                     //BVHBuildNode child = e.node.childrenLeft;
                     //处理三角形
                     for (int i = e.node.firstPrimOffset; i < e.node.firstPrimOffset + e.node.nPrimitives; ++i)
                     {
-                        //把三角形每个顶点按顺序写入buffer里，保证了每个三角形的索引是连续的
-                        UnitTriangle(i, gpuVertices, primitives);
+						//把三角形每个顶点按顺序写入buffer里，保证了每个三角形的索引是连续的
+						WoopTriangleData.UnitTriangle(i, gpuVertices, primitives);
                         Primitive primitive = primitives[i];
 
                         for (int v = 0; v < 3; ++v)
                         {
-                            m_woodTriangleVertices.Add(m_woop[v]);
-                            m_woodTriangleIndices.Add(primitive.triIndices[v]);
+							WoopTriangleData.m_woopTriangleVertices.Add(WoopTriangleData.m_woop[v]);
+							WoopTriangleData.m_woopTriangleIndices.Add(primitive.triIndices[v]);
                             //Vector4 worldPos = gpuVertices[primitive.triIndices[v]].position;
                             //Vector4 uv = gpuVertices[primitive.triIndices[v]].uv;
                             //if (v == 0)
@@ -350,8 +381,8 @@ public class BVHAccel
                             //m_vertices.Add(new GPUVertex(worldPos, uv));
                         }
                     }
-                    m_woodTriangleVertices.Add(new Vector4(MathUtil.Int32BitsToSingle(int.MaxValue), 0, 0, 0));
-                    m_woodTriangleIndices.Add(int.MaxValue);
+                    WoopTriangleData.m_woopTriangleVertices.Add(new Vector4(MathUtil.Int32BitsToSingle(int.MaxValue), 0, 0, 0));
+					WoopTriangleData.m_woopTriangleIndices.Add(int.MaxValue);
                     //m_vertices.Add(new GPUVertex(new Vector4(Int32BitsToSingle(int.MaxValue), 0, 0, 0), Vector4.zero));
                     //c2 = child.nPrimitives;
                     Primitive primitiveCur = primitives[e.node.firstPrimOffset];
@@ -392,25 +423,25 @@ public class BVHAccel
                     c0 = nodes.Count;//++nextNodeIdx;
                     stack.Add(new StackEntry(leftChild, c0));
                     nodes.Add(new GPUBVHNode());
+					c2 = -1;  //means that lefchild is not a leaf
                 }
-
-                if (leftChild.IsLeaf())
+				else
                 {
                     if (bottomLevel)
                     {
-                        c0 = ~m_woodTriangleVertices.Count;
+                        c0 = ~WoopTriangleData.m_woopTriangleVertices.Count;
                         //BVHBuildNode child = e.node.childrenLeft;
                         //处理三角形
                         for (int i = leftChild.firstPrimOffset; i < leftChild.firstPrimOffset + leftChild.nPrimitives; ++i)
                         {
-                            //把三角形每个顶点按顺序写入buffer里，保证了每个三角形的索引是连续的
-                            UnitTriangle(i, gpuVertices, primitives);
+							//把三角形每个顶点按顺序写入buffer里，保证了每个三角形的索引是连续的
+							WoopTriangleData.UnitTriangle(i, gpuVertices, primitives);
                             Primitive primitive = primitives[i];
 
                             for (int v = 0; v < 3; ++v)
                             {
-                                m_woodTriangleVertices.Add(m_woop[v]);
-                                m_woodTriangleIndices.Add(primitive.triIndices[v]);
+                                WoopTriangleData.m_woopTriangleVertices.Add(WoopTriangleData.m_woop[v]);
+								WoopTriangleData.m_woopTriangleIndices.Add(primitive.triIndices[v]);
                                 //Vector4 worldPos = gpuVertices[primitive.triIndices[v]].position;
                                 //Vector4 uv = gpuVertices[primitive.triIndices[v]].uv;
                                 //if (v == 0)
@@ -419,8 +450,8 @@ public class BVHAccel
                                 //m_vertices.Add(new GPUVertex(worldPos, uv));
                             }
                         }
-                        m_woodTriangleVertices.Add(new Vector4(MathUtil.Int32BitsToSingle(int.MaxValue), 0, 0, 0));
-                        m_woodTriangleIndices.Add(int.MaxValue);
+                        WoopTriangleData.m_woopTriangleVertices.Add(new Vector4(MathUtil.Int32BitsToSingle(int.MaxValue), 0, 0, 0));
+						WoopTriangleData.m_woopTriangleIndices.Add(int.MaxValue);
                         //m_vertices.Add(new GPUVertex(new Vector4(Int32BitsToSingle(int.MaxValue), 0, 0, 0), Vector4.zero));
                         //c2 = child.nPrimitives;
                         Primitive primitiveCur = primitives[leftChild.firstPrimOffset];
@@ -446,30 +477,30 @@ public class BVHAccel
                     c1 = nodes.Count;//++nextNodeIdx;
                     stack.Add(new StackEntry(rightChild, c1));
                     nodes.Add(new GPUBVHNode());
+					c3 = 1;  //means that rightChild is not leaf node.
                 }
-
-                if (rightChild.IsLeaf())
+				else
                 {
                     if (bottomLevel)
                     {
-                        c1 = ~m_woodTriangleVertices.Count;
+                        c1 = ~WoopTriangleData.m_woopTriangleVertices.Count;
                         //BVHBuildNode child = e.node.childrenRight;
                         //处理三角形
                         for (int i = rightChild.firstPrimOffset; i < rightChild.firstPrimOffset + rightChild.nPrimitives; ++i)
                         {
-                            //把三角形写入buffer里
-                            UnitTriangle(i, gpuVertices, primitives);
+							//把三角形写入buffer里
+							WoopTriangleData.UnitTriangle(i, gpuVertices, primitives);
                             Primitive primitive = primitives[i];
                             for (int v = 0; v < 3; ++v)
                             {
-                                m_woodTriangleVertices.Add(m_woop[v]);
-                                m_woodTriangleIndices.Add(primitive.triIndices[v]);
+                                WoopTriangleData.m_woopTriangleVertices.Add(WoopTriangleData.m_woop[v]);
+								WoopTriangleData.m_woopTriangleIndices.Add(primitive.triIndices[v]);
                                 //m_vertices.Add(new GPUVertex(gpuVertices[primitive.triIndices[v]].position, gpuVertices[primitive.triIndices[v]].uv));
                             }
 
                         }
-                        m_woodTriangleVertices.Add(new Vector4(MathUtil.Int32BitsToSingle(int.MaxValue), 0, 0, 0));
-                        m_woodTriangleIndices.Add(int.MaxValue);
+                        WoopTriangleData.m_woopTriangleVertices.Add(new Vector4(MathUtil.Int32BitsToSingle(int.MaxValue), 0, 0, 0));
+						WoopTriangleData.m_woopTriangleIndices.Add(int.MaxValue);
                         //m_vertices.Add(new GPUVertex(new Vector4(Int32BitsToSingle(int.MaxValue), 0, 0, 0), Vector4.zero));
                         Primitive primitiveCur = primitives[rightChild.firstPrimOffset];
                         c3 = primitiveCur.meshInstIndex;
@@ -513,49 +544,18 @@ public class BVHAccel
     {
 		Vector2Int childIndex = new Vector2Int(-1, -1);
 		childIndex.x = MathUtil.SingleToInt32Bits(cids.x);
-		childIndex.y = MathUtil.SingleToInt32Bits(cids.y);
+		childIndex.y = MathUtil.SingleToInt32Bits(cids.z);
 		return childIndex;
     }
 
 	Vector2Int GetTopLevelLeaveMeshInstance(Vector4 cids)
     {
 		Vector2Int childIndex = new Vector2Int(-1, -1);
-		childIndex.x = MathUtil.SingleToInt32Bits(cids.z);
+		childIndex.x = MathUtil.SingleToInt32Bits(cids.y);
 		childIndex.y = MathUtil.SingleToInt32Bits(cids.w);
 		return childIndex;
 	}
-	void UnitTriangle(int triIndex, List<GPUVertex> vertices, Primitive[] primitives)
-    {
-		Primitive primitive = primitives[triIndex];
-		//primitive.triangleOffset 
-		Vector3 v0 = vertices[primitive.triIndices.x].position;
-		Vector3 v1 = vertices[primitive.triIndices.y].position;
-		Vector3 v2 = vertices[primitive.triIndices.z].position;
-
-		Matrix4x4 matrix = new Matrix4x4();
-		Vector4 col0 = v0 - v2;
-		col0.w = 0;
-		matrix.SetColumn(0, col0);
-		Vector4 col1 = v1 - v2;
-		col1.w = 0;
-		matrix.SetColumn(1, col1);
-		Vector4 col2 = Vector3.Cross(v0 - v2, v1 - v2);
-		col2.w = 0;
-		matrix.SetColumn(2, col2);
-		Vector4 col3 = v2;
-		col3.w = 1;
-		matrix.SetColumn(3, col3);
-		matrix = Matrix4x4.Inverse(matrix);
-
-		m_woop[0] = matrix.GetRow(0);
-		m_woop[1] = matrix.GetRow(1);
-		m_woop[2] = matrix.GetRow(2);
-
-		//Vector3 normal = Vector3.Cross(m_woop[0], m_woop[1]);
-		//Vector3 normal2 = Vector3.Cross(col0, col1);
-		//normal.Normalize();
-		//normal2.Normalize();
-	}
+	
 
 
 	//build 2 types bvh
@@ -563,6 +563,7 @@ public class BVHAccel
 	//return toplevel bvh在bvhbuffer中的位置
 	public int Build(List<MeshInstance> meshInstances, List<MeshHandle> meshHandles, List<GPUVertex> vertices, List<int> triangles)
     {
+		WoopTriangleData.Clear();
 		instBVHNodeAddr = 0;
 		List<int> instBVHOffset = new List<int>();
 
@@ -635,23 +636,9 @@ public class BVHAccel
                 BVHLib.ReleaseBVH(ref bvhHandle);
 
                 float timeInterval = Time.realtimeSinceStartup - timeBegin;
-                Debug.Log("building bottom level bvh using BVHLib cost time:" + timeInterval);
-                CreateCompact(linearNodes, sortedPrims, vertices, false, instBVHOffset);
-                /*
-				float timeBegin = Time.realtimeSinceStartup;
-				RadeonBVH.BVHFlat bvhFlat = RadeonBVH.CreateTLAS(primBounds, new RadeonBVH.BuildParam { cost = 0.125f, miniOverlap = 0.05f, numBins = 64, splitDepth = 48 });
-				Primitive[] sortedPrims = new Primitive[bvhFlat.sortedIndices.Length];
-
-				for (int i = 0; i < bvhFlat.sortedIndices.Length; ++i)
-				{
-					//sortedPrims.Add(primitives[orderedPrims[i]]);
-					sortedPrims[i] = primitives[bvhFlat.sortedIndices[i]];
-				}
-
-				float timeInterval = Time.realtimeSinceStartup - timeBegin;
-				Debug.Log("building bottom level bvh using RadeonRay BVH cost time:" + timeInterval);
-				CreateCompact(bvhFlat.linearBVHNodes, sortedPrims, vertices, false, instBVHOffset);
-				*/
+                Debug.Log("building top level bvh using BVHLib cost time:" + timeInterval);
+				//CreateCompact(linearNodes, sortedPrims, vertices, false, instBVHOffset);
+				CompactTLASNodes(linearNodes, sortedPrims, instBVHOffset);
             }
 			else
 			{
@@ -674,8 +661,9 @@ public class BVHAccel
                 FlattenBVHTree(instRoot, ref offset, linearNodes);
                 float timeInterval = Time.realtimeSinceStartup - timeBegin;
                 Debug.Log("FlattenBVHTree inst bvh cost time:" + timeInterval);
-                CreateCompact(linearNodes, sortedPrims, vertices, false, instBVHOffset);
-            }
+				//CreateCompact(linearNodes, sortedPrims, vertices, false, instBVHOffset);
+				CompactTLASNodes(linearNodes, sortedPrims, instBVHOffset);
+			}
         }
 	}
 
@@ -815,9 +803,9 @@ public class BVHAccel
 		float t1 = Mathf.Min(Mathf.Min(tmax.x, Mathf.Min(tmax.y, tmax.z)), ray.tMax);
 		float t0 = Mathf.Max(Mathf.Max(tmin.x, Mathf.Max(tmin.y, tmin.z)), ray.tmin);
 
-		tMin = t0;
+		tMin = (t1 >= t0) ? (t0 > 0.0f ? t0 : t1) : -1.0f;
 
-		return (t1 >= t0);
+		return tMin > 0;
 	}
 
 
@@ -863,9 +851,8 @@ public class BVHAccel
 		return rayDir.Invert();
 	}
 
-	public bool IntersectMeshBVH(GPURay ray, int bvhOffset, MeshInstance meshInstance, out float hitT, out int hitIndex, ref GPUInteraction isect, bool anyHit)
+	public bool IntersectMeshBVH(GPURay ray, int bvhOffset, MeshInstance meshInstance, out int hitIndex, ref HitInfo hitInfo, bool anyHit)
 	{
-		isect = new GPUInteraction();
 		const int INVALID_INDEX = 0x76543210;
 
 		//GPURay TempRay = new GPURay();
@@ -877,7 +864,7 @@ public class BVHAccel
 		int nodeAddr = bvhOffset;
 
 		float tmin = ray.tmin;
-		hitT = ray.tmax;
+		float hitT = ray.tmax;
 
 		Vector3 invDir = GetInverseDirection(ray.direction);
  		int stackIndex = 0;
@@ -955,13 +942,13 @@ public class BVHAccel
 				int triangleIndex = 0;
 				for (int triAddr = ~leafAddr; /*triAddr < ~leafAddr + primitivesNum * 3*/; triAddr += 3)
 				{
-					Vector4 m0 = m_woodTriangleVertices[triAddr];     //matrix row 0 
+					Vector4 m0 = WoopTriangleData.m_woopTriangleVertices[triAddr];     //matrix row 0 
 
 					if (MathUtil.SingleToInt32Bits(m0.x) == 0x7fffffff)
 						break;
 
-					Vector4 m1 = m_woodTriangleVertices[triAddr + 1]; //matrix row 1 
-					Vector4 m2 = m_woodTriangleVertices[triAddr + 2]; //matrix row 2
+					Vector4 m1 = WoopTriangleData.m_woopTriangleVertices[triAddr + 1]; //matrix row 1 
+					Vector4 m2 = WoopTriangleData.m_woopTriangleVertices[triAddr + 2]; //matrix row 2
 
 					//Oz is a point, must plus w
 					float Oz = m2.w + Vector3.Dot(ray.orig, m2);//origx * m2.x + origy * m2.y + origz * m2.z;
@@ -971,9 +958,9 @@ public class BVHAccel
 
 					Vector3 normal = Vector3.Cross(m0, m1).normalized;
 
-					int vertexIndex0 = m_woodTriangleIndices[triAddr];
-					int vertexIndex1 = m_woodTriangleIndices[triAddr + 1];
-					int vertexIndex2 = m_woodTriangleIndices[triAddr + 2];
+					int vertexIndex0 = WoopTriangleData.m_woopTriangleIndices[triAddr];
+					int vertexIndex1 = WoopTriangleData.m_woopTriangleIndices[triAddr + 1];
+					int vertexIndex2 = WoopTriangleData.m_woopTriangleIndices[triAddr + 2];
 					Vector3 v0 = sceneVertices[vertexIndex0].position;
 					Vector3 v1 = sceneVertices[vertexIndex1].position;
 					Vector3 v2 = sceneVertices[vertexIndex2].position;
@@ -1010,24 +997,11 @@ public class BVHAccel
 								// Record intersection.
 								// Closest intersection not required => terminate.
 								hitT = t;
+								hitInfo.hitT = hitT;
+								hitInfo.triAddr = triAddr;
+								hitInfo.baryCoord = new Vector2(u, v);
+								hitInfo.triangleIndexInMesh = triangleIndex;
 								hitIndex = triAddr;
-
-								Vector3 hitPos = v0 * u + v1 * v + v2 * (1.0f - u - v);
-								//hitPos.w = 1;
-                                hitPos = meshInstance.localToWorld.MultiplyPoint(hitPos);
-								Vector3 worldNormal = meshInstance.worldToLocal.transpose.MultiplyVector(normal).normalized; //normalize(mul(normal, (float3x3)worldToObject));
-
-								isect.normal = worldNormal;
-
-								isect.p = hitPos; // offset_ray(hitPos, worldNormal);
-								//isect.uv = uv0 * uv.x + uv1 * uv.y + uv2 * (1.0 - uv.x - uv.y);
-								//isect.row1 = objectToWorld._m00_m01_m02_m03;
-								//isect.row2 = objectToWorld._m10_m11_m12_m13;
-								//isect.row3 = objectToWorld._m20_m21_m22_m23;
-								isect.tangent = (v0World - hitPos).normalized;
-								isect.bitangent = Vector3.Cross(isect.normal, isect.tangent).normalized;
-								isect.primArea = Vector3.Cross(v2World - v0World, v1World - v0World).magnitude * 0.5f;
-								isect.triangleIndex = (uint)triangleIndex;
 
 								if (anyHit)
 									return true;
@@ -1076,7 +1050,7 @@ public class BVHAccel
 					  Mathf.Abs(p.z) < origin()? p.z + float_scale() * n.z : p_i.z);
 	}
 
-	public bool IntersectInstTest(GPURay ray, List<MeshInstance> meshInstances, List<MeshHandle> meshHandles, int instBVHOffset, out float hitT, ref GPUInteraction isect, bool anyHit, ref HitInfo hitInfo)
+	public bool IntersectInstTest(GPURay ray, List<MeshInstance> meshInstances, int instBVHOffset, out float hitT, ref GPUInteraction isect, bool anyHit, ref HitInfo hitInfo)
 	{
 		const int INVALID_INDEX = 0x76543210;
 		isect = new GPUInteraction();
@@ -1116,18 +1090,18 @@ public class BVHAccel
 			//invDir = GetInverseDirection(ray.direction);
 			float bvhHit = hitT;
 			int meshHitTriangleIndex = -1;
-			if (IntersectMeshBVH(rayTemp, 0, meshInstance, out bvhHit, out meshHitTriangleIndex, ref isect, anyHit))
+			if (IntersectMeshBVH(rayTemp, 0, meshInstance, out meshHitTriangleIndex, ref hitInfo, anyHit))
 			{
 				hitMeshIndex = 0;
-				if (bvhHit < hitT)
+				if (hitInfo.hitT < hitT)
 				{
 					hitBVHNode = 0;
 					hitT = bvhHit;
 					hitIndex = meshHitTriangleIndex;
 					isect.meshInstanceID = 0;
 					isect.materialID = meshInstance.materialIndex;
-					hitInfo.meshInstanceIndex = 0;
-					hitInfo.woodTriangleIndex = meshHitTriangleIndex;
+					hitInfo.meshInstanceId = 0;
+					hitInfo.triangleIndexInMesh = meshHitTriangleIndex;
 				}
 			}
 		}
@@ -1234,9 +1208,9 @@ public class BVHAccel
 						float bvhHit = hitT;
 						int meshHitTriangleIndex = -1;
 						GPUInteraction tmpInteraction = new GPUInteraction();
-						if (IntersectMeshBVH(rayTemp, next[i], meshInstance, out bvhHit, out meshHitTriangleIndex, ref tmpInteraction, false))
+						if (IntersectMeshBVH(rayTemp, next[i], meshInstance, out meshHitTriangleIndex, ref hitInfo, false))
 						{
-							if (bvhHit < hitT)
+							if (hitInfo.hitT < hitT)
 							{
 								hitT = bvhHit;
 								hitIndex = meshHitTriangleIndex;
@@ -1247,8 +1221,6 @@ public class BVHAccel
 								isect = tmpInteraction;
 								isect.wo = -ray.direction;
 								isect.materialID = meshInstance.materialIndex;
-								hitInfo.meshInstanceIndex = hitMeshIndex;
-								hitInfo.woodTriangleIndex = meshHitTriangleIndex;
 								//isect.triangleIndex = (uint)meshHitTriangleIndex;
 							}
 						}
@@ -1373,15 +1345,15 @@ public class BVHAccel
 			//遍历叶子
 			while (leafAddr < 0)
 			{
-				for (int triAddr = ~leafAddr; /*triAddr < ~leafAddr + primitivesNum * 3*/; triAddr += 3)
+				for (int triAddr = ~leafAddr; ; triAddr += 3)
 				{
-					Vector4 m0 = m_woodTriangleVertices[triAddr];     //matrix row 0 
+					Vector4 m0 = WoopTriangleData.m_woopTriangleVertices[triAddr];     //matrix row 0 
 
 					if (MathUtil.SingleToInt32Bits(m0.x) == 0x7fffffff)
 						break;
 
-					Vector4 m1 = m_woodTriangleVertices[triAddr + 1]; //matrix row 1 
-					Vector4 m2 = m_woodTriangleVertices[triAddr + 2]; //matrix row 2
+					Vector4 m1 = WoopTriangleData.m_woopTriangleVertices[triAddr + 1]; //matrix row 1 
+					Vector4 m2 = WoopTriangleData.m_woopTriangleVertices[triAddr + 2]; //matrix row 2
 
 					Vector3 normal = Vector3.Cross(m0, m1).normalized;
 					if (Vector3.Dot(normal, ray.direction) >= 0)
@@ -1415,9 +1387,9 @@ public class BVHAccel
 		//return false;
 		if (hitIndex != -1)
 		{
-			RenderDebug.DrawTriangle(sceneVertices[m_woodTriangleIndices[hitIndex]].position,
-				sceneVertices[m_woodTriangleIndices[hitIndex + 1]].position,
-				sceneVertices[m_woodTriangleIndices[hitIndex + 2]].position, Color.green);
+			RenderDebug.DrawTriangle(sceneVertices[WoopTriangleData.m_woopTriangleIndices[hitIndex]].position,
+				sceneVertices[WoopTriangleData.m_woopTriangleIndices[hitIndex + 1]].position,
+				sceneVertices[WoopTriangleData.m_woopTriangleIndices[hitIndex + 2]].position, Color.green);
 
 		}
 		return hitIndex != -1;
@@ -1463,11 +1435,12 @@ public class BVHAccel
 			//invDir = GetInverseDirection(ray.direction);
 			float bvhHit = hitT;
 			int meshHitTriangleIndex = -1;
-			GPUInteraction isect = new GPUInteraction();
-			if (IntersectMeshBVH(rayTemp, 0, meshInstance, out bvhHit, out meshHitTriangleIndex, ref isect, false))
+			//GPUInteraction isect = new GPUInteraction();
+			HitInfo hitInfo = new HitInfo();
+			if (IntersectMeshBVH(rayTemp, 0, meshInstance, out meshHitTriangleIndex, ref hitInfo, false))
 			{
 				hitMeshIndex = 0;
-				if (bvhHit < hitT)
+				if (hitInfo.hitT < hitT)
 				{
 					hitBVHNode = 0;
 					hitT = bvhHit;
@@ -1618,9 +1591,9 @@ public class BVHAccel
 			if (hitIndex != -1)
 			{
 				int triAddrDebug = hitIndex;
-				RenderDebug.DrawTriangle(meshInstanceTmp.localToWorld.MultiplyPoint(sceneVertices[m_woodTriangleIndices[triAddrDebug]].position),
-					meshInstanceTmp.localToWorld.MultiplyPoint(sceneVertices[m_woodTriangleIndices[triAddrDebug + 1]].position),
-					meshInstanceTmp.localToWorld.MultiplyPoint(sceneVertices[m_woodTriangleIndices[triAddrDebug + 2]].position), Color.green);
+				RenderDebug.DrawTriangle(meshInstanceTmp.localToWorld.MultiplyPoint(sceneVertices[WoopTriangleData.m_woopTriangleIndices[triAddrDebug]].position),
+					meshInstanceTmp.localToWorld.MultiplyPoint(sceneVertices[WoopTriangleData.m_woopTriangleIndices[triAddrDebug + 1]].position),
+					meshInstanceTmp.localToWorld.MultiplyPoint(sceneVertices[WoopTriangleData.m_woopTriangleIndices[triAddrDebug + 2]].position), Color.green);
 			}
 		}
 		meshInstanceIndex = hitMeshIndex;
@@ -1710,13 +1683,13 @@ public class BVHAccel
 			{
 				for (int triAddr = ~leafAddr; ; triAddr += 3)
 				{
-					Vector4 m0 = m_woodTriangleVertices[triAddr];     //matrix row 0 
+					Vector4 m0 = WoopTriangleData.m_woopTriangleVertices[triAddr];     //matrix row 0 
 
 					if (MathUtil.SingleToInt32Bits(m0.x) == 0x7fffffff)
 						break;
 
-					Vector4 m1 = m_woodTriangleVertices[triAddr + 1]; //matrix row 1 
-					Vector4 m2 = m_woodTriangleVertices[triAddr + 2]; //matrix row 2
+					Vector4 m1 = WoopTriangleData.m_woopTriangleVertices[triAddr + 1]; //matrix row 1 
+					Vector4 m2 = WoopTriangleData.m_woopTriangleVertices[triAddr + 2]; //matrix row 2
 
 					
 
@@ -1764,40 +1737,381 @@ public class BVHAccel
 		return hitIndex != -1;
 	}
 
-	/*
-	bool WoodTriangleRayIntersect(Vector3 rayOrig, Vector3 rayDir, Vector4 m0, Vector4 m1, Vector4 m2, float tmin, out Vector2 uv, ref float hitT)
+	public void CompactTLASNodes(LinearBVHNode[] bvhNodes, Primitive[] primitives, List<int> botomLevelOffset)
 	{
-		uv = Vector2.zero;
-		//Oz is a point, must plus w
-		float Oz = m2.w + Vector3.Dot(rayOrig, m2);//ray.orig.x * m2.x + ray.orig.y * m2.y + ray.orig.z * m2.z;
-											   //Dz is a vector
-		float invDz = 1.0f / Vector3.Dot(rayDir, m2);//(ray.direction.x * m2.x + ray.direction.y * m2.y + ray.direction.z * m2.z);
-		float t = -Oz * invDz;
+		List<GPUBVHNode> nodes = new List<GPUBVHNode>(m_nodes);
+		nodes.Add(new GPUBVHNode());
+		List<StackEntry> stack = new List<StackEntry>();
+		stack.Add(new StackEntry(bvhNodes[0], m_nodes.Count));
+		GPUBounds b0 = new GPUBounds();
+		GPUBounds b1 = new GPUBounds();
 
-		//if t is in bounding and less than the ray.tMax
-		if (t >= tmin && t < hitT)
+		while (stack.Count > 0)
 		{
-			// Compute and check barycentric u.
-			float Ox = m0.w + Vector3.Dot(rayOrig, m0);//ray.orig.x * m0.x + ray.orig.y * m0.y + ray.orig.z * m0.z;
-			float Dx = Vector3.Dot(rayDir, m0);//dirx * m0.x + diry * m0.y + dirz * m0.z;
-			float u = Ox + t * Dx;
+			int c0 = 0;  //left child offset in nodes array if it's not a leaf, else is the blas node offset
+			int c1 = 0;  //meshInstanceIndex of left child if is a leaf, else is -1 
+			int c2 = 0;  //right child offset in nodes array if it's not a leaf, else is the blas node offset
+			int c3 = 0;  //meshInstanceIndex of right child if is a leaf, else is -1 
 
-			if (u >= 0.0f)
+			StackEntry e = stack[stack.Count - 1];
+			stack.RemoveAt(stack.Count - 1);
+
+			/*
+            if (e.node.IsLeaf())
+            {
+                Primitive primitive = primitives[e.node.firstPrimOffset];
+
+                c0 = botomLevelOffset[primitive.meshIndex];
+                c1 = primitive.meshInstIndex;
+                c2 = -1;  //represent this node is the tlas leaf node
+
+                GPUBVHNode gpuBVH = new GPUBVHNode();
+                b0 = e.node.bounds;//e.node.childrenLeft.bounds;
+                b1 = new GPUBounds();//e.node.childrenRight.bounds;
+
+                //gpuBVH.b0xy = new Vector4(b0.min.x, b0.max.x, b0.min.y, b0.max.y);
+                //gpuBVH.b1xy = new Vector4(b1.min.x, b1.max.x, b1.min.y, b1.max.y);
+                //gpuBVH.b01z = new Vector4(b0.min.z, b0.max.z, b1.min.z, b1.max.z);
+                gpuBVH.b0min = b0.min;
+                gpuBVH.b0max = b0.max;
+                gpuBVH.b1min = b1.min;
+                gpuBVH.b1max = b1.max;
+
+                gpuBVH.cids = new Vector4(MathUtil.Int32BitsToSingle(c0), MathUtil.Int32BitsToSingle(c1), MathUtil.Int32BitsToSingle(c2), MathUtil.Int32BitsToSingle(c3));
+                nodes[e.idx] = gpuBVH;
+            }
+            else
+            {
+                //left child
+                LinearBVHNode leftChild = bvhNodes[e.node.leftChildIdx];
+
+                c0 = nodes.Count;//++nextNodeIdx;
+                c1 = 0;   //represent it's not a leaf node
+                stack.Add(new StackEntry(leftChild, c0));
+                nodes.Add(new GPUBVHNode());
+
+
+                //right child
+                LinearBVHNode rightChild = bvhNodes[e.node.rightChildIdx];
+                c2 = nodes.Count;
+
+                stack.Add(new StackEntry(rightChild, c1));
+                nodes.Add(new GPUBVHNode());
+                c3 = 0;  //represent it's not a leaf node
+
+                GPUBVHNode gpuBVH = new GPUBVHNode();
+                b0 = leftChild.bounds;//e.node.childrenLeft.bounds;
+                b1 = rightChild.bounds;//e.node.childrenRight.bounds;
+
+                gpuBVH.b0min = b0.min;
+                gpuBVH.b0max = b0.max;
+                gpuBVH.b1min = b1.min;
+                gpuBVH.b1max = b1.max;
+
+                gpuBVH.cids = new Vector4(MathUtil.Int32BitsToSingle(c0), MathUtil.Int32BitsToSingle(c1), MathUtil.Int32BitsToSingle(c2), MathUtil.Int32BitsToSingle(c3));
+                nodes[e.idx] = gpuBVH;
+            }
+			*/
+
+			//left child
+			LinearBVHNode leftChild = bvhNodes[e.node.leftChildIdx];
+			if (!leftChild.IsLeaf())
 			{
-				// Compute and check barycentric v.
-				float Oy = m1.w + Vector3.Dot(rayOrig, m1);//ray.orig.x * m1.x + ray.orig.y * m1.y + ray.orig.z * m1.z;
-				float Dy = Vector3.Dot(rayDir, m1);//dirx * m1.x + diry * m1.y + dirz * m1.z;
-				float v = Oy + t * Dy;
+				c0 = nodes.Count;//++nextNodeIdx;
+				stack.Add(new StackEntry(leftChild, c0));
+				nodes.Add(new GPUBVHNode());
+				c1 = -1;  //means that lefchild is not a leaf
+			}
+			else
+			{
+				Primitive primitive = primitives[leftChild.firstPrimOffset];
 
-				if (v >= 0.0f && u + v <= 1.0f)
+				c0 = botomLevelOffset[primitive.meshIndex];
+				c1 = primitive.meshInstIndex;
+			}
+
+			//right child
+			LinearBVHNode rightChild = bvhNodes[e.node.rightChildIdx];
+			if (!rightChild.IsLeaf())
+			{
+				c2 = nodes.Count;//++nextNodeIdx;
+				stack.Add(new StackEntry(rightChild, c2));
+				nodes.Add(new GPUBVHNode());
+				c3 = -1;  //means that rightChild is not leaf node.
+			}
+			else
+			{
+				Primitive primitive = primitives[rightChild.firstPrimOffset];
+
+				c2 = botomLevelOffset[primitive.meshIndex];
+				c3 = primitive.meshInstIndex;
+			}
+
+			GPUBVHNode gpuBVH = new GPUBVHNode();
+			b0 = leftChild.bounds;//e.node.childrenLeft.bounds;
+			b1 = rightChild.bounds;//e.node.childrenRight.bounds;
+
+
+			gpuBVH.b0min = b0.min;
+			gpuBVH.b0max = b0.max;
+			gpuBVH.b1min = b1.min;
+			gpuBVH.b1max = b1.max;
+
+			gpuBVH.cids = new Vector4(MathUtil.Int32BitsToSingle(c0), MathUtil.Int32BitsToSingle(c1), MathUtil.Int32BitsToSingle(c2), MathUtil.Int32BitsToSingle(c3));
+			nodes[e.idx] = gpuBVH;
+		}
+
+        m_nodes = nodes;
+	}
+
+	public void CompactBLASNodes(LinearBVHNode[] bvhNodes, Primitive[] primitives, List<GPUVertex> gpuVertices)
+    {
+		List<GPUBVHNode> nodes = new List<GPUBVHNode>(m_nodes);
+		nodes.Add(new GPUBVHNode());
+		//int nextNodeIdx = 0;
+		List<StackEntry> stack = new List<StackEntry>();
+		stack.Add(new StackEntry(bvhNodes[0], m_nodes.Count));
+		GPUBounds b0 = new GPUBounds();
+		GPUBounds b1 = new GPUBounds();
+
+		while (stack.Count > 0)
+		{
+			int c0 = 0;  //bottomlevel bvh: left child vertices offset; toplevel bvh: 
+			int c1 = 0;  //bottomlevel bvh: right child vertices offset; toplevel bvh: 
+			int c2 = 0;  //bottomlevel bvh: left child primtives num; toplevel bvh: left child bottomlevel bvh offset
+			int c3 = 0;  //bottomlevel bvh: right child primitves num
+			StackEntry e = stack[stack.Count - 1];
+			stack.RemoveAt(stack.Count - 1);
+
+			
+			{
+				//left child
+				LinearBVHNode leftChild = bvhNodes[e.node.leftChildIdx];
+				if (!leftChild.IsLeaf())
 				{
-					uv = new Vector2(u, v);
-					hitT = t;
-					return true;
+					c0 = nodes.Count;//++nextNodeIdx;
+					stack.Add(new StackEntry(leftChild, c0));
+					nodes.Add(new GPUBVHNode());
+					c1 = 0;  //means that lefchild is not a leaf
 				}
+				else
+				{
+					c0 = ~WoopTriangleData.m_woopTriangleVertices.Count;
+					//BVHBuildNode child = e.node.childrenLeft;
+					//处理三角形
+					for (int i = leftChild.firstPrimOffset; i < leftChild.firstPrimOffset + leftChild.nPrimitives; ++i)
+					{
+						//把三角形每个顶点按顺序写入buffer里，保证了每个三角形的索引是连续的
+						WoopTriangleData.UnitTriangle(i, gpuVertices, primitives);
+						Primitive primitive = primitives[i];
+
+						for (int v = 0; v < 3; ++v)
+						{
+							WoopTriangleData.m_woopTriangleVertices.Add(WoopTriangleData.m_woop[v]);
+							WoopTriangleData.m_woopTriangleIndices.Add(primitive.triIndices[v]);
+							//Vector4 worldPos = gpuVertices[primitive.triIndices[v]].position;
+							//Vector4 uv = gpuVertices[primitive.triIndices[v]].uv;
+							//if (v == 0)
+							//	worldPos.w = Int32BitsToSingle(primitive.materialIndex);
+
+							//m_vertices.Add(new GPUVertex(worldPos, uv));
+						}
+					}
+					WoopTriangleData.m_woopTriangleVertices.Add(new Vector4(MathUtil.Int32BitsToSingle(int.MaxValue), 0, 0, 0));
+					WoopTriangleData.m_woopTriangleIndices.Add(int.MaxValue);
+					//m_vertices.Add(new GPUVertex(new Vector4(Int32BitsToSingle(int.MaxValue), 0, 0, 0), Vector4.zero));
+					//c2 = child.nPrimitives;
+					Primitive primitiveCur = primitives[leftChild.firstPrimOffset];
+					c1 = primitiveCur.meshInstIndex;  //make sure the mask is greater than zero
+				}
+
+				//right child
+				LinearBVHNode rightChild = bvhNodes[e.node.rightChildIdx];
+				if (!rightChild.IsLeaf())
+				{
+					c2 = nodes.Count;//++nextNodeIdx;
+					stack.Add(new StackEntry(rightChild, c1));
+					nodes.Add(new GPUBVHNode());
+					c3 = 0;  //means that rightChild is not leaf node.
+				}
+				else
+				{
+					c2 = ~WoopTriangleData.m_woopTriangleVertices.Count;
+
+					for (int i = rightChild.firstPrimOffset; i < rightChild.firstPrimOffset + rightChild.nPrimitives; ++i)
+					{
+						WoopTriangleData.UnitTriangle(i, gpuVertices, primitives);
+						Primitive primitive = primitives[i];
+						for (int v = 0; v < 3; ++v)
+						{
+							WoopTriangleData.m_woopTriangleVertices.Add(WoopTriangleData.m_woop[v]);
+							WoopTriangleData.m_woopTriangleIndices.Add(primitive.triIndices[v]);
+							//m_vertices.Add(new GPUVertex(gpuVertices[primitive.triIndices[v]].position, gpuVertices[primitive.triIndices[v]].uv));
+						}
+
+					}
+					WoopTriangleData.m_woopTriangleVertices.Add(new Vector4(MathUtil.Int32BitsToSingle(int.MaxValue), 0, 0, 0));
+					WoopTriangleData.m_woopTriangleIndices.Add(int.MaxValue);
+					//m_vertices.Add(new GPUVertex(new Vector4(Int32BitsToSingle(int.MaxValue), 0, 0, 0), Vector4.zero));
+					Primitive primitiveCur = primitives[rightChild.firstPrimOffset];
+					c3 = primitiveCur.meshInstIndex;
+				}
+
+				//添加结束
+				GPUBVHNode gpuBVH = new GPUBVHNode();
+				b0 = leftChild.bounds;//e.node.childrenLeft.bounds;
+				b1 = rightChild.bounds;//e.node.childrenRight.bounds;
+
+				//gpuBVH.b0xy = new Vector4(b0.min.x, b0.max.x, b0.min.y, b0.max.y);
+				//gpuBVH.b1xy = new Vector4(b1.min.x, b1.max.x, b1.min.y, b1.max.y);
+				//gpuBVH.b01z = new Vector4(b0.min.z, b0.max.z, b1.min.z, b1.max.z);
+				gpuBVH.b0min = b0.min;
+				gpuBVH.b0max = b0.max;
+				gpuBVH.b1min = b1.min;
+				gpuBVH.b1max = b1.max;
+
+				gpuBVH.cids = new Vector4(MathUtil.Int32BitsToSingle(c0), MathUtil.Int32BitsToSingle(c1), MathUtil.Int32BitsToSingle(c2), MathUtil.Int32BitsToSingle(c3));
+				nodes[e.idx] = gpuBVH;
 			}
 		}
-		return false;
+
+		m_nodes = nodes;
 	}
-	*/
+
+	public bool BVHHit(GPURay ray, ref HitInfo hitInfo, bool anyHit, List<MeshInstance> meshInstances, int instBVHOffset)
+	{
+		float hitT = float.MaxValue;
+		hitInfo.triAddr = -1;
+		const int EntrypointSentinel = 0x76543210;
+		int INVALID_INDEX = EntrypointSentinel;
+
+		//GPURay TempRay = new GPURay();
+		int[] traversalStack = new int[64];
+		int stackIndex = 0;
+		traversalStack[stackIndex++] = INVALID_INDEX;
+		int curIndex = instBVHOffset >= m_nodes.Count ? 0 : instBVHOffset;
+		bool blas = false;
+		float ooeps = Mathf.Pow(2, -80.0f);//exp2f(-80.0f); // Avoid div by zero, returns 1/2^80, an extremely small number
+		Vector3 rayDir = ray.direction;
+		Vector3 invDir = new Vector3(1.0f / (Mathf.Abs(rayDir.x) > ooeps ? rayDir.x : Mathf.Sign(rayDir.x) * ooeps),
+			1.0f / (Mathf.Abs(rayDir.y) > ooeps ? rayDir.y : Mathf.Sign(rayDir.y) * ooeps),
+			1.0f / (Mathf.Abs(rayDir.z) > ooeps ? rayDir.z : Mathf.Sign(rayDir.z) * ooeps)
+			);
+		
+		int hitIndex = -1;
+
+		while (curIndex != INVALID_INDEX)
+		{
+			GPUBVHNode curNode = m_nodes[curIndex];
+			curIndex = INVALID_INDEX;
+			Vector4Int cnodes = MathUtil.SingleToInt32Bits(curNode.cids);
+			int leftNode = cnodes.x;
+			int leftNodeMask = cnodes.y;
+			int rightNode = cnodes.z;
+			int rightNodeMask = cnodes.w;
+			float tLeftChildHit = 0;
+			//left child ray-bound intersection test
+			//bool traverseChild0 = RayBoundIntersect(ray.orig, curNode.b0xy, new Vector2(curNode.b01z.x, curNode.b01z.y), invDir.x, invDir.y, invDir.z, hitT, out t0);
+			bool traverseChild0 = RayBoundIntersect(ray, invDir, curNode.b0min, curNode.b0max, out tLeftChildHit);
+
+			float tRightChildHit = 0;
+			//right child ray-bound intersection test
+			//bool traverseChild1 = RayBoundIntersect(ray.orig, curNode.b1xy, new Vector2(curNode.b01z.z, curNode.b01z.w), invDir.x, invDir.y, invDir.z, hitT, out t1);
+			bool traverseChild1 = RayBoundIntersect(ray, invDir, curNode.b1min, curNode.b1max, out tRightChildHit);
+			bool isLeftChildLeaf = leftNodeMask >= 0;
+			bool isRightChildLeaf = rightNodeMask >= 0;
+			Vector2Int leafNode = new Vector2Int(INVALID_INDEX, INVALID_INDEX);
+			Vector2Int leafNodeMask = new Vector2Int(-1, -1);
+
+			if (tLeftChildHit > 0.0 && tRightChildHit > 0.0)
+			{
+				int deferred = INVALID_INDEX;
+				if (tLeftChildHit > tRightChildHit)
+				{
+					curIndex = isRightChildLeaf ? INVALID_INDEX : rightNode;
+					deferred = leftNode;
+					leafNode[0] = isRightChildLeaf ? rightNode : INVALID_INDEX;
+					leafNodeMask[0] = isRightChildLeaf ? rightNodeMask : -1;
+					leafNode[1] = isLeftChildLeaf ? deferred : INVALID_INDEX;
+					leafNodeMask[1] = isLeftChildLeaf ? leftNodeMask : -1;
+				}
+				else
+				{
+					curIndex = isLeftChildLeaf ? INVALID_INDEX : leftNode;
+					deferred = rightNode;
+					leafNode[0] = isLeftChildLeaf ? leftNode : INVALID_INDEX;
+					leafNodeMask[0] = isLeftChildLeaf ? leftNodeMask : -1;
+					leafNode[1] = isRightChildLeaf ? deferred : INVALID_INDEX;
+					leafNodeMask[1] = isRightChildLeaf ? rightNodeMask : -1;
+				}
+
+				if (leafNode[1] == INVALID_INDEX)
+					traversalStack[stackIndex++] = deferred;
+				if (leafNode[0] == INVALID_INDEX && leafNode[1] == INVALID_INDEX)
+					continue;
+			}
+			else if (tLeftChildHit > 0.0f)
+			{
+				if (!isLeftChildLeaf)
+				{
+					curIndex = leftNode;
+					continue;
+				}
+				else
+				{
+					leafNode[0] = leftNode;
+					leafNodeMask[0] = leftNodeMask;
+				}
+			}
+			else if (tRightChildHit > 0.0f)
+			{
+				if (!isRightChildLeaf)
+				{
+					curIndex = rightNode;
+					continue;
+				}
+				else
+				{
+					leafNode[0] = rightNode;
+					leafNodeMask[0] = rightNodeMask;
+				}
+			}
+
+			if (curIndex == INVALID_INDEX)
+				curIndex = traversalStack[--stackIndex];
+
+			//case 1: tlas leafnode
+			for (int i = 0; i < 2; ++i)
+			{
+				if (leafNode[i] != INVALID_INDEX)
+				{
+					MeshInstance meshInstance = meshInstances[leafNodeMask[i]];
+					GPURay rayTemp = GPURay.TransformRay(ref meshInstance.worldToLocal, ref ray);
+					//invDir = GetInverseDirection(ray.direction);
+					//float bvhHit = hitT;
+					int meshHitTriangleIndex = -1;
+					HitInfo tmpHitInfo = new HitInfo();
+					//tmpHitInfo.hitT = hitT;
+					tmpHitInfo.triAddr = -1;
+					//GPUInteraction isect = new GPUInteraction();
+					if (IntersectMeshBVH(rayTemp, leafNode[i], meshInstance, out hitIndex, ref tmpHitInfo, anyHit))
+					{
+						if (tmpHitInfo.hitT < hitT)
+						{
+							tmpHitInfo.meshInstanceId = leafNodeMask[i];
+							hitT = tmpHitInfo.hitT;
+							hitIndex = tmpHitInfo.triAddr;
+							hitInfo = tmpHitInfo;
+
+							if (anyHit)
+								return true;
+						}
+					}
+				}
+			}
+
+		}
+
+		return hitIndex > -1;
+	}
 }
