@@ -48,7 +48,7 @@ namespace RadeonRays
         node->bounds = req.bounds;
 
         // Create leaf node if we have enough prims
-        if (req.numprims <= 4)
+        if (req.numprims < 4)
         {
             m_leafNum++;
             node->type = kLeaf;
