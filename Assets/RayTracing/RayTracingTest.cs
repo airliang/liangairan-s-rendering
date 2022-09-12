@@ -399,28 +399,6 @@ public class RayTracingTest
 
             //convert to mesh local space
             GPURay rayTemp = GPURay.TransformRay(ref meshInstance.worldToLocal, ref ray);
-
-            //check the ray intersecting the light mesh
-            if (bvhaccel.IntersectMeshBVHP(rayTemp, meshInstance.bvhOffset, out bvhHit, out meshHitTriangleIndex))
-            {
-                int triAddr = meshHitTriangleIndex;
-                int vIndex0 = WoopTriangleData.m_woopTriangleIndices[triAddr];
-                int vIndex1 = WoopTriangleData.m_woopTriangleIndices[triAddr + 1];
-                int vIndex2 = WoopTriangleData.m_woopTriangleIndices[triAddr + 2];
-                Vector3 p0 = Vertices[vIndex0].position;
-                Vector3 p1 = Vertices[vIndex1].position;
-                Vector3 p2 = Vertices[vIndex2].position;
-
-                p0 = meshInstance.localToWorld.MultiplyPoint(p0);//mul(meshInstance.localToWorld, float4(p0, 1.0));
-                p1 = meshInstance.localToWorld.MultiplyPoint(p1);//mul(meshInstance.localToWorld, float4(p1, 1.0));
-                p2 = meshInstance.localToWorld.MultiplyPoint(p2);//mul(meshInstance.localToWorld, float4(p2, 1.0));
-
-                lightPdf = 1.0f / Vector3.Cross(p0 - p1, p0 - p2).magnitude;
-
-                distributionIndex += vIndex0 / 3;
-
-                lightPdf *= distributions1D[distributionIndex].x;
-            }
         }
         else
         {

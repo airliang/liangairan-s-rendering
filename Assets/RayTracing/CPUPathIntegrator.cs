@@ -678,29 +678,10 @@ public class CPUPathIntegrator
         return ray;
     }
 
-    static bool ClosestHit(GPURay ray, ref GPUInteraction isect, GPUSceneData gpuSceneData, ref HitInfo hitInfo)
+    static bool ClosestHit(GPURay ray, GPUSceneData gpuSceneData, ref HitInfo hitInfo)
     {
-        bool hitted = true;
-        while (true)
-        {
-            float hitT = 0;
-            //hitted = gpuSceneData.BVH.IntersectInstTest(ray, gpuSceneData.meshInstances, gpuSceneData.InstanceBVHAddr, out hitT, ref isect, false, ref hitInfo);
-            hitted = gpuSceneData.BVH.BVHHit(ray, ref hitInfo, false, gpuSceneData.meshInstances, gpuSceneData.InstanceBVHAddr);
-            if (!hitted)
-                break;
-            else
-            {
-                if (isect.materialID == -1)
-                {
-                    ray = SpawnRay(isect.p, ray.direction, -isect.normal, float.MaxValue);
-                }
-                else
-                {
-                    //alphatest check must be implemented
-                    break;
-                }
-            }
-        }
+        //bool hitted = gpuSceneData.BVH.IntersectInstTest(ray, gpuSceneData.meshInstances, gpuSceneData.InstanceBVHAddr, ref hitInfo);
+        bool hitted = gpuSceneData.BVH.BVHHit(ray, ref hitInfo, false, gpuSceneData.meshInstances, gpuSceneData.InstanceBVHAddr);
 
         return hitted;
     }
@@ -708,9 +689,8 @@ public class CPUPathIntegrator
     static bool ShadowRayVisibilityTest(Vector3 p0, Vector3 p1, Vector3 normal, GPUSceneData gpuSceneData)
     {
         GPURay ray = SpawnRay(p0, p1 - p0, normal, 1.0f - 0.001f);
-        GPUInteraction isect = new GPUInteraction();
         HitInfo hitInfo = new HitInfo();
-        return !ClosestHit(ray, ref isect, gpuSceneData, ref hitInfo);
+        return !ClosestHit(ray, gpuSceneData, ref hitInfo);
 
         //!IntersectP(ray, hitT, meshInstanceIndex);
     }
@@ -1012,7 +992,7 @@ public class CPUPathIntegrator
         {
             GPURay ray = SpawnRay(isect.p, wi, isect.normal, float.MaxValue);
             //Interaction lightISect = (Interaction)0;
-            bool found = ClosestHit(ray, ref pathVertex.nextISect, gpuSceneData, ref hitInfo);
+            bool found = ClosestHit(ray, gpuSceneData, ref hitInfo);
             //pathVertex.nextISect = lightISect; 
             //pathVertex.found = found ? 1 : 0;  //can not use this expression or it will be something error. I don't know why.
 
@@ -1021,6 +1001,7 @@ public class CPUPathIntegrator
 
             if (found)
             {
+                ComputeSurfaceIntersection(hitInfo, wi, gpuSceneData, out pathVertex.nextISect);
                 pathVertex.found = 1;
 
                 uint meshInstanceIndex = pathVertex.nextISect.meshInstanceID;
@@ -1126,9 +1107,10 @@ public class CPUPathIntegrator
             bool foundIntersect = false;
             if (bounces == 0)
             {
-                foundIntersect = ClosestHit(ray, ref isect, gpuSceneData, ref hitInfo);
+                foundIntersect = ClosestHit(ray, gpuSceneData, ref hitInfo);
                 if (foundIntersect)
                 {
+                    ComputeSurfaceIntersection(hitInfo, -ray.direction, gpuSceneData, out isect);
                     int meshInstanceIndex = (int)isect.meshInstanceID;
                     MeshInstance meshInstance = gpuSceneData.meshInstances[meshInstanceIndex];
                     int triAddrDebug = hitInfo.triAddr;
@@ -1217,5 +1199,67 @@ public class CPUPathIntegrator
 
         }
         return li;
+    }
+
+    public static void ComputeSurfaceIntersection(HitInfo hitInfo, Vector3 wo, GPUSceneData gpuSceneData, out GPUInteraction interaction)
+    {
+        interaction = new GPUInteraction();
+        int triAddr = hitInfo.triAddr;
+        Vector2 uv = hitInfo.baryCoord;
+        MeshInstance meshInst = gpuSceneData.meshInstances[hitInfo.meshInstanceId];
+        int vertexIndex0 = WoopTriangleData.m_woopTriangleIndices[triAddr];
+        int vertexIndex1 = WoopTriangleData.m_woopTriangleIndices[triAddr + 1];
+        int vertexIndex2 = WoopTriangleData.m_woopTriangleIndices[triAddr + 2];
+        GPUVertex vertex0 = gpuSceneData.gpuVertices[vertexIndex0];
+        GPUVertex vertex1 = gpuSceneData.gpuVertices[vertexIndex1];
+        GPUVertex vertex2 = gpuSceneData.gpuVertices[vertexIndex2];
+        Vector3 v0 = vertex0.position;
+        Vector3 v1 = vertex1.position;
+        Vector3 v2 = vertex2.position;
+        Vector3 hitPos = v0 * uv.x + v1 * uv.y + v2 * (1.0f - uv.x - uv.y);
+        Matrix4x4 objectToWorld = meshInst.localToWorld;
+        hitPos = objectToWorld.MultiplyPoint(hitPos);
+
+        Vector3 p0 = objectToWorld.MultiplyPoint(v0);
+        Vector3 p1 = objectToWorld.MultiplyPoint(v1);
+        Vector3 p2 = objectToWorld.MultiplyPoint(v2);
+        float triAreaInWorld = Vector3.Cross(p0 - p1, p0 - p2).magnitude * 0.5f;
+
+        Vector3 normal0 = vertex0.normal;
+        Vector3 normal1 = vertex1.normal;
+        Vector3 normal2 = vertex2.normal;
+
+        Vector3 normal = Vector3.Normalize(normal0 * uv.x + normal1 * uv.y + normal2 * (1.0f - uv.x - uv.y));
+
+        Vector3 worldNormal = Vector3.Normalize(meshInst.worldToLocal.transpose.inverse.MultiplyPoint(normal)/*mul(normal, (float3x3)meshInst.worldToLocal)*/); ; ;
+
+        Vector2 uv0 = vertex0.uv;
+        Vector2 uv1 = vertex1.uv;
+        Vector2 uv2 = vertex2.uv;
+
+        interaction.normal = worldNormal;
+        interaction.p = hitPos;
+        interaction.hitT = hitInfo.hitT;
+        interaction.uv = uv0 * uv.x + uv1 * uv.y + uv2 * (1.0f - uv.x - uv.y);
+
+        Vector3 dpdu = new Vector3(1, 0, 0);
+        Vector3 dpdv = new Vector3(0, 1, 0);
+        MathUtil.CoordinateSystem(worldNormal, ref dpdu, ref dpdv);
+        interaction.tangent = Vector3.Normalize(dpdu);
+        interaction.bitangent = Vector3.Normalize(Vector3.Cross(interaction.tangent, worldNormal));
+        interaction.primArea = triAreaInWorld;
+        interaction.triangleIndex = (uint)(vertexIndex0 - meshInst.triangleStartOffset) / 3;//hitInfo.triangleIndexInMesh;
+        interaction.uvArea = Vector3.Cross(new Vector3(uv2.x, uv2.y, 1) - new Vector3(uv0.x, uv0.y, 1), new Vector3(uv1.x, uv1.y, 1) - new Vector3(uv0.x, uv0.y, 1)).magnitude;
+
+        //float4 v0Screen = mul(WorldToRaster, float4(p0, 1));
+        //float4 v1Screen = mul(WorldToRaster, float4(p1, 1));
+        //float4 v2Screen = mul(WorldToRaster, float4(p2, 1));
+        //v0Screen /= v0Screen.w;
+        //v1Screen /= v1Screen.w;
+        //v2Screen /= v2Screen.w;
+        interaction.screenSpaceArea = 0;// length(cross(v2Screen.xyz - v0Screen.xyz, v1Screen.xyz - v0Screen.xyz));
+        interaction.wo = wo;
+        interaction.materialID = meshInst.materialIndex;
+        interaction.meshInstanceID = (uint)hitInfo.meshInstanceId;
     }
 }

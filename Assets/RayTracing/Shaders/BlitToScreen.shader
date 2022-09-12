@@ -51,12 +51,10 @@ Shader "RayTracing/Blit" {
 		if (_HDRType == HDR_FILMIC)
 		{
 			color.rgb = Filmic(color.rgb);
-			color.rgb = GammaToLinearSpace(color.rgb);
 		}
 		else if (_HDRType == HDR_ACE)
 		{
 			color.rgb = ACESToneMapping(color.rgb, _Exposure);
-			color.rgb = GammaToLinearSpace(color.rgb);
 		}
 		
 	    return color;

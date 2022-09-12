@@ -75,7 +75,7 @@ void ComputeSurfaceIntersection(HitInfo hitInfo, float3 wo, out Interaction inte
 	interaction.tangent.xyz = normalize(dpdu.xyz);
 	interaction.bitangent.xyz = normalize(cross(interaction.tangent.xyz, worldNormal));
 	interaction.primArea = triAreaInWorld;
-	interaction.triangleIndex = hitInfo.triangleIndexInMesh;
+	interaction.triangleIndex = (vertexIndex0 - meshInst.vertexOffsetStart) / 3;//hitInfo.triangleIndexInMesh;
 	interaction.uvArea = length(cross(float3(uv2, 1) - float3(uv0, 1), float3(uv1, 1) - float3(uv0, 1)));
 
 	float4 v0Screen = mul(WorldToRaster, float4(p0, 1));

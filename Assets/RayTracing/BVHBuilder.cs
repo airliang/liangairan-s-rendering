@@ -34,7 +34,7 @@ public class BVHBuilder
 		//_orderedPrimOffset = 0;
 		_orderedPrimitives.Clear();
 		//primitives = prims;
-		maxPrimsInNode = _maxPrimsInNode;
+		maxPrimsInNode = _maxPrimsInNode <= 1 ? 2 : _maxPrimsInNode;
 		
 		for (int i = 0; i < prims.Length; ++i)
 			m_primitiveInfos.Add(new BVHPrimitiveInfo(i, prims[i]));

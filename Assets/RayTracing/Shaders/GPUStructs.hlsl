@@ -7,24 +7,26 @@ struct MeshInstance
 {
 	float4x4 localToWorld;
 	float4x4 worldToLocal;
-	int4     indices;  //x-meshhandle y-material index z-light index w-bvhoffset
-	int		 triangleStartOffset;  //triangle index start in trianglebuffer
-	int		 trianglesNum;
-	//int      indexStart;    //the index start offset.attually is the last mesh's total vertex count.
+	int materialIndex;
+	int lightIndex;
+	int vertexOffsetStart;
+	int triangleStartOffset;
+
+	//int		 trianglesNum;
 
 	int GetLightIndex()
 	{
-		return indices.z;
+		return lightIndex;
 	}
 
 	int GetMaterialID()
 	{
-		return indices.y;
+		return materialIndex;
 	}
 
-	int GetBVHOffset()
+	int GetVertexOffset()
 	{
-		return indices.w;
+		return vertexOffsetStart;
 	}
 };
 
@@ -214,6 +216,7 @@ struct HitInfo
 	int triangleIndexInMesh;
 	float hitT;
 	float2 baryCoord;
+	//float pad;
 };
 
 RayCone Propagate(RayCone preCone, float surfaceSpreadAngle, float hitT)

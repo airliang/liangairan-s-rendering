@@ -4317,7 +4317,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _RayTracingData:
-    _kernelType: 0
+    _kernelType: 1
     viewMode: 0
     SamplesPerPixel: 10240
     MaxDepth: 10
@@ -4329,8 +4329,10 @@ MonoBehaviour:
     _Exposure: 1
     _EnviromentMapEnable: 0
     _UniformSampleLight: 0
-    _UseBVHPlugin: 0
+    _UseBVHPlugin: 1
     _SaveOutputTexture: 0
+    _LensRadius: 0
+    _FocalLength: 1
   wavefrontResource: {fileID: 11400000, guid: 55fe1f73a78651046953267ee8a1160f, type: 2}
   megaResource: {fileID: 11400000, guid: d532d486724e10e4796bf18ef4903fa8, type: 2}
   _BlitMaterial: {fileID: 2100000, guid: 084259df6e58bce459049f852cd4eabe, type: 2}

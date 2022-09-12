@@ -74,6 +74,7 @@ Material:
     - _Glossiness: 0.5
     - _GlossyReflections: 1
     - _MaterialType: 4
+    - _MetalType: 0
     - _Metallic: 0
     - _Mode: 0
     - _OcclusionStrength: 1
@@ -84,8 +85,8 @@ Material:
     - _UVSec: 0
     - _UseLinearBaseColor: 0
     - _ZWrite: 1
-    - _roughnessU: 0.003
-    - _roughnessV: 0.003
+    - _roughnessU: 0
+    - _roughnessV: 0
     m_Colors:
     - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
     - _BaseColorLinear: {r: 1, g: 1, b: 1, a: 1}

@@ -145,6 +145,7 @@ public class GPUSceneData
     public List<Primitive> primitives = new List<Primitive>();
     public List<MeshHandle> meshHandles = new List<MeshHandle>();
     public List<MeshInstance> meshInstances = new List<MeshInstance>();
+    public List<int> meshInstanceHandleIndices = new List<int>();
     public List<int> triangles = new List<int>();
     public List<GPUVertex> gpuVertices = new List<GPUVertex>();
     public List<GPULight> gpuLights = new List<GPULight>();
@@ -206,6 +207,7 @@ public class GPUSceneData
 
             //先生成MeshHandle
             int meshHandleIndex = 0;
+            int meshHandleTriangleIndexStart = 0;
 
             for (int i = 0; i < meshRenderers.Length; ++i)
             {
@@ -426,10 +428,11 @@ public class GPUSceneData
                     meshHandleIndex = meshHandleIndices[sm];
                     int materialIndex = SetupMaterials(meshRenderer, sm);
                     MeshHandle meshHandle = meshHandles[meshHandleIndex];
-                    MeshInstance meshInstance = new MeshInstance(transform.localToWorldMatrix, transform.worldToLocalMatrix, meshHandleIndex,
-                        materialIndex, lightIndex, meshHandle.triangleOffset, meshHandle.triangleCount);
+                    MeshInstance meshInstance = new MeshInstance(transform.localToWorldMatrix, transform.worldToLocalMatrix,
+                        materialIndex, lightIndex, meshHandle.vertexOffset, meshHandle.triangleOffset);
                     entityDebug.meshInstanceIDs.Add(meshInstances.Count);
                     meshInstances.Add(meshInstance);
+                    meshInstanceHandleIndices.Add(meshHandleIndex);
                 }
                 Profiler.EndSample();
             }
@@ -438,7 +441,7 @@ public class GPUSceneData
             //创建bvh
             float timeBegin = Time.realtimeSinceStartup;
             Profiler.BeginSample("Build BVH");
-            instBVHNodeAddr = bvhAccel.Build(meshInstances, meshHandles, gpuVertices, triangles);
+            instBVHNodeAddr = bvhAccel.Build(meshInstances, meshHandles, meshInstanceHandleIndices, gpuVertices, triangles);
             Profiler.EndSample();
             float timeInterval = Time.realtimeSinceStartup - timeBegin;
             Debug.Log("building bvh cost time:" + timeInterval);

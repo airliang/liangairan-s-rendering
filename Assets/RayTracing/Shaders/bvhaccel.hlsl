@@ -109,7 +109,10 @@ bool IntersectMeshBVH(Ray ray, int bvhOffset, out HitInfo hitInfo, bool anyHit)
 
 	//GPURay TempRay = new GPURay();
 	int traversalStack[64];
+	int stackIndex = 0;
 	traversalStack[0] = INVALID_INDEX;
+	
+	int hitIndex = -1;
 	int leafAddr = 0;               // If negative, then first postponed leaf, non-negative if no leaf (innernode).
 
 	//instBVHOffset >= m_nodes.Count说明没有inst
@@ -127,9 +130,6 @@ bool IntersectMeshBVH(Ray ray, int bvhOffset, out HitInfo hitInfo, bool anyHit)
 	//	1.0f / (abs(rayDir.z) > ooeps ? rayDir.z : sign(rayDir.z) * ooeps)
 	//	);
 	float3 invDir = 1.0 / rayDir;
-
-	int stackIndex = 0;
-	int hitIndex = -1;
 
 	while (nodeAddr != INVALID_INDEX)
 	{
@@ -156,7 +156,7 @@ bool IntersectMeshBVH(Ray ray, int bvhOffset, out HitInfo hitInfo, bool anyHit)
 			// Otherwise => fetch child pointers.
 			else
 			{
-				nodeAddr = (traverseChild0) ? cnodes.x : cnodes.y;
+				nodeAddr = (traverseChild0) ? cnodes.x : cnodes.z;
 				tmin = (traverseChild0) ? tLeft : tRight;
 				//primitivesNum = (traverseChild0) ? cnodes.z : cnodes.w;
 				//primitivesNum2 = (traverseChild0) ? cnodes.w : cnodes.z;
@@ -170,10 +170,10 @@ bool IntersectMeshBVH(Ray ray, int bvhOffset, out HitInfo hitInfo, bool anyHit)
 					{
 						//swap(nodeAddr, cnodes.y);
 						int tmp = nodeAddr;
-						nodeAddr = cnodes.y;
-						cnodes.y = tmp;
+						nodeAddr = cnodes.z;
+						cnodes.z = tmp;
 					}
-					traversalStack[++stackIndex] = cnodes.y;
+					traversalStack[++stackIndex] = cnodes.z;
 					tmin = min(tRight, tLeft);
 				}
 			}
@@ -194,7 +194,7 @@ bool IntersectMeshBVH(Ray ray, int bvhOffset, out HitInfo hitInfo, bool anyHit)
 		//遍历叶子
 		while (leafAddr < 0)
 		{
-			int triangleIndex = 0;
+			//int triangleIndex = 0;
 			for (int triAddr = ~leafAddr; ; triAddr += 3)
 			{
 				float4 m0 = WoodTriangles[triAddr];     //matrix row 0 
@@ -220,19 +220,19 @@ bool IntersectMeshBVH(Ray ray, int bvhOffset, out HitInfo hitInfo, bool anyHit)
 				float2 uv = 0;
 				float triangleHit = 0;
 				bool hitTriangle = WoodTriangleRayIntersect(rayOrig.xyz, rayDir.xyz, m0, m1, m2, ray.tmin, ray.tmax, uv, triangleHit);
-				if (hitTriangle && (hitT > triangleHit/* && triangleHit >= tmin*/))
+				if (hitTriangle && (hitT > triangleHit))
 				{
 					hitT = triangleHit;
 					hitInfo.hitT = hitT;
 					hitInfo.triAddr = triAddr;
 					hitInfo.baryCoord = uv;
-					hitInfo.triangleIndexInMesh = triangleIndex;
+					//hitInfo.triangleIndexInMesh = triangleIndex;
 					hitIndex = triAddr;
 
 					if (anyHit)
 						return true;
 				}
-				triangleIndex++;
+				//triangleIndex++;
 			} // triangle
 
 			// Another leaf was postponed => process it as well.
@@ -430,6 +430,9 @@ bool IntersectBVH(Ray ray, out HitInfo hitInfo, bool anyHit)
 	return hitIndex > -1;
 }
 
+#define NODE_PARENT 0
+#define NODE_TLAS_LEAF 1
+#define NODE_BLAS_LEAF 2
 
 bool BVHHit(Ray ray, out HitInfo hitInfo, bool anyHit)
 {
@@ -446,13 +449,14 @@ bool BVHHit(Ray ray, out HitInfo hitInfo, bool anyHit)
 	//bool blas = false;
 	float ooeps = pow(2, -80.0f);//exp2f(-80.0f); // Avoid div by zero, returns 1/2^80, an extremely small number
 	float3 rayDir = ray.direction;
-	float3 invDir = float3(1.0f / (abs(rayDir.x) > ooeps ? rayDir.x : sign(rayDir.x) * ooeps),
-		1.0f / (abs(rayDir.y) > ooeps ? rayDir.y : sign(rayDir.y) * ooeps),
-		1.0f / (abs(rayDir.z) > ooeps ? rayDir.z : sign(rayDir.z) * ooeps)
-		);
-	
+	//float3 invDir = float3(1.0f / (abs(rayDir.x) > ooeps ? rayDir.x : sign(rayDir.x) * ooeps),
+	//	1.0f / (abs(rayDir.y) > ooeps ? rayDir.y : sign(rayDir.y) * ooeps),
+	//	1.0f / (abs(rayDir.z) > ooeps ? rayDir.z : sign(rayDir.z) * ooeps)
+	//	);
+	float3 invDir = 1.0 / rayDir;
+
 	int hitIndex = -1;
-	
+
 	while (curIndex != INVALID_INDEX)
 	{
 		BVHNode curNode = BVHTree[curIndex];
@@ -490,7 +494,7 @@ bool BVHHit(Ray ray, out HitInfo hitInfo, bool anyHit)
 				leafNode[1] = isRightChildLeaf ? deferred : INVALID_INDEX;
 				leafNodeMask[1] = isRightChildLeaf ? rightNodeMask : -1;
 			}
-			
+
 			if (leafNode[1] == INVALID_INDEX)
 				traversalStack[stackIndex++] = deferred;
 			if (leafNode[0] == INVALID_INDEX && leafNode[1] == INVALID_INDEX)
@@ -554,7 +558,234 @@ bool BVHHit(Ray ray, out HitInfo hitInfo, bool anyHit)
 				}
 			}
 		}
+	}
+
+	return hitIndex > -1;
+}
+
+bool BVHHit2(Ray ray, out HitInfo hitInfo, bool anyHit)
+{
+	float hitT = ray.tmax;
+	hitInfo = (HitInfo)0;
+	hitInfo.triAddr = -1;
+	int INVALID_INDEX = EntrypointSentinel;
+
+	//GPURay TempRay = new GPURay();
+	int3 traversalStack[64];
+	int caseStack[64];
+	int   stackIndex = 0;
+	traversalStack[stackIndex++] = int3(INVALID_INDEX, NODE_PARENT, -1);
+	int curIndex = instBVHAddr;
+	//bool blas = false;
+	float ooeps = pow(2, -80.0f);//exp2f(-80.0f); // Avoid div by zero, returns 1/2^80, an extremely small number
+	float3 rayDir = ray.direction;
+	float3 invDir = float3(1.0f / (abs(rayDir.x) > ooeps ? rayDir.x : sign(rayDir.x) * ooeps),
+		1.0f / (abs(rayDir.y) > ooeps ? rayDir.y : sign(rayDir.y) * ooeps),
+		1.0f / (abs(rayDir.z) > ooeps ? rayDir.z : sign(rayDir.z) * ooeps)
+		);
+	
+	int hitIndex = -1;
+	Ray rayTrans = ray;
+	int  meshInstanceID = -1;
+	int curNodeCase = NODE_PARENT;
+	//int2 childNodeCases = NODE_PARENT;
+	bool blas = false;
+	
+	while (curIndex != INVALID_INDEX)
+	{
+		BVHNode curNode = BVHTree[curIndex];
+		curIndex = INVALID_INDEX;
+		int4 cnodes = asint(curNode.cids);
+		int  leftNode = cnodes.x;
+		int  leftNodeMask = cnodes.y;
+		int  rightNode = cnodes.z;
+		int  rightNodeMask = cnodes.w;
+		int2 leafNode = int2(INVALID_INDEX, INVALID_INDEX);
+		int2 leafNodeMask = int2(-1, -1);
+
+		if (curNodeCase == NODE_TLAS_LEAF)
+		{
+			MeshInstance meshInstance = MeshInstances[meshInstanceID/*leafNodeMask[i]*/];
+			rayTrans = TransformRay(meshInstance.worldToLocal, ray);
+			rayDir = rayTrans.direction;
+			invDir = float3(1.0f / (abs(rayDir.x) > ooeps ? rayDir.x : sign(rayDir.x) * ooeps),
+				1.0f / (abs(rayDir.y) > ooeps ? rayDir.y : sign(rayDir.y) * ooeps),
+				1.0f / (abs(rayDir.z) > ooeps ? rayDir.z : sign(rayDir.z) * ooeps)
+				);
+			traversalStack[stackIndex++] = int3(INVALID_INDEX, NODE_PARENT, -1);
+			blas = true;
+		}
+
+		if (curNodeCase == NODE_PARENT || curNodeCase == NODE_TLAS_LEAF)
+		{
+			float tLeftChildHit = BoundRayIntersect(rayTrans, invDir, curNode.b0min, curNode.b0max);
+			float tRightChildHit = BoundRayIntersect(rayTrans, invDir, curNode.b1min, curNode.b1max);
+			int  leftChildCase = leftNodeMask >= 0 ? NODE_TLAS_LEAF : (leftNodeMask == -1 ? NODE_PARENT : NODE_BLAS_LEAF);
+			int  rightChildCase = rightNodeMask >= 0 ? NODE_TLAS_LEAF : (rightNodeMask == -1 ? NODE_PARENT : NODE_BLAS_LEAF);
+			//childNodeCases = int2(leftChildCase, rightChildCase);
+
+			if (tLeftChildHit > 0.0 && tRightChildHit > 0.0)
+			{
+				int deferred = INVALID_INDEX;
+				int deferredCase = NODE_PARENT;
+				int deferredMeshInstanceId = -1;
+				if (tLeftChildHit > tRightChildHit)
+				{
+					//right node first
+					curIndex = rightChildCase == NODE_BLAS_LEAF ? INVALID_INDEX : rightNode;
+					curNodeCase = rightChildCase;
+					deferred = leftNode;
+					deferredCase = leftChildCase;
+					deferredMeshInstanceId = leftNodeMask;
+					leafNode[0] = rightChildCase == NODE_BLAS_LEAF ? rightNode : INVALID_INDEX;
+					//leafNodeMask[0] = isRightChildLeaf ? rightNodeMask : -1;
+					leafNode[1] = leftChildCase == NODE_BLAS_LEAF ? deferred : INVALID_INDEX;
+					//leafNodeMask[1] = isLeftChildLeaf ? leftNodeMask : -1;
+					if (rightChildCase == NODE_TLAS_LEAF)
+						meshInstanceID = rightNodeMask;
+				}
+				else
+				{
+					//left node first
+					curIndex = leftChildCase == NODE_BLAS_LEAF ? INVALID_INDEX : leftNode;
+					curNodeCase = leftChildCase;
+					deferred = rightNode;
+					deferredCase = rightChildCase;
+					deferredMeshInstanceId = rightNodeMask;
+					leafNode[0] = leftChildCase == NODE_BLAS_LEAF ? leftNode : INVALID_INDEX;
+					//leafNodeMask[0] = isLeftChildLeaf ? leftNodeMask : -1;
+					leafNode[1] = rightChildCase == NODE_BLAS_LEAF ? deferred : INVALID_INDEX;
+					//leafNodeMask[1] = isRightChildLeaf ? rightNodeMask : -1;
+					if (leftChildCase == NODE_TLAS_LEAF)
+						meshInstanceID = leftNodeMask;
+				}
+
+				if (leafNode[1] == INVALID_INDEX)
+					traversalStack[stackIndex++] = int3(deferred, deferredCase, deferredMeshInstanceId);
+				if (leafNode[0] == INVALID_INDEX && leafNode[1] == INVALID_INDEX)
+					continue;
+			}
+			else if (tLeftChildHit > 0)
+			{
+				curNodeCase = leftChildCase;
+				if (leftChildCase == NODE_BLAS_LEAF)
+				{
+					leafNode[0] = leftNode;
+					//leafNodeMask[0] = leftNodeMask;
+				}
+				else
+				{
+					curIndex = leftNode;
+					if (leftChildCase == NODE_TLAS_LEAF)
+						meshInstanceID = leftNodeMask;
+					continue;
+				}
+			}
+			else if (tRightChildHit > 0)
+			{
+				curNodeCase = rightChildCase;
+				if (rightChildCase == NODE_BLAS_LEAF)
+				{
+					leafNode[0] = rightNode;
+					leafNodeMask[0] = rightNodeMask;
+
+				}
+				else
+				{
+					curIndex = rightNode;
+					if (rightChildCase == NODE_TLAS_LEAF)
+						meshInstanceID = rightNodeMask;
+					continue;
+				}
+			}
+		}
 		
+		for (int i = 0; i < 2; ++i)
+		{
+			if (leafNode[i] != INVALID_INDEX)
+			{
+				//invDir = GetInverseDirection(ray.direction);
+				//float bvhHit = hitT;
+				int leafAddr = leafNode[i];
+				//int triangleIndex = 0;
+				for (int triAddr = ~leafAddr; ; triAddr += 3)
+				{
+					float4 m0 = WoodTriangles[triAddr];     //matrix row 0 
+
+					if (asint(m0.x) == 0x7fffffff)
+						break;
+
+					float4 m1 = WoodTriangles[triAddr + 1]; //matrix row 1 
+					float4 m2 = WoodTriangles[triAddr + 2]; //matrix row 2
+
+					//this is the correct local normal, the same as cross(v1- v0, v2 - v0)
+					float3 normal = normalize(cross(m0.xyz, m1.xyz)).xyz;
+
+					float2 uv = 0;
+					float triangleHit = 0;
+					bool hitTriangle = WoodTriangleRayIntersect(rayTrans.orig.xyz, rayTrans.direction.xyz, m0, m1, m2, ray.tmin, ray.tmax, uv, triangleHit);
+					if (hitTriangle && (hitT > triangleHit))
+					{
+						hitT = triangleHit;
+						hitInfo.hitT = hitT;
+						hitInfo.triAddr = triAddr;
+						hitInfo.baryCoord = uv;
+						//hitInfo.triangleIndexInMesh = triangleIndex;
+						hitInfo.meshInstanceId = meshInstanceID;
+						hitIndex = triAddr;
+
+						if (anyHit)
+							return true;
+					}
+					//triangleIndex++;
+				} // triangle
+				/*
+				int meshHitTriangleIndex = -1;
+				HitInfo tmpHitInfo = (HitInfo)0;
+				//tmpHitInfo.hitT = hitT;
+				tmpHitInfo.triAddr = -1;
+
+				if (IntersectMeshBVH(rayTemp, leafNode[i], tmpHitInfo, anyHit))
+				{
+					if (tmpHitInfo.hitT < hitT)
+					{
+						tmpHitInfo.meshInstanceId = meshInstanceID//leafNodeMask[i];
+						hitT = tmpHitInfo.hitT;
+						hitIndex = tmpHitInfo.triAddr;
+						hitInfo = tmpHitInfo;
+
+						if (anyHit)
+							return true;
+					}
+				}
+				*/
+			}
+		}
+
+		if (curIndex == INVALID_INDEX)
+		{
+			int3 stack = traversalStack[--stackIndex];
+			curIndex = stack.x;
+			curNodeCase = stack.y;
+			meshInstanceID = stack.z;
+		}
+		
+		if (blas && curIndex == INVALID_INDEX)
+		{
+			blas = false;
+
+			int3 stack = traversalStack[--stackIndex];
+			curIndex = stack.x;
+			curNodeCase = stack.y;
+			meshInstanceID = stack.z;
+
+			rayTrans = ray;
+			rayDir = rayTrans.direction;
+			invDir = float3(1.0f / (abs(rayDir.x) > ooeps ? rayDir.x : sign(rayDir.x) * ooeps),
+				1.0f / (abs(rayDir.y) > ooeps ? rayDir.y : sign(rayDir.y) * ooeps),
+				1.0f / (abs(rayDir.z) > ooeps ? rayDir.z : sign(rayDir.z) * ooeps)
+				);
+		}
 	}
 
 	return hitIndex > -1;
