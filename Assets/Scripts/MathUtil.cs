@@ -682,4 +682,14 @@ public static class MathUtil
         random_seed = lcg_a * random_seed + lcg_c;
         return (random_seed & 0x00ffffffu) * (1.0f / (0x01000000u));
     }
+
+    public static void CoordinateSystem(Vector3 v1, ref Vector3 v2, ref Vector3 v3)
+    {
+        //¹¹Ôìv2£¬v2 dot v1 = 0
+        if (Mathf.Abs(v1.x) > Mathf.Abs(v1.y))
+            v2 = new Vector3(-v1.z, 0, v1.x) / Mathf.Sqrt(v1.x * v1.x + v1.z * v1.z);
+        else
+            v2 = new Vector3(0, v1.z, -v1.y) / Mathf.Sqrt(v1.y * v1.y + v1.z * v1.z);
+        v3 = Vector3.Cross(v1, v2);
+    }
 }
