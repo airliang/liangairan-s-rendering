@@ -298,7 +298,9 @@ public class WavefrontKernel : TracingKernel
 
         int threadGroupX = Screen.width / 8 + ((Screen.width % 8) != 0 ? 1 : 0);
         int threadGroupY = Screen.height / 8 + ((Screen.height % 8) != 0 ? 1 : 0);
+        Profiler.BeginSample("GeneratePrimaryRay");
         generateRay.Dispatch(kGeneratePrimaryRay, threadGroupX, threadGroupY, 1);
+        Profiler.EndSample();
         ComputeBuffer curRayQueue = rayQueueBuffer;
         ComputeBuffer nextRayQueue = nextRayQueueBuffer;
 
@@ -317,36 +319,42 @@ public class WavefrontKernel : TracingKernel
         {
             for (int i = 0; true; ++i)
             {
+                Profiler.BeginSample("ResetQueues");
                 ResetQueues(nextRaySizeIndex);
+                Profiler.EndSample();
 
+                Profiler.BeginSample("Ray Cast");
                 RayTravel.SetInt("bounces", i);
                 RayTravel.SetInt("curQueueSizeIndex", curRaySizeIndex);
                 RayTravel.SetBuffer(kRayTraversal, "_RayQueue", curRayQueue);
                 RayTravel.Dispatch(kRayTraversal, threadGroupX, threadGroupY, 1);
+                Profiler.EndSample();
 
+                Profiler.BeginSample("Ray Miss Process");
                 RayMiss.SetInt("bounces", i);
                 RayMiss.Dispatch(kRayMiss, threadGroupX, threadGroupY, 1);
+                Profiler.EndSample();
 
                 //HitAreaLight.SetInt("bounces", i);
+                Profiler.BeginSample("HitAreaLight Process");
                 HitAreaLight.Dispatch(kHitAreaLight, threadGroupX, threadGroupY, 1);
+                Profiler.EndSample();
 
                 if (i == MAX_PATH)
                     break;
 
-                //SampleShadowRay.SetInt("bounces", i);
-                //SampleShadowRay.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
-                //SampleShadowRay.SetInt("curQueueSizeIndex", curRaySizeIndex);
-                //SampleShadowRay.SetBuffer(kSampleShadowRay, "_RayQueue", curRayQueue);
-                //SampleShadowRay.Dispatch(kSampleShadowRay, threadGroupX, threadGroupY, 1);
 
+                Profiler.BeginSample("EstimateDirect Material Shading Process");
                 EstimateDirect.SetInt("bounces", i);
                 //EstimateDirect.SetInt("curQueueSizeIndex", curRaySizeIndex);
                 EstimateDirect.SetInt("nextQueueSizeIndex", nextRaySizeIndex);
                 EstimateDirect.SetBuffer(kEstimateDirect, "_NextRayQueue", nextRayQueue);
                 EstimateDirect.Dispatch(kEstimateDirect, threadGroupX, threadGroupY, 1);
+                Profiler.EndSample();
 
-                //ShadowRayLighting.SetInt("bounces", i);
+                Profiler.BeginSample("ShadowRayLighting Process");
                 ShadowRayLighting.Dispatch(kShadowRayLighting, threadGroupX, threadGroupY, 1);
+                Profiler.EndSample();
                 //clear shadow ray queue
                 SwitchRayQueue();
             }

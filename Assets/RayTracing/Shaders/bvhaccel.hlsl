@@ -197,13 +197,13 @@ bool IntersectMeshBVH(Ray ray, int bvhOffset, out HitInfo hitInfo, bool anyHit)
 			//int triangleIndex = 0;
 			for (int triAddr = ~leafAddr; ; triAddr += 3)
 			{
-				float4 m0 = WoodTriangles[triAddr];     //matrix row 0 
+				float4 m0 = WoopTriangles[triAddr];     //matrix row 0 
 
 				if (asint(m0.x) == 0x7fffffff)
 					break;
 
-				float4 m1 = WoodTriangles[triAddr + 1]; //matrix row 1 
-				float4 m2 = WoodTriangles[triAddr + 2]; //matrix row 2
+				float4 m1 = WoopTriangles[triAddr + 1]; //matrix row 1 
+				float4 m2 = WoopTriangles[triAddr + 2]; //matrix row 2
 
 				//this is the correct local normal, the same as cross(v1- v0, v2 - v0)
 				float3 normal = normalize(cross(m0.xyz, m1.xyz)).xyz;
@@ -710,13 +710,13 @@ bool BVHHit2(Ray ray, out HitInfo hitInfo, bool anyHit)
 				//int triangleIndex = 0;
 				for (int triAddr = ~leafAddr; ; triAddr += 3)
 				{
-					float4 m0 = WoodTriangles[triAddr];     //matrix row 0 
+					float4 m0 = WoopTriangles[triAddr];     //matrix row 0 
 
 					if (asint(m0.x) == 0x7fffffff)
 						break;
 
-					float4 m1 = WoodTriangles[triAddr + 1]; //matrix row 1 
-					float4 m2 = WoodTriangles[triAddr + 2]; //matrix row 2
+					float4 m1 = WoopTriangles[triAddr + 1]; //matrix row 1 
+					float4 m2 = WoopTriangles[triAddr + 2]; //matrix row 2
 
 					//this is the correct local normal, the same as cross(v1- v0, v2 - v0)
 					float3 normal = normalize(cross(m0.xyz, m1.xyz)).xyz;

@@ -127,8 +127,8 @@ class EnviromentLight : LightInstance
 
 public class GPUSceneData
 {
-    ComputeBuffer woodTriBuffer;
-    ComputeBuffer woodTriIndexBuffer;
+    ComputeBuffer woopTriBuffer;
+    ComputeBuffer woopTriIndexBuffer;
     ComputeBuffer verticesBuffer;
     ComputeBuffer triangleBuffer;
     ComputeBuffer meshInstanceBuffer;
@@ -462,17 +462,17 @@ public class GPUSceneData
             BVHBuffer.SetData(bvhAccel.m_nodes);
         }
 
-        if (woodTriBuffer == null)
+        if (woopTriBuffer == null)
         {
-            woodTriBuffer = new ComputeBuffer(WoopTriangleData.m_woopTriangleVertices.Count, 16, ComputeBufferType.Structured);
+            woopTriBuffer = new ComputeBuffer(WoopTriangleData.m_woopTriangleVertices.Count, 16, ComputeBufferType.Structured);
         }
-        woodTriBuffer.SetData(WoopTriangleData.m_woopTriangleVertices);
+        woopTriBuffer.SetData(WoopTriangleData.m_woopTriangleVertices);
 
-        if (woodTriIndexBuffer == null)
+        if (woopTriIndexBuffer == null)
         {
-            woodTriIndexBuffer = new ComputeBuffer(WoopTriangleData.m_woopTriangleIndices.Count, sizeof(int), ComputeBufferType.Structured);
+            woopTriIndexBuffer = new ComputeBuffer(WoopTriangleData.m_woopTriangleIndices.Count, sizeof(int), ComputeBufferType.Structured);
         }
-        woodTriIndexBuffer.SetData(WoopTriangleData.m_woopTriangleIndices);
+        woopTriIndexBuffer.SetData(WoopTriangleData.m_woopTriangleIndices);
 
         if (verticesBuffer == null)
         {
@@ -682,13 +682,13 @@ public class GPUSceneData
             }
         }
 
-        cs.SetBuffer(kernel, "WoodTriangles", woodTriBuffer);
+        cs.SetBuffer(kernel, "WoopTriangles", woopTriBuffer);
         cs.SetBuffer(kernel, "Vertices", verticesBuffer);
         cs.SetBuffer(kernel, "TriangleIndices", triangleBuffer);
         cs.SetBuffer(kernel, "BVHTree", BVHBuffer);
         cs.SetBuffer(kernel, "Intersections", intersectBuffer);
         cs.SetBuffer(kernel, "MeshInstances", meshInstanceBuffer);
-        cs.SetBuffer(kernel, "WoodTriangleIndices", woodTriIndexBuffer);
+        cs.SetBuffer(kernel, "WoopTriangleIndices", woopTriIndexBuffer);
         cs.SetBuffer(kernel, "lights", lightBuffer);
         cs.SetBuffer(kernel, "materials", materialBuffer);
         cs.SetInt("instBVHAddr", instBVHNodeAddr);
@@ -787,8 +787,8 @@ public class GPUSceneData
             }
         }
 
-        ReleaseComputeBuffer(woodTriBuffer);
-        ReleaseComputeBuffer(woodTriIndexBuffer);
+        ReleaseComputeBuffer(woopTriBuffer);
+        ReleaseComputeBuffer(woopTriIndexBuffer);
         ReleaseComputeBuffer(verticesBuffer);
         ReleaseComputeBuffer(triangleBuffer);
         ReleaseComputeBuffer(meshInstanceBuffer);

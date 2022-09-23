@@ -5,12 +5,12 @@
 #include "GPUStructs.hlsl"
 
 StructuredBuffer<BVHNode>  BVHTree;
-StructuredBuffer<float4>   WoodTriangles;
+StructuredBuffer<float4>   WoopTriangles;
 StructuredBuffer<Vertex>   Vertices;    //the origin mesh vertices of all meshes.
 //the origin mesh triangle indices of all meshes, we can consider all the meshes as a big mesh, and this indices is the triangle vertex index of the whole big mesh.
 //we can consider TriangleIndices as the index in Vertices declare about.
 StructuredBuffer<int>      TriangleIndices;    
-StructuredBuffer<int>      WoodTriangleIndices;
+StructuredBuffer<int>      WoopTriangleIndices;
 StructuredBuffer<MeshInstance> MeshInstances;
 StructuredBuffer<Material> materials;
 StructuredBuffer<Light> lights;
@@ -34,9 +34,9 @@ void ComputeSurfaceIntersection(HitInfo hitInfo, float3 wo, out Interaction inte
 	int triAddr = hitInfo.triAddr;
 	float2 uv = hitInfo.baryCoord;
 	MeshInstance meshInst = MeshInstances[hitInfo.meshInstanceId];
-	int vertexIndex0 = WoodTriangleIndices[triAddr];
-	int vertexIndex1 = WoodTriangleIndices[triAddr + 1];
-	int vertexIndex2 = WoodTriangleIndices[triAddr + 2];
+	int vertexIndex0 = WoopTriangleIndices[triAddr];
+	int vertexIndex1 = WoopTriangleIndices[triAddr + 1];
+	int vertexIndex2 = WoopTriangleIndices[triAddr + 2];
 	Vertex vertex0 = Vertices[vertexIndex0];
 	Vertex vertex1 = Vertices[vertexIndex1];
 	Vertex vertex2 = Vertices[vertexIndex2];
