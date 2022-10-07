@@ -31,9 +31,18 @@ extern "C"
 struct Node
 {
     RadeonRays::float3 bboxmin;
-    int left;
     RadeonRays::float3 bboxmax;
-    int right;
+	RadeonRays::float3 LRLeaf;
+	RadeonRays::float3 pad;
+	//int left;
+ //   int right;
+};
+
+struct MeshInstance
+{
+	int meshID;
+	int materialID;
+	int bvhStartIndex;
 };
 
 struct BVHHandle
@@ -61,9 +70,10 @@ struct LinearBVHNode
 	}
 };
 
+
 RRAPI BVHHandle CreateBVH(const RadeonRays::bbox* bounds, int count, bool useSah, bool useSplit, float traversalCost, int numBins, int splitDepth, float miniOverlap);
 RRAPI void DestroyBVH(const BVHHandle* as);
-RRAPI void TransferToFlat(Node* nodes, const BVHHandle* as, bool isTLAS);
+RRAPI int TransferToFlat(Node* nodes, const BVHHandle* as, bool isTLAS, int curTriIndex, int bvhNodeOffset, const MeshInstance* meshInstances);
 RRAPI void FlattenBVHTree(const BVHHandle* handle, LinearBVHNode* linearNodes);
 
 #ifdef __cplusplus

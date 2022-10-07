@@ -16,35 +16,59 @@ typedef intptr_t Handle;
 
 using namespace RadeonRays;
 
-int ProcessASNodes(Node* nodes, const Bvh::Node* node, const std::vector<int>& packedIndices, bool isTLAS, int& currNodeIndex)
+static int g_curNode = 0;
+
+int ProcessBLASNodes(Node* nodes, const Bvh::Node* node, const std::vector<int>& packedIndices, int curTriIndex, int bvhNodeOffset)
 {
 	RadeonRays::bbox bbox = node->bounds;
 
-	int index = currNodeIndex;
+	int index = g_curNode;
 
 	nodes[index].bboxmin = bbox.pmin;
 	nodes[index].bboxmax = bbox.pmax;
-	nodes[index].left = -1;
+	nodes[index].LRLeaf.z = 0;
 	if(node->type == RadeonRays::Bvh::NodeType::kLeaf)
 	{
-		if(!isTLAS)
-		{
-			nodes[index].left = node->startidx; // Add Triangle Offset
-			nodes[index].right = node->numprims;
-		}
-		else
-		{
-			int instanceIndex = packedIndices[node->startidx];
-			nodes[index].left = instanceIndex; // Change To the BLAS root index
-			nodes[index].right = instanceIndex;
-		}
+		nodes[g_curNode].LRLeaf.x = curTriIndex + node->startidx;
+		nodes[g_curNode].LRLeaf.y = node->numprims;
+		nodes[g_curNode].LRLeaf.z = 1;
 	}
 	else
 	{
-		currNodeIndex++;
-		ProcessASNodes(nodes, node->lc, packedIndices, isTLAS, currNodeIndex);
-		currNodeIndex++;
-		nodes[index].right = ProcessASNodes(nodes, node->rc, packedIndices, isTLAS, currNodeIndex);
+		g_curNode++;
+		nodes[index].LRLeaf.x = ProcessBLASNodes(nodes, node->lc, packedIndices, curTriIndex, bvhNodeOffset) + bvhNodeOffset;
+		g_curNode++;
+		nodes[index].LRLeaf.y = ProcessBLASNodes(nodes, node->rc, packedIndices, curTriIndex, bvhNodeOffset) + bvhNodeOffset;
+	}
+	return index;
+}
+
+int ProcessTLASNodes(Node* nodes, const Bvh::Node* node, const std::vector<int>& packedIndices, int bvhNodeOffset, const MeshInstance* meshInstances)
+{
+	RadeonRays::bbox bbox = node->bounds;
+
+	nodes[g_curNode].bboxmin = bbox.pmin;
+	nodes[g_curNode].bboxmax = bbox.pmax;
+	nodes[g_curNode].LRLeaf.z = 0;
+
+	int index = g_curNode;
+
+	if (node->type == RadeonRays::Bvh::NodeType::kLeaf)
+	{
+		int instanceIndex = packedIndices[node->startidx];
+		int meshIndex = meshInstances[instanceIndex].meshID;
+		int materialID = meshInstances[instanceIndex].materialID;
+
+		nodes[g_curNode].LRLeaf.x = meshInstances[instanceIndex].bvhStartIndex;
+		nodes[g_curNode].LRLeaf.y = materialID;
+		nodes[g_curNode].LRLeaf.z = -instanceIndex - 1;
+	}
+	else
+	{
+		g_curNode++;
+		nodes[index].LRLeaf.x = ProcessTLASNodes(nodes, node->lc, packedIndices, bvhNodeOffset, meshInstances) + bvhNodeOffset;
+		g_curNode++;
+		nodes[index].LRLeaf.y = ProcessTLASNodes(nodes, node->rc, packedIndices, bvhNodeOffset, meshInstances) + bvhNodeOffset;
 	}
 	return index;
 }
@@ -68,11 +92,18 @@ RRAPI void DestroyBVH(const BVHHandle* handle)
 		delete handle->bvh;
 }
 
-RRAPI void TransferToFlat(Node* nodes, const BVHHandle* as, bool isTLAS)
+RRAPI int TransferToFlat(Node* nodes, const BVHHandle* as, bool isTLAS, int curTriIndex, int bvhNodeOffset, const MeshInstance* meshInstances)
 {
 	Bvh* bvh = (Bvh*)as->bvh;
-	int currNodeIndex = 0;
-	ProcessASNodes(nodes, bvh->GetRoot(), bvh->GetPackedIndices(), isTLAS, currNodeIndex);
+	g_curNode = 0;
+	if (isTLAS)
+	{
+		ProcessTLASNodes(nodes, bvh->GetRoot(), bvh->GetPackedIndices(), bvhNodeOffset, meshInstances);
+	}
+	else
+		ProcessBLASNodes(nodes, bvh->GetRoot(), bvh->GetPackedIndices(), curTriIndex, bvhNodeOffset);
+
+	return g_curNode + bvhNodeOffset;//curTriIndex + bvh->GetPackedIndices().size();
 }
 
 int FlattenBVHTree(const Bvh::Node* node, int& offset, LinearBVHNode* linearNodes)
@@ -82,7 +113,6 @@ int FlattenBVHTree(const Bvh::Node* node, int& offset, LinearBVHNode* linearNode
 	int myOffset = offset++;
 	if (node->type == Bvh::kLeaf)
 	{
-		//是一个叶子节点
 		linearNodes[curOffset].nPrimitives = node->numprims;
 		linearNodes[curOffset].firstPrimOffset = node->startidx;
 		linearNodes[curOffset].leftChildIdx = -1;
@@ -90,9 +120,7 @@ int FlattenBVHTree(const Bvh::Node* node, int& offset, LinearBVHNode* linearNode
 	}
 	else
 	{
-		//linearNodes[curOffset].axis = (ushort)node.splitAxis;
 		linearNodes[curOffset].nPrimitives = 0;
-		//这里返回了offset
 		linearNodes[curOffset].leftChildIdx = FlattenBVHTree(node->lc, offset, linearNodes);
 		linearNodes[curOffset].rightChildIdx = FlattenBVHTree(node->rc, offset, linearNodes);
 	}
