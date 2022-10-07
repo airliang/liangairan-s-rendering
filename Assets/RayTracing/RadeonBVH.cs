@@ -25,10 +25,18 @@ public static class RadeonBVH
     public struct Node
     {
         public Vector3 min;
-        public int left;
         public Vector3 max;
-        public int right;
-        public bool isLeaf => left != -1;
+        public Vector3 LRLeaf;
+        public Vector3 pad;
+        //public bool isLeaf => left != -1;
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
+    public struct MeshInstance
+    {
+        public int meshID;
+        public int materialID;
+        public int bvhStartIndex;
     }
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
@@ -55,6 +63,8 @@ public static class RadeonBVH
         public Node[] nodes;
         public int[] sortedIndices;
         public LinearBVHNode[] linearBVHNodes;
+        public int bvhTrianglesNum;
+        public int bvhNodeNums;
 
         public bool isValid => nodes != null && nodes.Length != 0;
         public void Save(string path)
@@ -77,11 +87,15 @@ public static class RadeonBVH
                     bw.Write(n.min.x);
                     bw.Write(n.min.y);
                     bw.Write(n.min.z);
-                    bw.Write(n.left);
                     bw.Write(n.max.x);
                     bw.Write(n.max.y);
                     bw.Write(n.max.z);
-                    bw.Write(n.right);
+                    bw.Write(n.LRLeaf.x);
+                    bw.Write(n.LRLeaf.y);
+                    bw.Write(n.LRLeaf.z);
+                    bw.Write(n.pad.x);
+                    bw.Write(n.pad.y);
+                    bw.Write(n.pad.z);
                 });
                 bw.Write((uint)(sortedIndices != null ? sortedIndices.Length : 0));
                 Array.ForEach(sortedIndices, s => bw.Write(s));
@@ -119,11 +133,17 @@ public static class RadeonBVH
                     node.min.x = br.ReadSingle();
                     node.min.y = br.ReadSingle();
                     node.min.z = br.ReadSingle();
-                    node.left = br.ReadInt32();
+                    //node.left = br.ReadInt32();
                     node.max.x = br.ReadSingle();
                     node.max.y = br.ReadSingle();
                     node.max.z = br.ReadSingle();
-                    node.right = br.ReadInt32();
+                    //node.right = br.ReadInt32();
+                    node.LRLeaf.x = br.ReadSingle();
+                    node.LRLeaf.y = br.ReadSingle();
+                    node.LRLeaf.z = br.ReadSingle();
+                    node.pad.x = br.ReadSingle();
+                    node.pad.y = br.ReadSingle();
+                    node.pad.z = br.ReadSingle();
                     nodes[i] = node;
                 }
                 var sortedCount = br.ReadUInt32();
@@ -143,11 +163,11 @@ public static class RadeonBVH
     [DllImport(BVHBUILDER_DLL, EntryPoint = "DestroyBVH", CallingConvention = CallingConvention.Cdecl)]
     private static extern void DestroyBVH(ref BVHHandle accelerationStructure);
     [DllImport(BVHBUILDER_DLL, EntryPoint = "TransferToFlat", CallingConvention = CallingConvention.Cdecl)]
-    private static extern void TransferToFlat([In, Out] Node[] nodes, ref BVHHandle accelerationStructure, bool isTLAS);
+    private static extern int TransferToFlat([In, Out] Node[] nodes, ref BVHHandle accelerationStructure, bool isTLAS, int curTriIndex, int bvhNodeOffset, [In] MeshInstance[] meshInstances);
     [DllImport(BVHBUILDER_DLL, EntryPoint = "FlattenBVHTree", CallingConvention = CallingConvention.Cdecl)]
     private static extern void FlattenBVHTree(ref BVHHandle accelerationStructure, [In, Out] LinearBVHNode[] nodes);
 
-    public static BVHFlat CreateBLAS(GPUBounds[] bounds, BuildParam param)
+    public static BVHFlat CreateBLAS(GPUBounds[] bounds, BuildParam param, int bvhTriangleIndex, int bvhNodeIndex)
     {
         var handle = CreateBVH(bounds, bounds.Length, true, true, param.cost, param.numBins, param.splitDepth, param.miniOverlap);
         var flat = new BVHFlat();
@@ -159,12 +179,15 @@ public static class RadeonBVH
         //TransferToFlat(flat.nodes, ref handle, false);
         flat.linearBVHNodes = new LinearBVHNode[handle.numNodes];
         FlattenBVHTree(ref handle, flat.linearBVHNodes);
-
+        MeshInstance[] meshInstances = null;
+        TransferToFlat(flat.nodes, ref handle, false, bvhTriangleIndex, bvhNodeIndex, meshInstances);
+        flat.bvhTrianglesNum = handle.numIndices;
+        flat.bvhNodeNums = handle.numNodes;
         DestroyBVH(ref handle);
         return flat;
     }
 
-    public static BVHFlat CreateTLAS(GPUBounds[] bounds, BuildParam param)
+    public static BVHFlat CreateTLAS(GPUBounds[] bounds, BuildParam param, RadeonBVH.MeshInstance[] meshInstances, int instanceBVHOffset, int bvhNodeIndex)
     {
         var handle = CreateBVH(bounds, bounds.Length, true, false, param.cost, param.numBins, param.splitDepth, param.miniOverlap);
         var flat = new BVHFlat();
@@ -177,6 +200,9 @@ public static class RadeonBVH
         //TransferToFlat(flat.nodes, ref handle, false);
         flat.linearBVHNodes = new LinearBVHNode[handle.numNodes];
         FlattenBVHTree(ref handle, flat.linearBVHNodes);
+        TransferToFlat(flat.nodes, ref handle, true, instanceBVHOffset, bvhNodeIndex, meshInstances);
+        flat.bvhTrianglesNum = handle.numIndices;
+        flat.bvhNodeNums = handle.numNodes;
         DestroyBVH(ref handle);
         return flat;
     }

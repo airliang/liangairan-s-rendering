@@ -215,12 +215,13 @@ float3 SampleLightRadiance(StructuredBuffer<float2> lightDistribution, Light lig
 		float triPdf = 0;
 		lightPdf = 0;
 		MeshInstance meshInstance = MeshInstances[light.meshInstanceID];
-		int triangleIndex = SampleTriangleIndexOfLightPoint(u, lightDistributionDiscript, lightDistribution, lightPdf) * 3 + meshInstance.triangleStartOffset;
+		int triangleIndex = SampleTriangleIndexOfLightPoint(u, lightDistributionDiscript, lightDistribution, lightPdf) + meshInstance.triangleStartOffset;
 
 		int vertexStart = triangleIndex;
-		int vIndex0 = TriangleIndices[vertexStart];
-		int vIndex1 = TriangleIndices[vertexStart + 1];
-		int vIndex2 = TriangleIndices[vertexStart + 2];
+		int3 triangles = TriangleIndices[triangleIndex];
+		int vIndex0 = triangles.x;//TriangleIndices[vertexStart];
+		int vIndex1 = triangles.y;//TriangleIndices[vertexStart + 1];
+		int vIndex2 = triangles.z;//TriangleIndices[vertexStart + 2];
 		float3 p0 = Vertices[vIndex0].position.xyz;
 		float3 p1 = Vertices[vIndex1].position.xyz;
 		float3 p2 = Vertices[vIndex2].position.xyz;
@@ -314,16 +315,16 @@ float3 Light_Le(float3 wi, Light light)
 	return 0;
 }
 
-float AreaLightPdf(Light light, int triangleIndex, float triangleArea)
+float AreaLightPdf(Light light)
 {
-	float lightPdf = 0;
-	if (light.type == AreaLightType)
-	{
-		DistributionDiscript discript = DistributionDiscripts[light.distributionDiscriptIndex];
-		int distributionIndex = triangleIndex;
-		float pmf = DiscretePdf(distributionIndex, discript, Distributions1D);
-		lightPdf = pmf * 1.0 / triangleArea;
-	}
+	float lightPdf = 1.0 / light.area;
+	//if (light.type == AreaLightType)
+	//{
+		//DistributionDiscript discript = DistributionDiscripts[light.distributionDiscriptIndex];
+		//int distributionIndex = triangleIndex;
+		//float pmf = DiscretePdf(distributionIndex, discript, Distributions1D);
+		//lightPdf = pmf * 1.0 / triangleArea;
+	//}
 
 	return lightPdf;
 }

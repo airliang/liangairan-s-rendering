@@ -9,7 +9,7 @@ public struct MeshHandle
     public int triangleOffset;
     public int vertexCount;
     public int triangleCount;
-    public int woodTriangleStartOffset;
+    //public int woodTriangleStartOffset;
     //public int indexStart;    //the index start offset.attually is the last mesh's total vertex count.
     public GPUBounds localBounds;
 
@@ -27,7 +27,7 @@ public struct MeshHandle
         triangleOffset = _triangleOff;
         vertexCount = _vertexCount;
         triangleCount = _triangleCount;
-        woodTriangleStartOffset = -1;
+        //woodTriangleStartOffset = -1;
         //indexStart = _indexStart;
         localBounds = GPUBounds.ConvertUnityBounds(bounds);
     }

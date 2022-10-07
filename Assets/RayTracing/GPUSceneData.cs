@@ -146,7 +146,7 @@ public class GPUSceneData
     public List<MeshHandle> meshHandles = new List<MeshHandle>();
     public List<MeshInstance> meshInstances = new List<MeshInstance>();
     public List<int> meshInstanceHandleIndices = new List<int>();
-    public List<int> triangles = new List<int>();
+    public List<Vector3Int> triangles = new List<Vector3Int>();
     public List<GPUVertex> gpuVertices = new List<GPUVertex>();
     public List<GPULight> gpuLights = new List<GPULight>();
     public List<GPUMaterial> gpuMaterials = new List<GPUMaterial>();
@@ -293,9 +293,11 @@ public class GPUSceneData
                         vertexTmp.normal = meshNormals[subMeshDescriptor.firstVertex + j];
                         gpuVertices.Add(vertexTmp);
                     }
-                    for (int j = 0; j < subMeshDescriptor.indexCount; ++j)
+                    for (int j = 0; j < subMeshDescriptor.indexCount / 3; ++j)
                     {
-                        triangles.Add(meshTriangles[j + subMeshDescriptor.indexStart] + vertexOffset);
+                        Vector3Int triangleIndex = new Vector3Int(meshTriangles[j * 3 + subMeshDescriptor.indexStart] + vertexOffset, 
+                            meshTriangles[j * 3 + subMeshDescriptor.indexStart + 1] + vertexOffset, meshTriangles[j * 3 + subMeshDescriptor.indexStart + 2] + vertexOffset);
+                        triangles.Add(triangleIndex);
                     }
                 }
                 Profiler.EndSample();
@@ -413,6 +415,7 @@ public class GPUSceneData
                     //why add 1? because the first discript is the light object distributions.
                     gpuLight.distributionDiscriptIndex = gpuLights.Count + 1;
                     gpuLight.meshInstanceID = meshInstances.Count;
+                    gpuLight.area = areaLightInstance.area;
                     gpuLights.Add(gpuLight);
                     areaLight.gpuLightIndices.Add(lightIndex);
                     Profiler.EndSample();
@@ -446,8 +449,6 @@ public class GPUSceneData
             float timeInterval = Time.realtimeSinceStartup - timeBegin;
             Debug.Log("building bvh cost time:" + timeInterval);
 
-
-
             meshInstanceBuffer = new ComputeBuffer(meshInstances.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(MeshInstance)), ComputeBufferType.Structured);
             meshInstanceBuffer.SetData(meshInstances);
         }
@@ -455,24 +456,7 @@ public class GPUSceneData
         Profiler.EndSample();
 
         Profiler.BeginSample("Create Scene Compute Buffers");
-        int BVHNodeSize = System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUBVHNode));
-        if (BVHBuffer == null)
-        {
-            BVHBuffer = new ComputeBuffer(bvhAccel.m_nodes.Count, BVHNodeSize, ComputeBufferType.Structured);
-            BVHBuffer.SetData(bvhAccel.m_nodes);
-        }
-
-        if (woopTriBuffer == null)
-        {
-            woopTriBuffer = new ComputeBuffer(WoopTriangleData.m_woopTriangleVertices.Count, 16, ComputeBufferType.Structured);
-        }
-        woopTriBuffer.SetData(WoopTriangleData.m_woopTriangleVertices);
-
-        if (woopTriIndexBuffer == null)
-        {
-            woopTriIndexBuffer = new ComputeBuffer(WoopTriangleData.m_woopTriangleIndices.Count, sizeof(int), ComputeBufferType.Structured);
-        }
-        woopTriIndexBuffer.SetData(WoopTriangleData.m_woopTriangleIndices);
+        SetupGPUBVHData();
 
         if (verticesBuffer == null)
         {
@@ -483,7 +467,7 @@ public class GPUSceneData
 
         if (triangleBuffer == null)
         {
-            triangleBuffer = new ComputeBuffer(triangles.Count, 4, ComputeBufferType.Default);
+            triangleBuffer = new ComputeBuffer(triangles.Count, 12, ComputeBufferType.Default);
         }
         triangleBuffer.SetData(triangles);
 
@@ -547,6 +531,41 @@ public class GPUSceneData
         {
             intersectBuffer = new ComputeBuffer(Screen.width * Screen.height, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUInteraction)), ComputeBufferType.Structured);
         }
+    }
+
+    void SetupGPUBVHData()
+    {
+        if (BVHAccel.NVMethod)
+        {
+            int BVHNodeSize = System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUBVHNode));
+            if (BVHBuffer == null)
+            {
+                BVHBuffer = new ComputeBuffer(bvhAccel.m_nodes.Count, BVHNodeSize, ComputeBufferType.Structured);
+                BVHBuffer.SetData(bvhAccel.m_nodes);
+            }
+
+            if (woopTriBuffer == null)
+            {
+                woopTriBuffer = new ComputeBuffer(WoopTriangleData.m_woopTriangleVertices.Count, 16, ComputeBufferType.Structured);
+            }
+            woopTriBuffer.SetData(WoopTriangleData.m_woopTriangleVertices);
+
+            if (woopTriIndexBuffer == null)
+            {
+                woopTriIndexBuffer = new ComputeBuffer(WoopTriangleData.m_woopTriangleIndices.Count, sizeof(int), ComputeBufferType.Structured);
+            }
+            woopTriIndexBuffer.SetData(WoopTriangleData.m_woopTriangleIndices);
+        }
+        else
+        {
+            int BVHNodeSize = System.Runtime.InteropServices.Marshal.SizeOf(typeof(RadeonBVH.Node));
+            if (BVHBuffer == null)
+            {
+                BVHBuffer = new ComputeBuffer(bvhAccel.m_flattenNodes.Count, BVHNodeSize, ComputeBufferType.Structured);
+                BVHBuffer.SetData(bvhAccel.m_flattenNodes);
+            }
+        }
+        
     }
 
     private void SetupSceneCamera(Camera camera)
@@ -682,13 +701,21 @@ public class GPUSceneData
             }
         }
 
-        cs.SetBuffer(kernel, "WoopTriangles", woopTriBuffer);
+        if (BVHAccel.NVMethod)
+        {
+            cs.SetBuffer(kernel, "BVHTree", BVHBuffer);
+            cs.SetBuffer(kernel, "WoopTriangles", woopTriBuffer);
+            cs.SetBuffer(kernel, "WoopTriangleIndices", woopTriIndexBuffer);
+        }
+        else
+            cs.SetBuffer(kernel, "BVHTree2", BVHBuffer);
+
         cs.SetBuffer(kernel, "Vertices", verticesBuffer);
         cs.SetBuffer(kernel, "TriangleIndices", triangleBuffer);
-        cs.SetBuffer(kernel, "BVHTree", BVHBuffer);
+        
         cs.SetBuffer(kernel, "Intersections", intersectBuffer);
         cs.SetBuffer(kernel, "MeshInstances", meshInstanceBuffer);
-        cs.SetBuffer(kernel, "WoopTriangleIndices", woopTriIndexBuffer);
+        
         cs.SetBuffer(kernel, "lights", lightBuffer);
         cs.SetBuffer(kernel, "materials", materialBuffer);
         cs.SetInt("instBVHAddr", instBVHNodeAddr);

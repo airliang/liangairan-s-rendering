@@ -681,7 +681,8 @@ public class CPUPathIntegrator
     static bool ClosestHit(GPURay ray, GPUSceneData gpuSceneData, ref HitInfo hitInfo)
     {
         //bool hitted = gpuSceneData.BVH.IntersectInstTest(ray, gpuSceneData.meshInstances, gpuSceneData.InstanceBVHAddr, ref hitInfo);
-        bool hitted = gpuSceneData.BVH.BVHHit(ray, ref hitInfo, false, gpuSceneData.meshInstances, gpuSceneData.InstanceBVHAddr);
+        bool hitted = BVHAccel.NVMethod ? gpuSceneData.BVH.BVHHit(ray, ref hitInfo, false, gpuSceneData.meshInstances, gpuSceneData.InstanceBVHAddr)
+            : gpuSceneData.BVH.BVHHit3(ray, ref hitInfo, false, gpuSceneData, gpuSceneData.InstanceBVHAddr);
 
         return hitted;
     }
@@ -850,12 +851,13 @@ public class CPUPathIntegrator
             float triPdf = 0;
             lightPdf = 0;
             MeshInstance meshInstance = gpuSceneData.meshInstances[light.meshInstanceID];
-            int triangleIndex = SampleTriangleIndexOfLightPoint(u, lightDistributionDiscript, gpuSceneData.Distributions1D, ref lightPdf) * 3 + meshInstance.triangleStartOffset;
+            int triangleIndex = SampleTriangleIndexOfLightPoint(u, lightDistributionDiscript, gpuSceneData.Distributions1D, ref lightPdf) + meshInstance.triangleStartOffset;
 
             int vertexStart = triangleIndex;
-            int vIndex0 = gpuSceneData.triangles[vertexStart];
-            int vIndex1 = gpuSceneData.triangles[vertexStart + 1];
-            int vIndex2 = gpuSceneData.triangles[vertexStart + 2];
+            Vector3Int face = gpuSceneData.triangles[triangleIndex];
+            int vIndex0 = face.x;//gpuSceneData.triangles[vertexStart];
+            int vIndex1 = face.y;//gpuSceneData.triangles[vertexStart + 1];
+            int vIndex2 = face.z;//gpuSceneData.triangles[vertexStart + 2];
             Vector3 p0 = gpuSceneData.gpuVertices[vIndex0].position;
             Vector3 p1 = gpuSceneData.gpuVertices[vIndex1].position;
             Vector3 p2 = gpuSceneData.gpuVertices[vIndex2].position;
@@ -907,10 +909,7 @@ public class CPUPathIntegrator
         float lightPdf = 0;
         if (light.type == 0)
         {
-            GPUDistributionDiscript discript = gpuSceneData.gpuDistributionDiscripts[light.distributionDiscriptIndex];
-            int distributionIndex = (int)isect.triangleIndex;
-            float pmf = DiscretePdf(distributionIndex, discript, gpuSceneData.Distributions1D);
-            lightPdf = pmf * 1.0f / isect.primArea;
+            return 1.0f / light.area;
         }
         //else if (light.type == EnvLightType)
         //{
@@ -1113,14 +1112,10 @@ public class CPUPathIntegrator
                     ComputeSurfaceIntersection(hitInfo, -ray.direction, gpuSceneData, out isect);
                     int meshInstanceIndex = (int)isect.meshInstanceID;
                     MeshInstance meshInstance = gpuSceneData.meshInstances[meshInstanceIndex];
-                    int triAddrDebug = hitInfo.triAddr;
-                    if (triAddrDebug + 2 >= WoopTriangleData.m_woopTriangleIndices.Count)
-                    {
-                        Debug.LogError("triAddrDebug = " + triAddrDebug + " is greater than the woodTriangleIndices");
-                    }
-                    int tri0 = WoopTriangleData.m_woopTriangleIndices[triAddrDebug];
-                    int tri1 = WoopTriangleData.m_woopTriangleIndices[triAddrDebug + 1];
-                    int tri2 = WoopTriangleData.m_woopTriangleIndices[triAddrDebug + 2];
+
+                    int tri0 = hitInfo.triAddr.x;//WoopTriangleData.m_woopTriangleIndices[triAddrDebug];
+                    int tri1 = hitInfo.triAddr.y;//WoopTriangleData.m_woopTriangleIndices[triAddrDebug + 1];
+                    int tri2 = hitInfo.triAddr.z;//WoopTriangleData.m_woopTriangleIndices[triAddrDebug + 2];
                     if (tri0 >= gpuSceneData.gpuVertices.Count || tri1 >= gpuSceneData.gpuVertices.Count || tri2 >= gpuSceneData.gpuVertices.Count)
                     {
                         Debug.LogError("Triangle Index overflow!");
@@ -1204,12 +1199,11 @@ public class CPUPathIntegrator
     public static void ComputeSurfaceIntersection(HitInfo hitInfo, Vector3 wo, GPUSceneData gpuSceneData, out GPUInteraction interaction)
     {
         interaction = new GPUInteraction();
-        int triAddr = hitInfo.triAddr;
         Vector2 uv = hitInfo.baryCoord;
         MeshInstance meshInst = gpuSceneData.meshInstances[hitInfo.meshInstanceId];
-        int vertexIndex0 = WoopTriangleData.m_woopTriangleIndices[triAddr];
-        int vertexIndex1 = WoopTriangleData.m_woopTriangleIndices[triAddr + 1];
-        int vertexIndex2 = WoopTriangleData.m_woopTriangleIndices[triAddr + 2];
+        int vertexIndex0 = hitInfo.triAddr.x;
+        int vertexIndex1 = hitInfo.triAddr.y;
+        int vertexIndex2 = hitInfo.triAddr.z;
         GPUVertex vertex0 = gpuSceneData.gpuVertices[vertexIndex0];
         GPUVertex vertex1 = gpuSceneData.gpuVertices[vertexIndex1];
         GPUVertex vertex2 = gpuSceneData.gpuVertices[vertexIndex2];
@@ -1248,7 +1242,7 @@ public class CPUPathIntegrator
         interaction.tangent = Vector3.Normalize(dpdu);
         interaction.bitangent = Vector3.Normalize(Vector3.Cross(interaction.tangent, worldNormal));
         interaction.primArea = triAreaInWorld;
-        interaction.triangleIndex = (uint)(vertexIndex0 - meshInst.triangleStartOffset) / 3;//hitInfo.triangleIndexInMesh;
+        //interaction.triangleIndex = (uint)(vertexIndex0 - meshInst.triangleStartOffset) / 3;//hitInfo.triangleIndexInMesh;
         interaction.uvArea = Vector3.Cross(new Vector3(uv2.x, uv2.y, 1) - new Vector3(uv0.x, uv0.y, 1), new Vector3(uv1.x, uv1.y, 1) - new Vector3(uv0.x, uv0.y, 1)).magnitude;
 
         //float4 v0Screen = mul(WorldToRaster, float4(p0, 1));

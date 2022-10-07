@@ -390,6 +390,7 @@ public class RayTracingTest
         //intersect the light mesh triangle
         if (light.type == 0)
         {
+            /*
             float bvhHit = ray.tmax;
             int meshHitTriangleIndex;  //wood triangle addr
             
@@ -399,6 +400,8 @@ public class RayTracingTest
 
             //convert to mesh local space
             GPURay rayTemp = GPURay.TransformRay(ref meshInstance.worldToLocal, ref ray);
+            */
+            return 1.0f / light.area;
         }
         else
         {

@@ -83,7 +83,11 @@ public class Raytracing : MonoBehaviour
             Graphics.Blit(_RaytracingKernel.GetOutputTexture(), destination);
     }
 
-    
+    private void OnGUI()
+    {
+        
+    }
+
 
     Vector3 MinOrMax(GPUBounds box, int n)
     {
@@ -136,21 +140,4 @@ public class Raytracing : MonoBehaviour
         unityRay.direction = ray.direction;
         return unityBounds.IntersectRay(unityRay);
     }
-    //bool SceneIntersectTest(GPURay ray)
-    //{
-    //    Vector3 invDir =  new Vector3(1.0f / ray.direction.x, 1.0f / ray.direction.y, 1.0f / ray.direction.z);
-    //    int[] dirIsNeg = new int[3];
-    //    dirIsNeg[0] = invDir.x < 0 ? 1 : 0;
-    //    dirIsNeg[1] = invDir.y < 0 ? 1 : 0;
-    //    dirIsNeg[2] = invDir.z < 0 ? 1 : 0;
-    //    int currentNodeIndex = 0; //当前正在访问的node
-
-
-    //    LinearBVHNode node = bvhAccel.linearNodes[currentNodeIndex];
-    //    if (BoundIntersectP(ray, node.bounds, invDir, dirIsNeg))
-    //        return true;
-
-    //    return false;
-    //}
-    
 }

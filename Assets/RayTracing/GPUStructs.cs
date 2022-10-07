@@ -19,6 +19,7 @@ public struct GPULight
     public float intensity;
     public float pointRadius;
     public Vector3 radiance;
+    public float area;
     //public float textureMask;
 }
 
@@ -84,7 +85,7 @@ public struct GPUInteraction
     public float primArea;
     public int materialID;
     public uint meshInstanceID;
-    public uint triangleIndex;   //triangle index in this mesh
+    //public uint triangleIndex;   //triangle index in this mesh
     //public float spreadAngle; //raycone angle use for mipmapping
     public float coneWidth;
     public float screenSpaceArea;

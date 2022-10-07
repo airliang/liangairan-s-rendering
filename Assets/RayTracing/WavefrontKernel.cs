@@ -91,8 +91,8 @@ public class WavefrontKernel : TracingKernel
 
     const int WorkItemSize = 64;
     const int EscapeQueueItemSize = 64;
-    const int HitLightItemSize = 80;
-    const int MaterialQueueItemSize = 48;
+    const int HitLightItemSize = 88;
+    const int MaterialQueueItemSize = 56;
     const int ShadowRayItemSize = 48;
 
     public WavefrontKernel(WavefrontResource resource)

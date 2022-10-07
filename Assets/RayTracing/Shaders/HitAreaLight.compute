@@ -42,7 +42,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 		float lightSourcePmf = LightSourcePmf(hitLightItem.lightId);
 		Interaction isect;
 		ComputeSurfaceIntersection(hitLightItem.hitInfo, hitLightItem.wo, isect);
-		float lightPdf = AreaLightPdf(hitLight, isect.triangleIndex, isect.primArea) * lightSourcePmf;
+		float lightPdf = AreaLightPdf(hitLight) * lightSourcePmf;
 		if (lightPdf > 0)
 		{
 			float3 ld = Light_Le(-hitLightItem.wo, hitLight);

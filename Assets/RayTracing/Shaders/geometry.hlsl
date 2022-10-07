@@ -92,23 +92,6 @@ struct Primitive
 	int faceIndex;   //
 };
 
-struct BVHNode
-{
-	//Bounds b0;
-	//Bounds b1;
-	//int    idx0;   //inner node for left child index, leaf for primitive index in primitive array 
-	//int    idx1;   //inner node for right child index, leaf for primitive's count
-	//int    c0;  //
-	//int    c1;
-	//float4 b0xy;
-	//float4 b1xy;
-	//float4 b01z;
-	float3 b0min;
-	float3 b0max;
-	float3 b1min;
-	float3 b1max;
-	float4 cids;   //x leftchild node index, y rightchild node index, if the node is leaf, nodeindex is negative
-};
 
 struct Vertex
 {
@@ -117,70 +100,6 @@ struct Vertex
 	float3 normal;
 };
 
-/*
-bool BoundIntersectP(Ray ray, Bounds bounds, float3 invDir, int dirIsNeg[3])
-{
-	// Check for ray intersection against $x$ and $y$ slabs
-	float tMin = (bounds.MinOrMax(dirIsNeg[0]).x - ray.orig.x) * invDir.x;
-	float tMax = (bounds.MinOrMax(1 - dirIsNeg[0]).x - ray.orig.x) * invDir.x;
-	float tyMin = (bounds.MinOrMax(dirIsNeg[1]).y - ray.orig.y) * invDir.y;
-	float tyMax = (bounds.MinOrMax(1 - dirIsNeg[1]).y - ray.orig.y) * invDir.y;
-
-	// Update _tMax_ and _tyMax_ to ensure robust bounds intersection
-	//tMax *= 1 + 2 * gamma(3);
-	//tyMax *= 1 + 2 * gamma(3);
-	if (tMin > tyMax || tyMin > tMax)
-		return false;
-	if (tyMin > tMin)
-		tMin = tyMin;
-	if (tyMax < tMax)
-		tMax = tyMax;
-
-	// Check for ray intersection against $z$ slab
-	float tzMin = (bounds.MinOrMax(dirIsNeg[2]).z - ray.orig.z) * invDir.z;
-	float tzMax = (bounds.MinOrMax(1 - dirIsNeg[2]).z - ray.orig.z) * invDir.z;
-
-	// Update _tzMax_ to ensure robust bounds intersection
-	//tzMax *= 1 + 2 * gamma(3);
-	if (tMin > tzMax || tzMin > tMax)
-		return false;
-	if (tzMin > tMin) tMin = tzMin;
-	if (tzMax < tMax) tMax = tzMax;
-	return (tMin < ray.tmax) && (tMax > 0);
-}
-
-
-
-bool BoundIntersect(Ray ray, Bounds bounds, float3 invDir, int dirIsNeg[3])
-{
-	float tMin = (bounds.MinOrMax(dirIsNeg[0]).x - ray.orig.x) * invDir.x;
-	float tMax = (bounds.MinOrMax(1 - dirIsNeg[0]).x - ray.orig.x) * invDir.x;
-	float tyMin = (bounds.MinOrMax(dirIsNeg[1]).y - ray.orig.y) * invDir.y;
-	float tyMax = (bounds.MinOrMax(1 - dirIsNeg[1]).y - ray.orig.y) * invDir.y;
-
-	// Update _tMax_ and _tyMax_ to ensure robust bounds intersection
-	tMax *= 1 + 2 * gamma(3);
-	tyMax *= 1 + 2 * gamma(3);
-	if (tMin > tyMax || tyMin > tMax)
-		return false;
-	if (tyMin > tMin)
-		tMin = tyMin;
-	if (tyMax < tMax)
-		tMax = tyMax;
-
-	// Check for ray intersection against $z$ slab
-	float tzMin = (bounds.MinOrMax(dirIsNeg[2]).z - ray.orig.z) * invDir.z;
-	float tzMax = (bounds.MinOrMax(1 - dirIsNeg[2]).z - ray.orig.z) * invDir.z;
-
-	// Update _tzMax_ to ensure robust bounds intersection
-	tzMax *= 1 + 2 * gamma(3);
-	if (tMin > tzMax || tzMin > tMax)
-		return false;
-	if (tzMin > tMin) tMin = tzMin;
-	if (tzMax < tMax) tMax = tzMax;
-	return (tMin < ray.tmax) && (tMax > 0);
-}
-*/
 
 float MinComponent(float3 v) {
 	return min(v.x, min(v.y, v.z));

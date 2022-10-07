@@ -4,13 +4,12 @@
 #include "geometry.hlsl"
 #include "GPUStructs.hlsl"
 
-StructuredBuffer<BVHNode>  BVHTree;
-StructuredBuffer<float4>   WoopTriangles;
+
 StructuredBuffer<Vertex>   Vertices;    //the origin mesh vertices of all meshes.
 //the origin mesh triangle indices of all meshes, we can consider all the meshes as a big mesh, and this indices is the triangle vertex index of the whole big mesh.
 //we can consider TriangleIndices as the index in Vertices declare about.
-StructuredBuffer<int>      TriangleIndices;    
-StructuredBuffer<int>      WoopTriangleIndices;
+StructuredBuffer<int3>      TriangleIndices;    
+
 StructuredBuffer<MeshInstance> MeshInstances;
 StructuredBuffer<Material> materials;
 StructuredBuffer<Light> lights;
@@ -31,12 +30,12 @@ cbuffer cb
 void ComputeSurfaceIntersection(HitInfo hitInfo, float3 wo, out Interaction interaction)
 {
 	interaction = (Interaction)0;
-	int triAddr = hitInfo.triAddr;
+	int3 triAddr = hitInfo.triAddr;
 	float2 uv = hitInfo.baryCoord;
 	MeshInstance meshInst = MeshInstances[hitInfo.meshInstanceId];
-	int vertexIndex0 = WoopTriangleIndices[triAddr];
-	int vertexIndex1 = WoopTriangleIndices[triAddr + 1];
-	int vertexIndex2 = WoopTriangleIndices[triAddr + 2];
+	int vertexIndex0 = triAddr.x;//WoopTriangleIndices[triAddr];
+	int vertexIndex1 = triAddr.y;//WoopTriangleIndices[triAddr + 1];
+	int vertexIndex2 = triAddr.z;//WoopTriangleIndices[triAddr + 2];
 	Vertex vertex0 = Vertices[vertexIndex0];
 	Vertex vertex1 = Vertices[vertexIndex1];
 	Vertex vertex2 = Vertices[vertexIndex2];
@@ -75,7 +74,7 @@ void ComputeSurfaceIntersection(HitInfo hitInfo, float3 wo, out Interaction inte
 	interaction.tangent.xyz = normalize(dpdu.xyz);
 	interaction.bitangent.xyz = normalize(cross(interaction.tangent.xyz, worldNormal));
 	interaction.primArea = triAreaInWorld;
-	interaction.triangleIndex = (vertexIndex0 - meshInst.vertexOffsetStart) / 3;//hitInfo.triangleIndexInMesh;
+	//interaction.triangleIndex = (vertexIndex0 - meshInst.vertexOffsetStart) / 3;//hitInfo.triangleIndexInMesh;
 	interaction.uvArea = length(cross(float3(uv2, 1) - float3(uv0, 1), float3(uv1, 1) - float3(uv0, 1)));
 
 	float4 v0Screen = mul(WorldToRaster, float4(p0, 1));

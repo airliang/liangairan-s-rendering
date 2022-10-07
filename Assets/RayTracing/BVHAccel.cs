@@ -91,7 +91,7 @@ class StackEntry
 
 public struct HitInfo
 {
-	public int triAddr;
+	public Vector3Int triAddr;
 	public int meshInstanceId;
 	public int triangleIndexInMesh;
 	public float hitT;
@@ -179,17 +179,21 @@ public class BVHAccel
 	//public GPUBVHNode[] m_nodes;
 	//gpu中的bvh nodes数组
 	public List<GPUBVHNode> m_nodes = new List<GPUBVHNode>();
+	public List<RadeonBVH.Node> m_flattenNodes = new List<RadeonBVH.Node>();
 	
 	public List<GPUVertex> sceneVertices;
 
-	
+	public static bool NVMethod = true;
 
 
 	public int instBVHNodeAddr = 0;
 	public bool buildByCPP = false;
 	public bool useRadeonRayBVH = true;
+	int bvhTrianglesCount = 0;
+	int bvhNodesCount = 0;
 
-    public void Build(List<Primitive> primitives, List<GPUVertex> vertices, List<int> triangles)
+
+	public void Build(List<Primitive> primitives, List<GPUVertex> vertices, List<Vector3Int> triangles)
     {
 		sceneVertices = vertices;
 		/*
@@ -562,7 +566,7 @@ public class BVHAccel
 	//build 2 types bvh
 	//meshinstance bvh and mesh primitive bvh
 	//return toplevel bvh在bvhbuffer中的位置
-	public int Build(List<MeshInstance> meshInstances, List<MeshHandle> meshHandles, List<int> meshHandleIndices, List<GPUVertex> vertices, List<int> triangles)
+	public int Build(List<MeshInstance> meshInstances, List<MeshHandle> meshHandles, List<int> meshHandleIndices, List<GPUVertex> vertices, List<Vector3Int> triangles)
     {
 		WoopTriangleData.Clear();
 		instBVHNodeAddr = 0;
@@ -575,14 +579,14 @@ public class BVHAccel
 		{
 			MeshHandle meshH = meshHandles[i];
 			//meshH.bvhOffset = instBVHNodeAddr;
-			meshH.woodTriangleStartOffset = WoopTriangleData.m_woopTriangleVertices.Count;
+			//meshH.woodTriangleStartOffset = WoopTriangleData.m_woopTriangleVertices.Count;
 			meshHandles[i] = meshH;
 			instBVHOffset.Add(instBVHNodeAddr);
 			int nodesNum = BuildMeshBVH(meshHandles[i], vertices, triangles);
 			instBVHNodeAddr = nodesNum;
 		}
 		// build the instance bounding box bvh
-		BuildInstBVH(meshHandles, meshInstances, meshHandleIndices, vertices, instBVHOffset);
+		BuildInstBVH(meshHandles, meshInstances, meshHandleIndices, instBVHOffset);
 
 		//for (int i = 0; i < meshInstances.Count; ++i)
   //      {
@@ -595,9 +599,10 @@ public class BVHAccel
 		return instBVHNodeAddr;
 	}
 
-	public void BuildInstBVH(List<MeshHandle> meshHandles, List<MeshInstance> meshInstances, List<int> meshHandleIndices, List<GPUVertex> vertices, List<int> instBVHOffset)
+	public void BuildInstBVH(List<MeshHandle> meshHandles, List<MeshInstance> meshInstances, List<int> meshHandleIndices, List<int> instBVHOffset)
     {
 		List<Primitive> primitives = new List<Primitive>();
+		RadeonBVH.MeshInstance[] radeonMeshInstances = new RadeonBVH.MeshInstance[meshInstances.Count];
 		for (int i = 0; i < meshInstances.Count; ++i)
 		{
 			MeshInstance meshInst = meshInstances[i];
@@ -607,9 +612,18 @@ public class BVHAccel
 			//Renderer renderer = meshTransforms[i].GetComponent<Renderer>();
 			Primitive meshInstPrim = new Primitive(worldBound, i, meshHandleIndex);
 			primitives.Add(meshInstPrim);
+
+			radeonMeshInstances[i] = new RadeonBVH.MeshInstance()
+			{
+				meshID = meshHandleIndex,
+				materialID = meshInst.materialIndex,
+				bvhStartIndex = instBVHOffset[meshHandleIndex]
+			};
 		}
-        //List<Primitive> orderedPrims = new List<Primitive>();
-        if (primitives.Count > 1)
+
+		bool useNVMethod = buildByCPP ? NVMethod : false;
+
+        if (primitives.Count > 0)
         {
             GPUBounds[] primBounds = new GPUBounds[primitives.Count];
             for (int i = 0; i < primitives.Count; ++i)
@@ -618,42 +632,51 @@ public class BVHAccel
             }
             if (buildByCPP)
 			{
-				if (!useRadeonRayBVH)
+				//no longer use bvhlib any more
+				//if (!useRadeonRayBVH)
+    //            {
+				//	float timeBegin = Time.realtimeSinceStartup;
+				//	BVHLib.BVHHandle bvhHandle = BVHLib.BuildBVH(primBounds, primitives.Count, 1, false);
+				//	int[] sortedIndics = new int[bvhHandle.numIndices];
+				//	Marshal.Copy(bvhHandle.sortIndices, sortedIndics, 0, bvhHandle.numIndices);
+				//	Primitive[] sortedPrims = new Primitive[bvhHandle.numIndices];
+				//	for (int i = 0; i < bvhHandle.numIndices; ++i)
+				//	{
+				//		//sortedPrims.Add(primitives[orderedPrims[i]]);
+				//		sortedPrims[i] = primitives[sortedIndics[i]];
+				//	}
+				//	LinearBVHNode[] linearNodes = new LinearBVHNode[bvhHandle.numNodes];
+				//	BVHLib.FlattenBVHTree(ref bvhHandle, linearNodes);
+				//	BVHLib.ReleaseBVH(ref bvhHandle);
+
+				//	float timeInterval = Time.realtimeSinceStartup - timeBegin;
+				//	Debug.Log("building top level bvh using BVHLib cost time:" + timeInterval);
+				//	//CreateCompact(linearNodes, sortedPrims, vertices, false, instBVHOffset);
+				//	CompactTLASNodes(linearNodes, sortedPrims, instBVHOffset);
+				//}
+    //            else
                 {
 					float timeBegin = Time.realtimeSinceStartup;
-					BVHLib.BVHHandle bvhHandle = BVHLib.BuildBVH(primBounds, primitives.Count, 1, false);
-					int[] sortedIndics = new int[bvhHandle.numIndices];
-					Marshal.Copy(bvhHandle.sortIndices, sortedIndics, 0, bvhHandle.numIndices);
-					Primitive[] sortedPrims = new Primitive[bvhHandle.numIndices];
-					for (int i = 0; i < bvhHandle.numIndices; ++i)
-					{
-						//sortedPrims.Add(primitives[orderedPrims[i]]);
-						sortedPrims[i] = primitives[sortedIndics[i]];
+					
+					RadeonBVH.BVHFlat bvhFlat = RadeonBVH.CreateTLAS(primBounds, new RadeonBVH.BuildParam { cost = 0.125f, miniOverlap = 0.05f, numBins = 64, splitDepth = 48 }, radeonMeshInstances, bvhTrianglesCount, instBVHNodeAddr);
+					if (useNVMethod)
+                    {
+						Primitive[] sortedPrims = new Primitive[bvhFlat.sortedIndices.Length];
+
+						for (int i = 0; i < bvhFlat.sortedIndices.Length; ++i)
+						{
+							//sortedPrims.Add(primitives[orderedPrims[i]]);
+							sortedPrims[i] = primitives[bvhFlat.sortedIndices[i]];
+						}
+
+						CompactTLASNodes(bvhFlat.linearBVHNodes, sortedPrims, instBVHOffset);
 					}
-					LinearBVHNode[] linearNodes = new LinearBVHNode[bvhHandle.numNodes];
-					BVHLib.FlattenBVHTree(ref bvhHandle, linearNodes);
-					BVHLib.ReleaseBVH(ref bvhHandle);
-
-					float timeInterval = Time.realtimeSinceStartup - timeBegin;
-					Debug.Log("building top level bvh using BVHLib cost time:" + timeInterval);
-					//CreateCompact(linearNodes, sortedPrims, vertices, false, instBVHOffset);
-					CompactTLASNodes(linearNodes, sortedPrims, instBVHOffset);
-				}
-                else
-                {
-					float timeBegin = Time.realtimeSinceStartup;
-					RadeonBVH.BVHFlat bvhFlat = RadeonBVH.CreateTLAS(primBounds, new RadeonBVH.BuildParam { cost = 0.125f, miniOverlap = 0.05f, numBins = 64, splitDepth = 48 });
-					Primitive[] sortedPrims = new Primitive[bvhFlat.sortedIndices.Length];
-
-					for (int i = 0; i < bvhFlat.sortedIndices.Length; ++i)
-					{
-						//sortedPrims.Add(primitives[orderedPrims[i]]);
-						sortedPrims[i] = primitives[bvhFlat.sortedIndices[i]];
-					}
-
+					else
+                    {
+						m_flattenNodes.AddRange(bvhFlat.nodes);
+                    }
 					float timeInterval = Time.realtimeSinceStartup - timeBegin;
 					Debug.Log("building bottom level bvh using RadeonRay BVH cost time:" + timeInterval);
-					CompactTLASNodes(bvhFlat.linearBVHNodes, sortedPrims, instBVHOffset);
 				} 
 			}
 			else
@@ -684,9 +707,8 @@ public class BVHAccel
 	}
 
 	//返回m_nodes的数量
-	public int BuildMeshBVH(MeshHandle meshHandle, List<GPUVertex> vertices, List<int> triangles)
+	public int BuildMeshBVH(MeshHandle meshHandle, List<GPUVertex> vertices, List<Vector3Int> triangleFaces)
     {
-		
 		//生成MeshHandle的primitives
 		List<Primitive> primitives = new List<Primitive>();
 		int faceNum = meshHandle.triangleCount / 3;
@@ -694,52 +716,60 @@ public class BVHAccel
 
         for (int f = 0; f < faceNum; ++f)
 		{
-			int tri0 = triangles[f * 3 + meshHandle.triangleOffset];
-			int tri1 = triangles[f * 3 + 1 + meshHandle.triangleOffset];
-			int tri2 = triangles[f * 3 + 2 + meshHandle.triangleOffset];
+			Vector3Int face = triangleFaces[f + meshHandle.triangleOffset];
+			int tri0 = face.x;//triangles[f * 3 + meshHandle.triangleOffset];
+			int tri1 = face.y;//triangles[f * 3 + 1 + meshHandle.triangleOffset];
+			int tri2 = face.z;//triangles[f * 3 + 2 + meshHandle.triangleOffset];
 			primitives.Add(new Primitive(tri0, tri1, tri2, vertices[tri0].position, vertices[tri1].position, vertices[tri2].position, 0, 0));
 			primBounds[f] = primitives[f].worldBound;
 		}
 		//List<Primitive> orderedPrims = new List<Primitive>();
+		bool useNVMethod = buildByCPP ? NVMethod : false;
 
         if (buildByCPP)
         {
-			if (!useRadeonRayBVH)
-			{
-				float timeBegin = Time.realtimeSinceStartup;
-				BVHLib.BVHHandle bvhHandle = BVHLib.BuildBVH(primBounds, faceNum, primitives.Count < 3 ? 1 : maxLeafSize, true);
-				int[] sortedIndics = new int[bvhHandle.numIndices];
-				Marshal.Copy(bvhHandle.sortIndices, sortedIndics, 0, bvhHandle.numIndices);
-				Primitive[] sortedPrims = new Primitive[bvhHandle.numIndices];
-				for (int i = 0; i < bvhHandle.numIndices; ++i)
-				{
-					//sortedPrims.Add(primitives[orderedPrims[i]]);
-					sortedPrims[i] = primitives[sortedIndics[i]];
-				}
-				LinearBVHNode[] linearNodes = new LinearBVHNode[bvhHandle.numNodes];
-				BVHLib.FlattenBVHTree(ref bvhHandle, linearNodes);
-				BVHLib.ReleaseBVH(ref bvhHandle);
-				float timeInterval = Time.realtimeSinceStartup - timeBegin;
-				Debug.Log("building bottom level bvh BVHLib.BuildBVH using cpp cost time:" + timeInterval);
-				//CreateCompact(linearNodes, sortedPrims, vertices, true);
-				CompactBLASNodes(linearNodes, sortedPrims, vertices);
-			}
-			else
+			//no longer use bvhlib
+			//if (!useRadeonRayBVH)
+			//{
+			//	float timeBegin = Time.realtimeSinceStartup;
+			//	BVHLib.BVHHandle bvhHandle = BVHLib.BuildBVH(primBounds, faceNum, primitives.Count < 3 ? 1 : maxLeafSize, true);
+			//	int[] sortedIndics = new int[bvhHandle.numIndices];
+			//	Marshal.Copy(bvhHandle.sortIndices, sortedIndics, 0, bvhHandle.numIndices);
+			//	Primitive[] sortedPrims = new Primitive[bvhHandle.numIndices];
+			//	for (int i = 0; i < bvhHandle.numIndices; ++i)
+			//	{
+			//		//sortedPrims.Add(primitives[orderedPrims[i]]);
+			//		sortedPrims[i] = primitives[sortedIndics[i]];
+			//	}
+			//	LinearBVHNode[] linearNodes = new LinearBVHNode[bvhHandle.numNodes];
+			//	BVHLib.FlattenBVHTree(ref bvhHandle, linearNodes);
+			//	BVHLib.ReleaseBVH(ref bvhHandle);
+			//	float timeInterval = Time.realtimeSinceStartup - timeBegin;
+			//	Debug.Log("building bottom level bvh BVHLib.BuildBVH using cpp cost time:" + timeInterval);
+			//	//CreateCompact(linearNodes, sortedPrims, vertices, true);
+			//	CompactBLASNodes(linearNodes, sortedPrims, vertices);
+			//}
+			//else
             {
 				float timeBegin = Time.realtimeSinceStartup;
-				RadeonBVH.BVHFlat bvhFlat = RadeonBVH.CreateBLAS(primBounds, new RadeonBVH.BuildParam { cost = 0.125f, miniOverlap = 0.05f, numBins = 64, splitDepth = 48 });
-				Primitive[] sortedPrims = new Primitive[bvhFlat.sortedIndices.Length];
+				RadeonBVH.BVHFlat bvhFlat = RadeonBVH.CreateBLAS(primBounds, new RadeonBVH.BuildParam { cost = 0.125f, miniOverlap = 0.05f, numBins = 64, splitDepth = 48 }, bvhTrianglesCount, bvhNodesCount);
+				bvhTrianglesCount += bvhFlat.bvhTrianglesNum;
+				bvhNodesCount += bvhFlat.bvhNodeNums;
+				if (useNVMethod)
+                {
+                    Primitive[] sortedPrims = new Primitive[bvhFlat.sortedIndices.Length];
 
-				for (int i = 0; i < bvhFlat.sortedIndices.Length; ++i)
-				{
-					//sortedPrims.Add(primitives[orderedPrims[i]]);
-					sortedPrims[i] = primitives[bvhFlat.sortedIndices[i]];
-				}
+                    for (int i = 0; i < bvhFlat.sortedIndices.Length; ++i)
+                    {
+                        sortedPrims[i] = primitives[bvhFlat.sortedIndices[i]];
+                    }
 
-				float timeInterval = Time.realtimeSinceStartup - timeBegin;
-				Debug.Log("building bottom level bvh using RadeonRay BVH cost time:" + timeInterval);
-				//CreateCompact(bvhFlat.linearBVHNodes, sortedPrims, vertices, true);
-				CompactBLASNodes(bvhFlat.linearBVHNodes, sortedPrims, vertices);
+                    float timeInterval = Time.realtimeSinceStartup - timeBegin;
+                    Debug.Log("building bottom level bvh using RadeonRay BVH cost time:" + timeInterval);
+                    CompactBLASNodes(bvhFlat.linearBVHNodes, sortedPrims, vertices);
+                }
+				else
+					m_flattenNodes.AddRange(bvhFlat.nodes);
 			}
 		}
 		else
@@ -772,46 +802,7 @@ public class BVHAccel
             Debug.Log("building bottom level bvh CreateCompact cost time:" + timeInterval);
         }
 
-        return m_nodes.Count;
-	}
-
-	//Vector3 MinOrMax(GPUBVHNode box, int n)
-	//{
-	//	return n == 0 ? new Vector3(box.b0xy.x, box.b0xy.z, box.b01z.x) : new Vector3(box.b0xy.y, box.b0xy.y, box.b01z.y);
-	//}
-	bool RayBoundIntersect(Vector3 rayOrig, Vector4 bxy, Vector2 bz, float idirx, float idiry, float idirz, float rayTMax, out float tMin)
-	{
-		int signX = (int)Mathf.Sign(idirx);
-		int signY = (int)Mathf.Sign(idiry);
-		int signZ = (int)Mathf.Sign(idirz);
-		signX = signX < 0 ? 1 : 0;
-		signY = signY < 0 ? 1 : 0;
-		signZ = signZ < 0 ? 1 : 0;
-
-		tMin = (bxy[signX] - rayOrig.x) * idirx;
-		float tMax = (bxy[1 - signX] - rayOrig.x) * idirx;
-		float tyMin = (bxy[signY + 2] - rayOrig.y) * idiry;
-		float tyMax = (bxy[1 - signY + 2] - rayOrig.y) * idiry;
-
-		if (tMin > tyMax || tyMin > tMax)
-			return false;
-
-		tMin = Mathf.Max(tMin, tyMin);
-
-		tMax = Mathf.Min(tMax, tyMax);
-
-		float tzMin = (bz[signZ] - rayOrig.z) * idirz;
-		float tzMax = (bz[1 - signZ] - rayOrig.z) * idirz;
-
-		if ((tMin > tzMax) || (tzMin > tMax))
-			return false;
-		tMin = Mathf.Max(tMin, tzMin);
-		tMax = Mathf.Min(tMax, tzMax);
-
-		if (rayTMax < tMin)
-			return false;
-
-		return (tMin < rayTMax) && (tMax > 0);
+		return useNVMethod ? m_nodes.Count : m_flattenNodes.Count;
 	}
 
 	bool RayBoundIntersect(GPURay ray, in Vector3 invdir, in Vector3 bmin, in Vector3 bmax, out float tMin)
@@ -1024,7 +1015,7 @@ public class BVHAccel
 								// Closest intersection not required => terminate.
 								hitT = t;
 								hitInfo.hitT = hitT;
-								hitInfo.triAddr = triAddr;
+								hitInfo.triAddr = new Vector3Int(vertexIndex0, vertexIndex1, vertexIndex2);
 								hitInfo.baryCoord = new Vector2(u, v);
 								hitInfo.triangleIndexInMesh = triangleIndex;
 								hitIndex = triAddr;
@@ -1121,7 +1112,7 @@ public class BVHAccel
 				{
 					hitBVHNode = 0;
 					hitT = bvhHit;
-					hitIndex = hitInfo.triAddr;
+					hitIndex = hitInfo.triAddr.x;
 					hitInfo.meshInstanceId = 0;
 				}
 			}
@@ -1234,7 +1225,7 @@ public class BVHAccel
 							if (hitInfo.hitT < hitT)
 							{
 								hitT = bvhHit;
-								hitIndex = hitInfo.triAddr;
+								hitIndex = hitInfo.triAddr.x;
 								hitBVHNode = next[i];
 								hitMeshIndex = nextMeshInstanceIds[i];
 								tmpInteraction.meshInstanceID = (uint)hitMeshIndex;
@@ -1850,10 +1841,8 @@ public class BVHAccel
 			{ 
 				c0 = ~WoopTriangleData.m_woopTriangleVertices.Count;
 				//BVHBuildNode child = e.node.childrenLeft;
-				//处理三角形
 				for (int i = e.node.firstPrimOffset; i < e.node.firstPrimOffset + e.node.nPrimitives; ++i)
 				{
-					//把三角形每个顶点按顺序写入buffer里，保证了每个三角形的索引是连续的
 					WoopTriangleData.UnitTriangle(i, gpuVertices, primitives);
 					Primitive primitive = primitives[i];
 
@@ -1995,7 +1984,7 @@ public class BVHAccel
 	public bool BVHHit(GPURay ray, ref HitInfo hitInfo, bool anyHit, List<MeshInstance> meshInstances, int instBVHOffset)
 	{
 		float hitT = float.MaxValue;
-		hitInfo.triAddr = -1;
+		hitInfo.triAddr = new Vector3Int(-1, -1, -1);
 		const int EntrypointSentinel = 0x76543210;
 		int INVALID_INDEX = EntrypointSentinel;
 
@@ -2106,7 +2095,7 @@ public class BVHAccel
 					int meshHitTriangleIndex = -1;
 					HitInfo tmpHitInfo = new HitInfo();
 					//tmpHitInfo.hitT = hitT;
-					tmpHitInfo.triAddr = -1;
+					tmpHitInfo.triAddr = new Vector3Int(-1, -1, -1);
 					//GPUInteraction isect = new GPUInteraction();
 					if (IntersectMeshBVH(rayTemp, leafNode[i], meshInstance, ref tmpHitInfo, anyHit))
 					{
@@ -2114,7 +2103,7 @@ public class BVHAccel
 						{
 							tmpHitInfo.meshInstanceId = leafNodeMask[i];
 							hitT = tmpHitInfo.hitT;
-							hitIndex = tmpHitInfo.triAddr;
+							hitIndex = tmpHitInfo.triAddr.x;
 							hitInfo = tmpHitInfo;
 
 							if (anyHit)
@@ -2137,7 +2126,7 @@ public class BVHAccel
 		const int NODE_BLAS_LEAF = 2;
 		float hitT = ray.tmax;
 		//hitInfo = (HitInfo)0;
-		hitInfo.triAddr = -1;
+		hitInfo.triAddr = new Vector3Int(-1, -1, -1);
 		const int EntrypointSentinel = 0x76543210;
 		int INVALID_INDEX = EntrypointSentinel;
 
@@ -2305,7 +2294,7 @@ public class BVHAccel
 						{
 							hitT = triangleHit;
 							hitInfo.hitT = hitT;
-							hitInfo.triAddr = triAddr;
+							//hitInfo.triAddr = triAddr;
 							hitInfo.baryCoord = uv;
 							hitInfo.triangleIndexInMesh = triangleIndex;
 							hitInfo.meshInstanceId = meshInstanceID;
@@ -2346,5 +2335,177 @@ public class BVHAccel
 		}
 
 		return hitIndex > -1;
+	}
+
+
+	public bool BVHHit3(GPURay ray, ref HitInfo hitInfo, bool anyHit, GPUSceneData gpuScene, int instBVHOffset)
+	{
+		hitInfo = new HitInfo();
+		float t = float.PositiveInfinity;
+		float d = 0;
+
+		// Intersect BVH and tris
+		int[] stack = new int[64];
+		int ptr = 0;
+		stack[ptr++] = -1;
+
+		int index = instBVHOffset;
+		float leftHit = 0.0f;
+		float rightHit = 0.0f;
+
+		int currMatID = 0;
+		bool BLAS = false;
+
+		Vector3Int triID = new Vector3Int(-1, -1, -1);
+		Vector3 bary = Vector3.zero;
+		//float4 vert0, vert1, vert2;
+
+		GPURay rTrans = ray;
+		//rTrans.orig = ray.orig;
+		//rTrans.direction = ray.direction;
+		int hitMeshInstanceId = -1;
+
+		while (index != -1)
+		{
+			RadeonBVH.Node bvhNode = m_flattenNodes[index];
+
+			Vector3 LRLeaf = bvhNode.LRLeaf; //ivec3(texelFetch(BVH, index * 3 + 2).xyz);
+
+			int leftIndex = (int)LRLeaf.x;
+			int rightIndex = (int)LRLeaf.y;
+			int leaf = (int)LRLeaf.z;
+
+			if (leaf > 0) // Leaf node of BLAS
+			{
+				for (int i = 0; i < rightIndex; i++) // Loop through tris
+				{
+					Vector3Int vertIndices = gpuScene.triangles[leftIndex + i];
+
+					GPUVertex v0 = gpuScene.gpuVertices[vertIndices.x];//texelFetch(verticesTex, vertIndices.x);
+					GPUVertex v1 = gpuScene.gpuVertices[vertIndices.y];//texelFetch(verticesTex, vertIndices.y);
+					GPUVertex v2 = gpuScene.gpuVertices[vertIndices.z];//texelFetch(verticesTex, vertIndices.z);
+
+					Vector3 e0 = v1.position - v0.position;
+					Vector3 e1 = v2.position - v0.position;
+					Vector3 pv = Vector3.Cross(rTrans.direction, e1);
+					float det = Vector3.Dot(e0, pv);
+
+					Vector3 tv = rTrans.orig - v0.position;
+					Vector3 qv = Vector3.Cross(tv, e0);
+
+					Vector4 uvt = Vector4.zero;
+					uvt.x = Vector3.Dot(tv, pv);
+					uvt.y = Vector3.Dot(rTrans.direction, qv);
+					uvt.z = Vector3.Dot(e1, qv);
+					uvt = uvt.Div(det);
+					uvt.w = 1.0f - uvt.x - uvt.y;
+
+					if (uvt.x >= 0 && uvt.y >= 0 && uvt.z >= 0 && uvt.w >= 0 && uvt.z < t)
+					{
+						t = uvt.z;
+						triID = vertIndices;
+						//state.matID = currMatID;
+						bary = new Vector3(uvt.w, uvt.x, uvt.y);
+						//vert0 = v0.position, vert1 = v1, vert2 = v2;
+						//transform = transMat;
+
+						if (anyHit)
+							return true;
+					}
+					else
+                    {
+						int debug = 0;
+                    }
+				}
+			}
+			else if (leaf < 0) // Leaf node of TLAS
+			{
+				//vec4 r1 = texelFetch(transformsTex, ivec2((-leaf - 1) * 4 + 0, 0), 0).xyzw;
+				//vec4 r2 = texelFetch(transformsTex, ivec2((-leaf - 1) * 4 + 1, 0), 0).xyzw;
+				//vec4 r3 = texelFetch(transformsTex, ivec2((-leaf - 1) * 4 + 2, 0), 0).xyzw;
+				//vec4 r4 = texelFetch(transformsTex, ivec2((-leaf - 1) * 4 + 3, 0), 0).xyzw;
+
+				//transMat = mat4(r1, r2, r3, r4);
+
+				//rTrans.origin = vec3(inverse(transMat) * vec4(r.origin, 1.0));
+				//rTrans.direction = vec3(inverse(transMat) * vec4(r.direction, 0.0));
+				hitMeshInstanceId = -leaf - 1;
+				MeshInstance meshInstance = gpuScene.meshInstances[hitMeshInstanceId];
+				rTrans = GPURay.TransformRay(ref meshInstance.worldToLocal, ref ray);
+
+				// Add a marker. We'll return to this spot after we've traversed the entire BLAS
+				stack[ptr++] = -1;
+				index = leftIndex;
+				BLAS = true;
+				currMatID = rightIndex;
+				continue;
+			}
+			else
+			{
+				RadeonBVH.Node leftChild = m_flattenNodes[leftIndex];
+				RadeonBVH.Node rightChild = m_flattenNodes[rightIndex];
+				float ooeps = Mathf.Pow(2, -80.0f);//exp2f(-80.0f); // Avoid div by zero, returns 1/2^80, an extremely small number
+				Vector3 rayDir = rTrans.direction;
+				Vector3 invDir = new Vector3(1.0f / (Mathf.Abs(rayDir.x) > ooeps ? rayDir.x : Mathf.Sign(rayDir.x) * ooeps),
+					1.0f / (Mathf.Abs(rayDir.y) > ooeps ? rayDir.y : Mathf.Sign(rayDir.y) * ooeps),
+					1.0f / (Mathf.Abs(rayDir.z) > ooeps ? rayDir.z : Mathf.Sign(rayDir.z) * ooeps)
+					);
+				RayBoundIntersect(rTrans, invDir, leftChild.min, leftChild.max, out leftHit);
+				RayBoundIntersect(rTrans, invDir, rightChild.min, rightChild.max, out rightHit);
+
+				if (leftHit > 0.0 && rightHit > 0.0)
+				{
+					int deferred = -1;
+					if (leftHit > rightHit)
+					{
+						index = rightIndex;
+						deferred = leftIndex;
+					}
+					else
+					{
+						index = leftIndex;
+						deferred = rightIndex;
+					}
+
+					stack[ptr++] = deferred;
+					continue;
+				}
+				else if (leftHit > 0)
+				{
+					index = leftIndex;
+					continue;
+				}
+				else if (rightHit > 0)
+				{
+					index = rightIndex;
+					continue;
+				}
+			}
+			index = stack[--ptr];
+
+			// If we've traversed the entire BLAS then switch to back to TLAS and resume where we left off
+			if (BLAS && index == -1)
+			{
+				BLAS = false;
+
+				index = stack[--ptr];
+
+				rTrans.orig = ray.orig;
+				rTrans.direction = ray.direction;
+			}
+		}
+
+		// No intersections
+		if (t == float.PositiveInfinity)
+			return false;
+
+		//state.hitDist = t;
+		//state.fhp = r.origin + r.direction * t;
+		hitInfo.triAddr = triID;
+		hitInfo.hitT = t;
+		hitInfo.baryCoord = new Vector2(bary.x, bary.y);
+		hitInfo.meshInstanceId = hitMeshInstanceId;
+
+		return true;
 	}
 }

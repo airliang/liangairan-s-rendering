@@ -96,7 +96,7 @@ float3 MIS_BSDF(Interaction isect, Material material, inout RNG rng, out PathVer
             {
                 Light hitLight = lights[hitLightIndex];
                 float lightSourcePmf = LightSourcePmf(hitLightIndex);
-                lightPdf = AreaLightPdf(hitLight, pathVertex.nextISect.triangleIndex, pathVertex.nextISect.primArea) * lightSourcePmf;
+                lightPdf = AreaLightPdf(hitLight) * lightSourcePmf;
                 if (lightPdf > 0)
                 {
                     li = Light_Le(wi, hitLight);

@@ -39,6 +39,7 @@ struct Light
 	float  radius;  //for point light
 	float  intensity;
 	float3 radiance;
+	float  area;    //for area light;
 	//float textureMask;
 };
 
@@ -141,7 +142,7 @@ struct Interaction  //64byte
 	float  primArea;
 	int   materialID;
 	uint   meshInstanceID;
-	uint   triangleIndex;  //triangle index in this mesh
+	//uint   triangleIndex;  //triangle index in this mesh
 	//float  spreadAngle;   //ray cone angle use for mipmapping
 	float  coneWidth;     //ray cone width at this surface point
 	float  screenSpaceArea;
@@ -211,7 +212,7 @@ struct RayWorkItem
 
 struct HitInfo
 {
-	int triAddr;
+	int3 triAddr;
 	int meshInstanceId;
 	int triangleIndexInMesh;
 	float hitT;
