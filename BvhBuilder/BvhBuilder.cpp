@@ -1,6 +1,7 @@
 #include "BvhBuilder.h"
 #include "RadeonRays/accelerator/bvh.h"
 #include "RadeonRays/accelerator/split_bvh.h"
+#include "RadeonRays/log/log.h"
 
 #include <cassert>
 #include <stack>
@@ -133,4 +134,9 @@ RRAPI void FlattenBVHTree(const BVHHandle* handle, LinearBVHNode* linearNodes)
 	Bvh* bvh = (Bvh*)handle->bvh;
 	int offset = 0;
 	FlattenBVHTree(bvh->GetRoot(), offset, linearNodes);
+}
+
+void RegisterLogCallback(FuncCallBack cb) {
+	//logCallbackFunc = cb;
+	Logger::logCallbackFunc = cb;
 }

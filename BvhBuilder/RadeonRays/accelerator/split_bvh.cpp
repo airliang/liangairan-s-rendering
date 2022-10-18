@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cmath>
 #include "../math/mathutils.h"
+#include "../log/log.h"
 
 using namespace std;
 
@@ -35,6 +36,13 @@ namespace RadeonRays
 
         // Start from the top
         BuildNode(init, primrefs);
+
+        std::stringstream ss;
+        ss << "Build SplitBvh number of bounds:" << numbounds;
+        Logger::Log(ss.str());
+        ss.clear();
+        ss << "After BuildNode primrefs size:" << primrefs.size();
+        Logger::Log(ss.str());
     }
 
     void SplitBvh::BuildNode(SplitRequest& req, PrimRefArray& primrefs)
