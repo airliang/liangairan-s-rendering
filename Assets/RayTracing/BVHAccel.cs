@@ -566,7 +566,8 @@ public class BVHAccel
 	//build 2 types bvh
 	//meshinstance bvh and mesh primitive bvh
 	//return toplevel bvh在bvhbuffer中的位置
-	public int Build(List<MeshInstance> meshInstances, List<MeshHandle> meshHandles, List<int> meshHandleIndices, List<GPUVertex> vertices, List<Vector3Int> triangles)
+	public int Build(List<MeshInstance> meshInstances, List<MeshHandle> meshHandles, List<int> meshHandleIndices, 
+		List<GPUVertex> vertices, List<Vector3Int> triangles, ref List<Vector3Int> sortedTriangles)
     {
 		WoopTriangleData.Clear();
 		instBVHNodeAddr = 0;
@@ -582,7 +583,7 @@ public class BVHAccel
 			//meshH.woodTriangleStartOffset = WoopTriangleData.m_woopTriangleVertices.Count;
 			meshHandles[i] = meshH;
 			instBVHOffset.Add(instBVHNodeAddr);
-			int nodesNum = BuildMeshBVH(meshHandles[i], vertices, triangles);
+			int nodesNum = BuildMeshBVH(meshHandles[i], vertices, triangles, ref sortedTriangles);
 			instBVHNodeAddr = nodesNum;
 		}
 		// build the instance bounding box bvh
@@ -707,7 +708,7 @@ public class BVHAccel
 	}
 
 	//返回m_nodes的数量
-	public int BuildMeshBVH(MeshHandle meshHandle, List<GPUVertex> vertices, List<Vector3Int> triangleFaces)
+	public int BuildMeshBVH(MeshHandle meshHandle, List<GPUVertex> vertices, List<Vector3Int> triangleFaces, ref List<Vector3Int> sortedTriangleFaces)
     {
 		//生成MeshHandle的primitives
 		List<Primitive> primitives = new List<Primitive>();
@@ -752,24 +753,38 @@ public class BVHAccel
 			//else
             {
 				float timeBegin = Time.realtimeSinceStartup;
-				RadeonBVH.BVHFlat bvhFlat = RadeonBVH.CreateBLAS(primBounds, new RadeonBVH.BuildParam { cost = 0.125f, miniOverlap = 0.05f, numBins = 64, splitDepth = 48 }, bvhTrianglesCount, bvhNodesCount);
+				RadeonBVH.BVHFlat bvhFlat = RadeonBVH.CreateBLAS(primBounds, new RadeonBVH.BuildParam { cost = 0.125f, miniOverlap = 0.01f, numBins = 64, splitDepth = 48 }, bvhTrianglesCount, bvhNodesCount);
 				bvhTrianglesCount += bvhFlat.bvhTrianglesNum;
 				bvhNodesCount += bvhFlat.bvhNodeNums;
-				if (useNVMethod)
-                {
-                    Primitive[] sortedPrims = new Primitive[bvhFlat.sortedIndices.Length];
+                
 
-                    for (int i = 0; i < bvhFlat.sortedIndices.Length; ++i)
-                    {
-                        sortedPrims[i] = primitives[bvhFlat.sortedIndices[i]];
-                    }
+                if (useNVMethod)
+				{
+					Primitive[] sortedPrims = new Primitive[bvhFlat.sortedIndices.Length];
 
-                    float timeInterval = Time.realtimeSinceStartup - timeBegin;
-                    Debug.Log("building bottom level bvh using RadeonRay BVH cost time:" + timeInterval);
-                    CompactBLASNodes(bvhFlat.linearBVHNodes, sortedPrims, vertices);
+					for (int i = 0; i < bvhFlat.sortedIndices.Length; ++i)
+					{
+						sortedPrims[i] = primitives[bvhFlat.sortedIndices[i]];
+					}
+
+					float timeInterval = Time.realtimeSinceStartup - timeBegin;
+					Debug.Log("building bottom level bvh using RadeonRay BVH cost time:" + timeInterval);
+					CompactBLASNodes(bvhFlat.linearBVHNodes, sortedPrims, vertices);
+					sortedTriangleFaces = triangleFaces;
+
                 }
 				else
+				{
 					m_flattenNodes.AddRange(bvhFlat.nodes);
+
+                    for (int j = 0; j < bvhFlat.sortedIndices.Length; ++j)
+                    {
+                        int f = bvhFlat.sortedIndices[j];
+                        Vector3Int face = triangleFaces[f + meshHandle.triangleOffset];
+                        //sortedTriangleFaces[j + meshHandle.triangleOffset] = face;
+                        sortedTriangleFaces.Add(face);
+                    }
+                }
 			}
 		}
 		else

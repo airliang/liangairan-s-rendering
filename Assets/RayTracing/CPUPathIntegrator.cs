@@ -687,11 +687,19 @@ public class CPUPathIntegrator
         return hitted;
     }
 
+    static bool AnyHit(GPURay ray, GPUSceneData gpuSceneData, ref HitInfo hitInfo)
+    {
+        bool hitted = BVHAccel.NVMethod ? gpuSceneData.BVH.BVHHit(ray, ref hitInfo, true, gpuSceneData.meshInstances, gpuSceneData.InstanceBVHAddr)
+            : gpuSceneData.BVH.BVHHit3(ray, ref hitInfo, true, gpuSceneData, gpuSceneData.InstanceBVHAddr);
+
+        return hitted;
+    }
+
     static bool ShadowRayVisibilityTest(Vector3 p0, Vector3 p1, Vector3 normal, GPUSceneData gpuSceneData)
     {
         GPURay ray = SpawnRay(p0, p1 - p0, normal, 1.0f - 0.001f);
         HitInfo hitInfo = new HitInfo();
-        return !ClosestHit(ray, gpuSceneData, ref hitInfo);
+        return AnyHit(ray, gpuSceneData, ref hitInfo);
 
         //!IntersectP(ray, hitT, meshInstanceIndex);
     }

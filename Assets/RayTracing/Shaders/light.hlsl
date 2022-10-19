@@ -175,14 +175,14 @@ float3 ImportanceSampleEnviromentLight(float2 u, out float pdf, out float3 wi)
 		return UniformSampleEnviromentLight(u, pdf, wi);
 }
 
-float3 SampleTriangleLight(float3 p0, float3 p1, float3 p2, float2 u, Interaction isect, Light light, out float3 wi, out float3 position, out float pdf)
+float3 SampleTriangleLight(float3 p0, float3 p1, float3 p2, float2 u, float3 litPoint, Light light, out float3 wi, out float3 position, out float pdf)
 {
 	float3 Li = 0;
 	float3 lightPointNormal;
 	float triPdf = 0;
 	position = SamplePointOnTriangle(p0, p1, p2, u, lightPointNormal, triPdf);
 	pdf = triPdf;
-	wi = position - isect.p.xyz;
+	wi = position - litPoint;
 	float wiLength = length(wi);
 	wi = normalize(wi);
 	float cos = dot(lightPointNormal, -wi);
@@ -204,19 +204,19 @@ int SampleTriangleIndexOfLightPoint(float u, DistributionDiscript discript, Stru
 	return index;
 }
 
-float3 SampleLightRadiance(StructuredBuffer<float2> lightDistribution, Light light, Interaction isect, inout RNG rng, 
+float3 SampleLightRadiance(Light light, Interaction isect, inout RNG rng, 
 	out float3 wi, out float lightPdf, out float3 lightPoint)
 {
 	if (light.type == AreaLightType)
 	{
-		int discriptIndex = light.distributionDiscriptIndex;
-		DistributionDiscript lightDistributionDiscript = DistributionDiscripts[discriptIndex];
+		//int discriptIndex = light.distributionDiscriptIndex;
+		//DistributionDiscript lightDistributionDiscript = DistributionDiscripts[discriptIndex];
 		float u = Get1D(rng);
 		float triPdf = 0;
 		lightPdf = 0;
 		MeshInstance meshInstance = MeshInstances[light.meshInstanceID];
-		int triangleIndex = SampleTriangleIndexOfLightPoint(u, lightDistributionDiscript, lightDistribution, lightPdf) + meshInstance.triangleStartOffset;
-
+		//int triangleIndex = SampleTriangleIndexOfLightPoint(u, lightDistributionDiscript, lightDistribution, lightPdf) + meshInstance.triangleStartOffset;
+		int triangleIndex = min((int)(u * light.trianglesNum), light.trianglesNum - 1) + meshInstance.triangleStartOffset;
 		int vertexStart = triangleIndex;
 		int3 triangles = TriangleIndices[triangleIndex];
 		int vIndex0 = triangles.x;//TriangleIndices[vertexStart];
@@ -231,7 +231,10 @@ float3 SampleLightRadiance(StructuredBuffer<float2> lightDistribution, Light lig
 		p1 = mul(meshInstance.localToWorld, float4(p1, 1)).xyz;
 		p2 = mul(meshInstance.localToWorld, float4(p2, 1)).xyz;
 
-		float3 Li = SampleTriangleLight(p0, p1, p2, Get2D(rng), isect, light, wi, lightPoint, triPdf);
+		float triangleArea = 0.5 * length(cross(p1 - p0, p2 - p0));
+		lightPdf = triangleArea / light.area;
+
+		float3 Li = SampleTriangleLight(p0, p1, p2, Get2D(rng), isect.p.xyz, light, wi, lightPoint, triPdf);
 		lightPdf *= triPdf;
 		return Li;
 	}

@@ -35,9 +35,9 @@ struct Light
 	int type;   //0-arealight 1-envmap light
 	int meshInstanceID;
 	int distributionDiscriptIndex;   //triangle area distribution
-	//int trianglesNum;
-	float  radius;  //for point light
-	float  intensity;
+	int trianglesNum;
+	//float  radius;  //for point light
+	//float  intensity;
 	float3 radiance;
 	float  area;    //for area light;
 	//float textureMask;

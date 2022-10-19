@@ -409,9 +409,9 @@ public class GPUSceneData
                     GPULight gpuLight = new GPULight();
                     gpuLight.type = (int)LightInstance.LightType.Area;
                     gpuLight.radiance = areaLightInstance.radiance;
-                    gpuLight.intensity = areaLightInstance.intensity;
-                    //gpuLight.trianglesNum = mesh.triangles.Length / 3;
-                    gpuLight.pointRadius = 0;
+                    //gpuLight.intensity = areaLightInstance.intensity;
+                    gpuLight.trianglesNum = mesh.triangles.Length / 3;
+                    //gpuLight.pointRadius = 0;
                     //why add 1? because the first discript is the light object distributions.
                     gpuLight.distributionDiscriptIndex = gpuLights.Count + 1;
                     gpuLight.meshInstanceID = meshInstances.Count;
@@ -444,7 +444,9 @@ public class GPUSceneData
             //´´½¨bvh
             float timeBegin = Time.realtimeSinceStartup;
             Profiler.BeginSample("Build BVH");
-            instBVHNodeAddr = bvhAccel.Build(meshInstances, meshHandles, meshInstanceHandleIndices, gpuVertices, triangles);
+            List<Vector3Int> sortedTriangles = new List<Vector3Int>();
+            instBVHNodeAddr = bvhAccel.Build(meshInstances, meshHandles, meshInstanceHandleIndices, gpuVertices, triangles, ref sortedTriangles);
+            triangles = sortedTriangles;
             Profiler.EndSample();
             float timeInterval = Time.realtimeSinceStartup - timeBegin;
             Debug.Log("building bvh cost time:" + timeInterval);
@@ -533,6 +535,14 @@ public class GPUSceneData
         }
     }
 
+    struct GPURadeonNode
+    {
+        public Vector3 min;
+        public Vector3 max;
+        public Vector3 LRLeaf;
+        public Vector3 pad;
+    }
+
     void SetupGPUBVHData()
     {
         if (BVHAccel.NVMethod)
@@ -559,10 +569,20 @@ public class GPUSceneData
         else
         {
             int BVHNodeSize = System.Runtime.InteropServices.Marshal.SizeOf(typeof(RadeonBVH.Node));
+            
             if (BVHBuffer == null)
             {
-                BVHBuffer = new ComputeBuffer(bvhAccel.m_flattenNodes.Count, BVHNodeSize, ComputeBufferType.Structured);
-                BVHBuffer.SetData(bvhAccel.m_flattenNodes);
+                BVHBuffer = new ComputeBuffer(bvhAccel.m_flattenNodes.Count/* * 2*/, BVHNodeSize, ComputeBufferType.Structured);
+                GPURadeonNode[] gpuRadeonNodes = new GPURadeonNode[bvhAccel.m_flattenNodes.Count];
+                for (int i = 0; i < bvhAccel.m_flattenNodes.Count; i++)
+                {
+                    gpuRadeonNodes[i] = new GPURadeonNode();
+                    gpuRadeonNodes[i].min = bvhAccel.m_flattenNodes[i].min;
+                    gpuRadeonNodes[i].max = bvhAccel.m_flattenNodes[i].max;
+                    gpuRadeonNodes[i].LRLeaf = bvhAccel.m_flattenNodes[i].LRLeaf;
+                    gpuRadeonNodes[i].pad = bvhAccel.m_flattenNodes[i].pad;
+                }
+                BVHBuffer.SetData(gpuRadeonNodes);
             }
         }
         

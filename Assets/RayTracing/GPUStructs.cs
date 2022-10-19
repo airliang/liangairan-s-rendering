@@ -15,9 +15,9 @@ public struct GPULight
     public int type;  //0 - deltadistance 1 - delta point 2 - area
     public int meshInstanceID;
     public int distributionDiscriptIndex; 
-    //public int trianglesNum;
-    public float intensity;
-    public float pointRadius;
+    public int trianglesNum;
+    //public float intensity;
+    //public float pointRadius;
     public Vector3 radiance;
     public float area;
     //public float textureMask;

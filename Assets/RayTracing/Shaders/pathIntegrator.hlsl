@@ -22,7 +22,7 @@ float3 MIS_ShadowRay(Light light, Interaction isect, Material material, float li
     float lightPdf = 0;
     float3 samplePointOnLight;
     float3 ld = float3(0, 0, 0);
-    float3 Li = SampleLightRadiance(Distributions1D, light, isect, rng, wi, lightPdf, samplePointOnLight);
+    float3 Li = SampleLightRadiance(light, isect, rng, wi, lightPdf, samplePointOnLight);
     lightPdf *= lightSourcePdf;
     //lightPdf = AreaLightPdf(light, isect, wi, _UniformSampleLight) * lightSourcePdf;
     if (!IsBlack(Li))

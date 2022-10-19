@@ -17,14 +17,14 @@ StructuredBuffer<BVHNode>  BVHTree;
 StructuredBuffer<float4>   WoopTriangles;
 StructuredBuffer<int>      WoopTriangleIndices;
 
-struct BVHNode2
+struct RadeonBVHNode
 {
 	float3 min;
 	float3 max;
 	float3 LRLeaf;
 	float3 pad;
 };
-StructuredBuffer<BVHNode2>  BVHTree2;
+StructuredBuffer<RadeonBVHNode>  BVHTree2;
 
 #define STACK_SIZE 64
 #define EntrypointSentinel 0x76543210
@@ -628,6 +628,7 @@ bool BVHHit(Ray ray, out HitInfo hitInfo, bool anyHit)
 	return false;
 }
 
+/*
 bool BVHHit2(Ray ray, out HitInfo hitInfo, bool anyHit)
 {
 	float hitT = ray.tmax;
@@ -670,7 +671,7 @@ bool BVHHit2(Ray ray, out HitInfo hitInfo, bool anyHit)
 
 		if (curNodeCase == NODE_TLAS_LEAF)
 		{
-			MeshInstance meshInstance = MeshInstances[meshInstanceID/*leafNodeMask[i]*/];
+			MeshInstance meshInstance = MeshInstances[meshInstanceID];
 			rayTrans = TransformRay(meshInstance.worldToLocal, ray);
 			rayDir = rayTrans.direction;
 			invDir = float3(1.0f / (abs(rayDir.x) > ooeps ? rayDir.x : sign(rayDir.x) * ooeps),
@@ -840,6 +841,7 @@ bool BVHHit2(Ray ray, out HitInfo hitInfo, bool anyHit)
 	}
 	return false;
 }
+*/
 
 bool BVHHit3(Ray ray, inout HitInfo hitInfo, bool anyHit)
 {
@@ -862,17 +864,20 @@ bool BVHHit3(Ray ray, inout HitInfo hitInfo, bool anyHit)
 	int3 triID = int3(-1, -1, -1);
 	//float4x4 transMat;
 	//float4x4 transform;
-	float3 bary;
+	float3 bary = 0;
 	//float4 vert0, vert1, vert2;
 
 	Ray rTrans = ray;
 	//rTrans.orig = ray.orig;
 	//rTrans.direction = ray.direction;
 	int hitMeshInstanceId = -1;
+	int loopCount = 0;
 
 	while (index != -1)
 	{
-		BVHNode2 bvhNode = BVHTree2[index];
+		if (loopCount++ > 15)
+			break;
+		RadeonBVHNode bvhNode = BVHTree2[index];
 
 		float3 LRLeaf = bvhNode.LRLeaf; //ivec3(texelFetch(BVH, index * 3 + 2).xyz);
 
@@ -884,13 +889,13 @@ bool BVHHit3(Ray ray, inout HitInfo hitInfo, bool anyHit)
 		{
 			for (int i = 0; i < rightIndex; i++) // Loop through tris
 			{
-				int3 vertIndices = int3(0, 2, 1);//TriangleIndices[leftIndex + i];
+				int3 vertIndices = TriangleIndices[leftIndex + i];
 
 				Vertex v0 = Vertices[vertIndices.x];//texelFetch(verticesTex, vertIndices.x);
 				Vertex v1 = Vertices[vertIndices.y];//texelFetch(verticesTex, vertIndices.y);
 				Vertex v2 = Vertices[vertIndices.z];//texelFetch(verticesTex, vertIndices.z);
 
-
+				/*
 				float3 e0 = v1.position - v0.position;
 				float3 e1 = v2.position - v0.position;
 				float3 pv = cross(rTrans.direction, e1);
@@ -910,41 +915,29 @@ bool BVHHit3(Ray ray, inout HitInfo hitInfo, bool anyHit)
 				{
 					t = uvt.z;
 					triID = vertIndices;
-					//state.matID = currMatID;
 					bary = uvt.wxy;
-					//vert0 = v0.position, vert1 = v1, vert2 = v2;
-					//transform = transMat;
-					
+
 					if (anyHit)
 						return true;
 				}
+				*/
 				
-				/*
+				
 				float2 uv = 0;
 				float hitT = 0;
 				if (IntersectTriangle(rTrans, v0.position, v1.position, v2.position, uv, hitT))
 				{
 					t = hitT;
 					triID = vertIndices;
-					//state.matID = currMatID;
 					bary.xy = uv;
 					if (anyHit)
 						return true;
 				}
-				*/
+				
 			}
 		}
 		else if (leaf < 0) // Leaf node of TLAS
 		{
-			//vec4 r1 = texelFetch(transformsTex, ivec2((-leaf - 1) * 4 + 0, 0), 0).xyzw;
-			//vec4 r2 = texelFetch(transformsTex, ivec2((-leaf - 1) * 4 + 1, 0), 0).xyzw;
-			//vec4 r3 = texelFetch(transformsTex, ivec2((-leaf - 1) * 4 + 2, 0), 0).xyzw;
-			//vec4 r4 = texelFetch(transformsTex, ivec2((-leaf - 1) * 4 + 3, 0), 0).xyzw;
-
-			//transMat = mat4(r1, r2, r3, r4);
-
-			//rTrans.origin = vec3(inverse(transMat) * vec4(r.origin, 1.0));
-			//rTrans.direction = vec3(inverse(transMat) * vec4(r.direction, 0.0));
 			hitMeshInstanceId = -leaf - 1;
 			MeshInstance meshInstance = MeshInstances[hitMeshInstanceId];
 			rTrans = TransformRay(meshInstance.worldToLocal, ray);
@@ -958,8 +951,8 @@ bool BVHHit3(Ray ray, inout HitInfo hitInfo, bool anyHit)
 		}
 		else
 		{
-			BVHNode2 leftChild = BVHTree2[leftIndex];
-			BVHNode2 rightChild = BVHTree2[rightIndex];
+			RadeonBVHNode leftChild = BVHTree2[leftIndex];
+			RadeonBVHNode rightChild = BVHTree2[rightIndex];
 			float3 invDir = 1.0 / rTrans.direction;
 			leftHit = BoundRayIntersect(rTrans, invDir, leftChild.min, leftChild.max);
 			rightHit = BoundRayIntersect(rTrans, invDir, rightChild.min, rightChild.max);
@@ -1009,8 +1002,6 @@ bool BVHHit3(Ray ray, inout HitInfo hitInfo, bool anyHit)
 	if (t == ray.tmax)
 		return false;
 
-	//state.hitDist = t;
-	//state.fhp = r.origin + r.direction * t;
 	hitInfo.triAddr = triID;
 	hitInfo.hitT = t;
 	hitInfo.baryCoord = bary.yz;

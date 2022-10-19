@@ -26,7 +26,7 @@ float3 MaterialFresnelShadowRay(Light light, Material material, Interaction isec
     float3 wi;
     float lightPdf = 0;
     float3 samplePointOnLight;
-    float3 Li = SampleLightRadiance(Distributions1D, light, isect, rng, wi, lightPdf, samplePointOnLight);
+    float3 Li = SampleLightRadiance(light, isect, rng, wi, lightPdf, samplePointOnLight);
     ShadowRay shadowRay = (ShadowRay)0;
     if (lightPdf > 0)
     {
@@ -168,7 +168,7 @@ float3 SampleShadowRayRadiance(Light light, Interaction isect, out float3 wi, ou
 
 	lightPdf = 0;
 	float3 samplePointOnLight;
-	float3 Li = SampleLightRadiance(Distributions1D, light, isect, rng, wi, lightPdf, samplePointOnLight);
+	float3 Li = SampleLightRadiance(light, isect, rng, wi, lightPdf, samplePointOnLight);
 
     if (lightPdf > 0)
     {

@@ -115,7 +115,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     Light light = SampleLightSource(rng, lightSourcePdf, lightIndex);
     float lightPdf = 0;
     float3 samplePointOnLight;
-    float3 Li = SampleLightRadiance(Distributions1D, light, isect, rng, wi, lightPdf, samplePointOnLight);
+    float3 Li = SampleLightRadiance(light, isect, rng, wi, lightPdf, samplePointOnLight);
     lightPdf *= lightSourcePdf;
     //lightPdf = AreaLightPdf(light, isect, wi, _UniformSampleLight) * lightSourcePdf;
     if (!IsBlack(Li) && !bsdfSample.IsSpecular())

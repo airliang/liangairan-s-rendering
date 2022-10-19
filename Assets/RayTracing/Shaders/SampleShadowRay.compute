@@ -41,7 +41,7 @@ ShadowRaySample SampleShadowRay(Light light, Interaction isect, float lightSourc
 	float3 wi;
 	float lightPdf = 0;
 	float3 samplePointOnLight;
-	float3 Li = SampleLightRadiance(Distributions1D, light, isect, rng, wi, lightPdf, samplePointOnLight);
+	float3 Li = SampleLightRadiance(light, isect, rng, wi, lightPdf, samplePointOnLight);
 	ShadowRaySample shadowRaySample = (ShadowRaySample)0;
 	shadowRaySample.Li = Li;
 	shadowRaySample.samplePoint = samplePointOnLight;
