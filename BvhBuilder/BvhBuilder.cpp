@@ -76,7 +76,7 @@ int ProcessTLASNodes(Node* nodes, const Bvh::Node* node, const std::vector<int>&
 
 RRAPI BVHHandle CreateBVH(const RadeonRays::bbox* bounds, int count, bool useSah, bool useSplit, float traversalCost, int numBins, int splitDepth, float miniOverlap)
 {
-	Bvh* bvh = useSplit ? new SplitBvh(traversalCost, numBins, splitDepth, miniOverlap, 0.5f) : new Bvh(traversalCost, numBins, useSah);
+	Bvh* bvh = useSplit ? new SplitBvh(traversalCost, numBins, splitDepth, miniOverlap, 0) : new Bvh(traversalCost, numBins, useSah);
 	bvh->Build((const RadeonRays::bbox*)bounds, count);
 	BVHHandle sbvh;
 	sbvh.bvh = bvh;

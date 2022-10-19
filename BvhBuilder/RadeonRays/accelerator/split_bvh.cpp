@@ -41,7 +41,8 @@ namespace RadeonRays
         ss << "Build SplitBvh number of bounds:" << numbounds;
         Logger::Log(ss.str());
         ss.clear();
-        ss << "After BuildNode primrefs size:" << primrefs.size();
+        ss.str("");
+        ss << "After BuildNode primrefs size:" << primrefs.size() << " totalNodes size:" << m_totalNodes << " m_packed_indices size:" << m_packed_indices.size() << " bvh tree height:" <<m_height;
         Logger::Log(ss.str());
     }
 
@@ -235,7 +236,7 @@ namespace RadeonRays
         struct Bin
         {
             bbox bounds;
-            int count;
+            int count = 0;
         };
 
         // Keep bins for each dimension
@@ -354,8 +355,8 @@ namespace RadeonRays
         struct Bin
         {
             bbox bounds;
-            int enter;
-            int exit;
+            int enter = 0;
+            int exit = 0;
         };
 
         Bin bins[3][kNumBins];
@@ -446,7 +447,8 @@ namespace RadeonRays
                 // Adjust right box
                 rightcount -= bins[axis][i - 1].exit;
                 // Calc SAH
-                float sah = m_traversal_cost + (leftbox.surface_area() * leftcount + rightbounds[i - 1].surface_area() * rightcount) * invarea;
+                float sah = m_traversal_cost + (leftbox.surface_area() * leftcount
+                    +rightbounds[i - 1].surface_area() * rightcount) * invarea;
 
                 // Update SAH if it is needed
                 if (sah < split.sah)
